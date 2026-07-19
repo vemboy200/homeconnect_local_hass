@@ -141,7 +141,7 @@ mode: single
 
 This integration is almost entirely push based, receiving updates from the appliance the moment something happens to it. Post setup, this integration can work completely offline, unlike the Home Connect app.
 
-The one exception is the Wi-Fi Signal Strength sensor: the appliance only ever reports it once, right at connection, and never pushes an updated value afterward. There's no way to get a fresh reading without actively asking for one, so that entity is polled (once an hour) instead.
+The one exception is the Wi-Fi Signal Strength sensor. The entity can only be polled from the appliance, so that entity is polled once an hour instead. It is polled infrequently due to the fact appliances dont move.
 
 ## Supported Functions
 
@@ -372,8 +372,8 @@ This integration follows standard integration removal, no extra steps are requir
 
 - **[IoT Class](https://www.home-assistant.io/blog/2016/02/12/classifying-the-internet-of-things/#classifiers):** Local Push
 - **[Secondary IoT Class](https://github.com/vemboy200/home-assistant.io/blob/iot-class-revamp-p3/source/_docs/iot_class.markdown):** Local Polling: The WiFi signal-strength diagnostic sensor is polled every hour
-- **[Internet Requirement](https://github.com/vemboy200/home-assistant.io/blob/iot-class-revamp-p3/source/_docs/requires_internet.markdown):** Setup: obtaining your appliance's encryption keys via the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader) needs a one-time connection to the Home Connect cloud; day-to-day operation after that is entirely local
-- **Quality Scale:** Gold
+- **[Internet Requirement](https://github.com/vemboy200/home-assistant.io/blob/iot-class-revamp-p3/source/_docs/requires_internet.markdown):** Setup: obtaining your appliance's encryption keys via the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader) needs a one-time connection to the Home Connect cloud. Day-to-day operation after that is entirely local and works without an internet connection
+- **[Quality Scale](https://www.home-assistant.io/docs/quality_scale/#-gold):** 🥇 Gold
 - [View source on GitHub](https://github.com/vemboy200/homeconnect_local_hass)
 - [View known issues](https://github.com/vemboy200/homeconnect_local_hass/issues)
 - [Request a feature](#requesting-a-new-feature)
