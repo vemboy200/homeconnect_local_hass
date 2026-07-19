@@ -368,8 +368,9 @@ This integration follows standard integration removal, no extra steps are requir
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=homeconnect_ws)
 
-- **IoT Class:** Local Push (plus Local Polling for the WiFi signal-strength diagnostic sensor - the appliance never proactively reports it, so it has to be actively queried)
-- **Internet Requirement:** Setup - obtaining your appliance's encryption keys via the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader) needs a one-time connection to the Home Connect cloud; day-to-day operation after that is entirely local
+- **IoT Class:** Local Push
+- **Secondary IoT Class:** Local Polling: The WiFi signal-strength diagnostic sensor is polled every hour
+- **Internet Requirement:** Setup: obtaining your appliance's encryption keys via the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader) needs a one-time connection to the Home Connect cloud; day-to-day operation after that is entirely local
 - **Quality Scale:** Gold
 - [View source on GitHub](https://github.com/vemboy200/homeconnect_local_hass)
 - [View known issues](https://github.com/vemboy200/homeconnect_local_hass/issues)
