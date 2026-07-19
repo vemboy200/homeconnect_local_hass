@@ -139,7 +139,9 @@ mode: single
 ```
 ## Data Updates
 
-This integration is soley pushed based with it receiving updates from the appliance the moment something happens to it. Post setup, this integration can work completely offline, unlike the Home Connect app.
+This integration is almost entirely push based, receiving updates from the appliance the moment something happens to it. Post setup, this integration can work completely offline, unlike the Home Connect app.
+
+The one exception is the Wi-Fi Signal Strength sensor: the appliance only ever reports it once, right at connection, and never pushes an updated value afterward. There's no way to get a fresh reading without actively asking for one, so that entity is polled (once an hour) instead.
 
 ## Supported Functions
 
@@ -162,7 +164,7 @@ The following entities are available. Which ones appear depends on the appliance
 | Remote Start Allowed | Binary Sensor | Whether remote control is enabled on the device |
 | Door State | Binary Sensor / Sensor | Whether the door is open or closed |
 | Program Finished | Binary Sensor | Turns on when the current cycle completes |
-| Wi-Fi Signal Strength | Sensor | Device's Wi-Fi signal strength |
+| Wi-Fi Signal Strength | Sensor | Device's Wi-Fi signal strength - polled hourly (see [Data Updates](#data-updates)), not pushed like everything else |
 | Cloud Connection | Binary Sensor | Whether the appliance is currently connected to the Home Connect cloud |
 | Allow Cloud Connection | Switch | Enable or disable the appliance's connection to the Home Connect cloud |
 | Allow Consumer Insights | Switch | Enable or disable usage data collection by the Home Connect cloud |
@@ -367,7 +369,7 @@ This integration follows standard integration removal, no extra steps are requir
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=homeconnect_ws)
 
 - **IoT Class:** Local Push (plus Local Polling for the WiFi signal-strength diagnostic sensor - the appliance never proactively reports it, so it has to be actively queried)
-- **Internet Requirement:** None - appliances are controlled entirely over your local network
+- **Internet Requirement:** Setup - obtaining your appliance's encryption keys via the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader) needs a one-time connection to the Home Connect cloud; day-to-day operation after that is entirely local
 - **Quality Scale:** Gold
 - [View source on GitHub](https://github.com/vemboy200/homeconnect_local_hass)
 - [View known issues](https://github.com/vemboy200/homeconnect_local_hass/issues)
