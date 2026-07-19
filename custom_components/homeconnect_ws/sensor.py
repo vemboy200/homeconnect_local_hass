@@ -32,6 +32,16 @@ PARALLEL_UPDATES = 0
 # connection.
 SCAN_INTERVAL = timedelta(hours=1)
 
+# (exclusive upper bound on |RSSI| in dBm, icon) - checked in order, first match wins.
+# WiFi typically drops the connection entirely around -90 dBm, so a reading that
+# weak while still connected is either about to drop or already unreliable.
+_WIFI_STRENGTH_ICONS = (
+    (60, "mdi:wifi-strength-4"),
+    (70, "mdi:wifi-strength-3"),
+    (80, "mdi:wifi-strength-2"),
+    (90, "mdi:wifi-strength-1"),
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,  # noqa: ARG001
@@ -141,6 +151,17 @@ class HCWiFI(HCEntity, SensorEntity):
         # immediately instead of sitting at unknown for up to an hour.
         await self.async_update()
         self.async_write_ha_state()
+
+    @property
+    def icon(self) -> str:
+        value = self.native_value
+        if value is None:
+            return "mdi:wifi-strength-outline"
+        magnitude = abs(value)
+        for threshold, icon in _WIFI_STRENGTH_ICONS:
+            if magnitude < threshold:
+                return icon
+        return "mdi:wifi-strength-1-alert"
 
     async def async_update(self) -> None:
         try:
