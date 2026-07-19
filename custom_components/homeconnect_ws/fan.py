@@ -17,7 +17,8 @@ from .helpers import create_entities, entity_is_available, error_decorator
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
-    from homeconnect_websocket.entities import Entity as HcEntity, Program
+    from homeconnect_websocket.entities import Entity as HcEntity
+    from homeconnect_websocket.entities import Program
 
     from . import HCConfigEntry, HCData
     from .entity_descriptions.descriptions_definitions import HCFanEntityDescription
@@ -105,10 +106,7 @@ class HCFan(HCEntity, FanEntity):
     def is_on(self) -> bool:
         if self._runtime_data.appliance.active_program is None:
             return False
-        for entity in self._speed_entities.values():
-            if entity.value_raw not in (None, 0):
-                return True
-        return False
+        return any(entity.value_raw not in (None, 0) for entity in self._speed_entities.values())
 
     @property
     def percentage(self) -> int | None:
@@ -137,7 +135,8 @@ class HCFan(HCEntity, FanEntity):
     ) -> dict[int, int]:
         """Build writable fan option uids for the given program."""
         options: dict[int, int] = {}
-        for option in program._options:
+        # Program.options has no public accessor in the library yet.
+        for option in program._options:  # noqa: SLF001
             if option.name not in self._speed_entities:
                 continue
             if option.access != Access.READ_WRITE:

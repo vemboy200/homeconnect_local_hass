@@ -203,9 +203,10 @@ def generate_hood_fan(appliance: HomeAppliance) -> HCFanEntityDescription:
         return None
 
     venting = appliance.programs[_VENTING_PROGRAM]
+    # Program.options has no public accessor in the library yet.
     available_entities = [
         option.name
-        for option in venting._options
+        for option in venting._options  # noqa: SLF001
         if option.name in HOOD_FAN_ENTITIES and option.access == Access.READ_WRITE
     ]
     if not available_entities:
