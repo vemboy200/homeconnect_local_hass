@@ -166,18 +166,22 @@ def generate_program(appliance: HomeAppliance) -> EntityDescriptions:
     return descriptions
 
 
-def generate_wifi(appliance: HomeAppliance) -> EntityDescriptions:
-    """Get WiFi sensor description."""
-    entity = appliance.entities.get("BSH.Common.Status.WiFiSignalStrength")
-    if entity is None:
-        return HCSensorEntityDescription(
-            key="sensor_wifi_signal_strength",
-            device_class=SensorDeviceClass.SIGNAL_STRENGTH,
-            native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
-            entity_category=EntityCategory.DIAGNOSTIC,
-            entity_registry_enabled_default=False,
-        )
-    return None
+def generate_wifi(appliance: HomeAppliance) -> HCSensorEntityDescription:  # noqa: ARG001
+    """
+    Get WiFi sensor description.
+
+    Always uses the polling HCWiFI sensor (queries /ni/info directly) rather than
+    the appliance's BSH.Common.Status.WiFiSignalStrength status entity: that status
+    is only ever populated once at connect and is never pushed again afterward, so
+    it goes permanently stale until the next reconnect.
+    """
+    return HCSensorEntityDescription(
+        key="sensor_wifi_signal_strength",
+        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
+        native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    )
 
 
 def generate_temperature_unit(appliance: HomeAppliance) -> HCSelectEntityDescription | None:
@@ -458,14 +462,6 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             device_class=SensorDeviceClass.DURATION,
             native_unit_of_measurement=UnitOfTime.SECONDS,
             suggested_unit_of_measurement=UnitOfTime.HOURS,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_wifi_signal_strength",
-            entity="BSH.Common.Status.WiFiSignalStrength",
-            device_class=SensorDeviceClass.SIGNAL_STRENGTH,
-            native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
-            entity_category=EntityCategory.DIAGNOSTIC,
-            entity_registry_enabled_default=False,
         ),
         generate_door_state,
     ],

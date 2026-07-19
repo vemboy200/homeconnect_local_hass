@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from aiohttp.client_exceptions import ClientConnectionResetError
@@ -22,6 +23,14 @@ if TYPE_CHECKING:
     from .entity_descriptions.descriptions_definitions import HCSensorEntityDescription
 
 PARALLEL_UPDATES = 0
+
+# HCWiFI is the only should_poll entity in this platform, so this interval only
+# affects it. WiFi signal strength is only available via an active /ni/info request
+# (there's no push notification for it), and the appliance is stationary, so its
+# signal has no reason to change minute-to-minute. Poll infrequently: enough to catch
+# a real degradation trend, without adding needless traffic to the appliance's
+# connection.
+SCAN_INTERVAL = timedelta(hours=1)
 
 
 async def async_setup_entry(
