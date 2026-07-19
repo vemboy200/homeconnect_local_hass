@@ -30,18 +30,23 @@ rules:
       whole config entry and create no entities at all until it reconnects,
       instead of letting the user see which entities/appliance are affected.
       Instead, entities are marked unavailable in real time based on the live
-      websocket connection state (see entity-unavailable) and automatically
-      become available again once the appliance responds to a heartbeat. A
-      repair issue is also raised after a sustained outage (see
-      repair-issues). This was a deliberate design choice made after user
-      complaints (issues #274 and #293) about the previous
-      ConfigEntryNotReady-based behavior, which mainly affected washers/dryers
-      that legitimately power off and disconnect their own WiFi between
-      cycles. Connect failures and the repair issue are also suppressed for
-      those appliance types specifically (Washer/Dryer/WasherDryer), since for
-      them being offline isn't just recoverable, it's expected; for every
-      other appliance type, an outage is still surfaced via entity
-      unavailability and the repair issue, just without blocking setup.
+      websocket connection state (see entity-unavailable). This was a
+      deliberate design choice made after user complaints (issues #274 and
+      #293) about the previous ConfigEntryNotReady-based behavior, which
+      mainly affected washers/dryers that legitimately power off and
+      disconnect their own WiFi between cycles. Connect failures are only
+      logged loudly (warning/error) for appliance types where that's not
+      expected; for washers/dryers they stay at debug level.
+
+      We considered a type-based split (raise ConfigEntryNotReady for
+      non-laundry appliances only), but Home Connect covers far more
+      appliance categories than we can reason about from what we own
+      (AirConditioner, CleaningRobot, CookProcessor, etc.), so a hand-picked
+      allowlist would be guesswork for most of them. ESPHome faces the same
+      "sleepy device" problem and its test-before-setup is also an
+      unconditional exempt, for the same underlying reason: entities/reconnect
+      logic reconciling availability after the fact is the actual solution,
+      not a stopgap.
   unique-config-entry: done
 
   # Silver
@@ -90,7 +95,21 @@ rules:
     status: exempt
     comment: |
       No need for reconfiguration flow.
-  repair-issues: done
+  repair-issues:
+    status: exempt
+    comment: |
+      Previously raised a repair issue after a sustained connection outage,
+      but removed it. Two reasons: an HA core reviewer's feedback on our
+      Powershades integration submission (a similarly local-network device)
+      was that "not being able to connect is not worth an issue" - repair
+      issues are meant for problems the user needs to act on, and appliance
+      connectivity is already fully covered by entity-unavailable, which
+      doesn't demand action the way an issue does. Separately, Home Connect
+      covers appliance categories we don't own and can't fully reason about
+      (see test-before-setup) - we can't be confident an outage is actually
+      abnormal for all of them, so treating every sustained disconnect as
+      issue-worthy risks false alarms for appliance types that are expected
+      to go offline for reasons we don't know about.
   stale-devices:
     status: exempt
     comment: |
