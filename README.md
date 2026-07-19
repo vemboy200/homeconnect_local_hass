@@ -375,3 +375,4 @@ This integration follows standard integration removal, no extra steps are requir
 - [View source on GitHub](https://github.com/vemboy200/homeconnect_local_hass)
 - [View known issues](https://github.com/vemboy200/homeconnect_local_hass/issues)
 - [Request a feature](#requesting-a-new-feature)
+- [home-disconnect](https://github.com/vemboy200/home-disconnect) - our fork of the local WebSocket protocol library this integration talks to appliances through
