@@ -16,7 +16,7 @@ The **Home Connect Local** allows users to integrate their home appliances suppo
 
 2. Click the button bellow and click 'Download' to install the Integration:
 
-    [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?repository=homeconnect_local_hass&owner=chris-mc1)
+    [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?repository=homeconnect_local_hass&owner=vemboy200)
 
 3. Restart Home Assistant.
 
@@ -282,7 +282,7 @@ Since this integration's functions have to be reverse engineered (see [Known Lim
    - **Do not share the `.json` file.** It contains sensitive info like your appliance's local encryption key.
 3. Rename the `*_DeviceDescription.xml` and `*_FeatureMapping.xml` files to remove the MAC address segment from the filename (e.g. `THERMADOR-PRG486WDH-##MACADDRESS##_DeviceDescription.xml` → `THERMADOR-PRG486WDH_DeviceDescription.xml`). That segment only identifies your specific physical appliance and isn't needed by developers.
 4. Download the [Diagnostics](https://www.home-assistant.io/docs/configuration/troubleshooting/#download-diagnostics) of the appliance's Config Entry.
-5. [Open a feature request](https://github.com/chris-mc1/homeconnect_local_hass/issues/new?template=feature_request.yml) describing, in plain terms, the feature/entity you'd like added (e.g. "I want a sensor for my appliance's door state"), and attach the two renamed XML files along with the Diagnostics.
+5. [Open a feature request](https://github.com/vemboy200/homeconnect_local_hass/issues/new?template=feature_request.yml) describing, in plain terms, the feature/entity you'd like added (e.g. "I want a sensor for my appliance's door state"), and attach the two renamed XML files along with the Diagnostics.
 
 ### Advanced method
 
@@ -361,3 +361,14 @@ This integration follows standard integration removal, no extra steps are requir
 1. Select the Config entry you want to delete
 2. Click the 3 dots in the top right of the entry
 3. Click the delete button
+
+## At a Glance
+
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=homeconnect_ws)
+
+- **IoT Class:** Local Push (plus Local Polling for the WiFi signal-strength diagnostic sensor - the appliance never proactively reports it, so it has to be actively queried)
+- **Internet Requirement:** None - appliances are controlled entirely over your local network
+- **Quality Scale:** Gold
+- [View source on GitHub](https://github.com/vemboy200/homeconnect_local_hass)
+- [View known issues](https://github.com/vemboy200/homeconnect_local_hass/issues)
+- [Request a feature](#requesting-a-new-feature)

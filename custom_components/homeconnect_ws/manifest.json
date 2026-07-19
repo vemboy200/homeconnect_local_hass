@@ -5,13 +5,13 @@
     "file_upload"
   ],
   "codeowners": [
-    "@chris-mc1"
+    "@vemboy200"
   ],
   "config_flow": true,
-  "documentation": "https://github.com/chris-mc1/homeconnect_local_hass",
+  "documentation": "https://github.com/vemboy200/homeconnect_local_hass",
   "integration_type": "device",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/chris-mc1/homeconnect_local_hass/issues",
+  "issue_tracker": "https://github.com/vemboy200/homeconnect_local_hass/issues",
   "quality_scale": "gold",
   "loggers": [
     "custom_components.homeconnect_ws",
