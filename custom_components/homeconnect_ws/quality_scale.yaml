@@ -2,9 +2,14 @@ rules:
   # Bronze
   action-setup: done
   appropriate-polling:
-    status: exempt
+    status: done
     comment: |
-      This integration is push-based.
+      This integration is push-based, with one exception: the WiFi signal
+      strength sensor, which has no push mechanism at the protocol level at
+      all and must be actively polled via /ni/info. SCAN_INTERVAL is set to
+      1 hour, since the appliance is stationary and its signal has no reason
+      to change minute-to-minute - this avoids adding needless traffic to
+      the appliance's connection.
   brands: done
   common-modules: done
   config-flow-test-coverage: done
