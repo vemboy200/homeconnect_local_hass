@@ -5,9 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        This issue form is for reporting issue with Integration!
-
-        If you have an issue with the Integration, please use the appropriate issue form.
+        Every entity in this integration has to be reverse engineered from a real appliance's profile data. Entity coverage for the maintainer's own appliances (Thermador dishwasher/oven/freezer) is essentially complete - beyond that, there is no way to add support for a feature, appliance, or brand without the Diagnostics and Device Description/Feature Mapping files from someone who actually owns one. The two fields below aren't optional extras, they're what makes a request actionable at all.
   - type: textarea
     attributes:
       label: Feature Description

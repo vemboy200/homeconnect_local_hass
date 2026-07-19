@@ -275,6 +275,8 @@ actions:
 
 ## Requesting a New Feature
 
+**Entity coverage for the appliances the maintainer actually owns (Thermador dishwasher/oven/freezer) is essentially complete.** Since every entity has to be reverse engineered from a real appliance's profile (see [Known Limitations](#known-limitations)), there's no way to add entities for other appliances, brands, or models without someone who owns one providing their own profile dump. If you want support for a feature this integration doesn't have yet, submitting that data yourself (see below) isn't just helpful, it's the only way it happens.
+
 Since this integration's functions have to be reverse engineered (see [Known Limitations](#known-limitations)), the more information you provide when requesting a new entity, the easier it is for a developer to add it. There are two ways to do this, depending on how much effort you want to put in.
 
 ### Basic method
