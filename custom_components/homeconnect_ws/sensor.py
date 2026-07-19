@@ -123,7 +123,7 @@ class HCActiveProgram(HCSensor):
 
 
 class HCWiFI(HCEntity, SensorEntity):
-    """WiFi signal Sensor Entity with push-like updates."""
+    """WiFi signal Sensor Entity, polled since the appliance never pushes it."""
 
     _attr_should_poll = True
 
@@ -133,6 +133,14 @@ class HCWiFI(HCEntity, SensorEntity):
         runtime_data: HCData,
     ) -> None:
         super().__init__(entity_description, runtime_data)
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        # Without this, the platform's SCAN_INTERVAL timer wouldn't fire the
+        # first poll until a full interval after setup/reload - get a value
+        # immediately instead of sitting at unknown for up to an hour.
+        await self.async_update()
+        self.async_write_ha_state()
 
     async def async_update(self) -> None:
         try:
