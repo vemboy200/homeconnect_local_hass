@@ -5,20 +5,20 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Any, NamedTuple
 
+from home_disconnect.entities import Access
 from homeassistant.components.fan import FanEntity, FanEntityFeature
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.util.percentage import percentage_to_ranged_value, ranged_value_to_percentage
-from homeconnect_websocket.entities import Access
 
 from .const import DOMAIN
 from .entity import HCEntity
 from .helpers import create_entities, entity_is_available, error_decorator
 
 if TYPE_CHECKING:
+    from home_disconnect.entities import Entity as HcEntity
+    from home_disconnect.entities import Program
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
-    from homeconnect_websocket.entities import Entity as HcEntity
-    from homeconnect_websocket.entities import Program
 
     from . import HCConfigEntry, HCData
     from .entity_descriptions.descriptions_definitions import HCFanEntityDescription

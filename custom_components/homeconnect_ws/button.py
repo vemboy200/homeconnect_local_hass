@@ -4,16 +4,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from home_disconnect.entities import Execution
 from homeassistant.components.button import ButtonEntity
-from homeconnect_websocket.entities import Execution
 
 from .entity import HCEntity
 from .helpers import create_entities, error_decorator
 
 if TYPE_CHECKING:
+    from home_disconnect.entities import ActiveProgram, Command
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
-    from homeconnect_websocket.entities import ActiveProgram, Command
 
     from . import HCConfigEntry
     from .entity_descriptions.descriptions_definitions import HCButtonEntityDescription

@@ -9,16 +9,16 @@ from copy import deepcopy
 from typing import TYPE_CHECKING
 
 import aiohttp
-from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE_ID, CONF_HOST
-from homeassistant.exceptions import ConfigEntryError
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from homeconnect_websocket import (
+from home_disconnect import (
     AllreadyConnectedError,
     ConnectionFailedError,
     ConnectionState,
     HCHandshakeError,
     HomeAppliance,
 )
+from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE_ID, CONF_HOST
+from homeassistant.exceptions import ConfigEntryError
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
     CONF_AES_IV,

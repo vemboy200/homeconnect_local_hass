@@ -10,9 +10,9 @@ from .entity import HCEntity
 from .helpers import create_entities, error_decorator
 
 if TYPE_CHECKING:
+    from home_disconnect.entities import Command
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
-    from homeconnect_websocket.entities import Command
 
     from . import HCConfigEntry, HCData
     from .entity_descriptions.descriptions_definitions import HCUpdateEntityDescription

@@ -7,8 +7,8 @@ from unittest.mock import ANY, Mock
 
 from custom_components.homeconnect_ws import coordinator
 from custom_components.homeconnect_ws.const import DOMAIN
+from home_disconnect.testutils import MockAppliance
 from homeassistant.config_entries import ConfigEntryState
-from homeconnect_websocket.testutils import MockAppliance
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from .const import DEVICE_DESCRIPTION, MOCK_CONFIG_DATA, MOCK_TLS_DEVICE_ID

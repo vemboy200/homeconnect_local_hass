@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal, NotRequired, TypedDict
 
+from home_disconnect import HomeAppliance
+from home_disconnect.entities import Access
 from homeassistant.components.binary_sensor import BinarySensorEntityDescription
 from homeassistant.components.button import ButtonEntityDescription
 from homeassistant.components.fan import FanEntityDescription
@@ -15,12 +17,10 @@ from homeassistant.components.sensor import SensorEntityDescription
 from homeassistant.components.switch import SwitchEntityDescription
 from homeassistant.components.update import UpdateEntityDescription
 from homeassistant.helpers.entity import EntityDescription
-from homeconnect_websocket import HomeAppliance
-from homeconnect_websocket.entities import Access
 
 if TYPE_CHECKING:
+    from home_disconnect.entities import Entity as HcEntity
     from homeassistant.helpers.typing import StateType
-    from homeconnect_websocket.entities import Entity as HcEntity
 
 
 class ExtraAttributeDict(TypedDict):

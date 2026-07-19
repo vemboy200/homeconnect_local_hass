@@ -5,11 +5,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from custom_components.homeconnect_ws.entity_descriptions.cooking import generate_oven_status
+from home_disconnect.entities import Access, DeviceDescription, EntityDescription
 from homeassistant.const import UnitOfTemperature
-from homeconnect_websocket.entities import Access, DeviceDescription, EntityDescription
 
 if TYPE_CHECKING:
-    from homeconnect_websocket.testutils import MockApplianceType
+    from home_disconnect.testutils import MockApplianceType
 
 
 async def test_generate_oven_status_fahrenheit_cavity(

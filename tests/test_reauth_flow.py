@@ -15,8 +15,8 @@ from custom_components.homeconnect_ws.const import (
     CONF_PSK,
     DOMAIN,
 )
+from home_disconnect import ParserError
 from homeassistant.data_entry_flow import FlowResultType
-from homeconnect_websocket import ParserError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from . import MockAppliance

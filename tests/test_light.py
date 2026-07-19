@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from home_disconnect.message import Action, Message
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_BRIGHTNESS_PCT,
@@ -24,14 +25,13 @@ from homeassistant.const import (
     STATE_OFF,
     STATE_ON,
 )
-from homeconnect_websocket.message import Action, Message
 
 from . import setup_config_entry
 from .const import MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
+    from home_disconnect.testutils import MockAppliance
     from homeassistant.core import HomeAssistant
-    from homeconnect_websocket.testutils import MockAppliance
 
 
 async def test_setup(

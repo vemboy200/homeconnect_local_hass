@@ -14,7 +14,7 @@ from custom_components.homeconnect_ws.helpers import (
 from .const import DEVICE_DESCRIPTION
 
 if TYPE_CHECKING:
-    from homeconnect_websocket.testutils import MockApplianceType
+    from home_disconnect.testutils import MockApplianceType
 
 
 async def test_get_entities_from_regex(mock_homeconnect_appliance: MockApplianceType) -> None:

@@ -11,7 +11,7 @@ from zipfile import ZipFile
 import pytest
 from custom_components import homeconnect_ws
 from custom_components.homeconnect_ws import coordinator, entity_descriptions
-from homeconnect_websocket.testutils import MockAppliance
+from home_disconnect.testutils import MockAppliance
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -29,7 +29,7 @@ from .const import (
     MOCK_TLS_DEVICE_INFO,
 )
 
-pytest_plugins = ["homeconnect_websocket.testutils"]
+pytest_plugins = ["home_disconnect.testutils"]
 
 
 @pytest.fixture(autouse=True)

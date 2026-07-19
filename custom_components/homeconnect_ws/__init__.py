@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Never
 
 import voluptuous as vol
+from home_disconnect import CodeResponsError, Entity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_DESCRIPTION, EVENT_HOMEASSISTANT_STOP
 from homeassistant.exceptions import ServiceValidationError
@@ -16,7 +17,6 @@ from homeassistant.helpers.device_registry import (
     format_mac,
 )
 from homeassistant.util.hass_dict import HassKey
-from homeconnect_websocket import CodeResponsError, Entity
 
 from .const import (
     CONF_DEV_OVERRIDE_HOST,
@@ -30,9 +30,9 @@ from .entity_descriptions import get_available_entities
 from .helpers import error_decorator, get_config_entry_from_call
 
 if TYPE_CHECKING:
+    from home_disconnect import HomeAppliance
     from homeassistant.core import Event, HomeAssistant, ServiceCall, ServiceResponse
     from homeassistant.helpers.typing import ConfigType
-    from homeconnect_websocket import HomeAppliance
 
     from .entity_descriptions import _EntityDescriptionsType
 

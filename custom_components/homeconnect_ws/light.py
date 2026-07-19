@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from home_disconnect.message import Action
+from home_disconnect.message import Message as HC_Message
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
@@ -20,16 +22,14 @@ from homeassistant.util.color import (
     value_to_brightness,
 )
 from homeassistant.util.scaling import scale_ranged_value_to_int_range
-from homeconnect_websocket.message import Action
-from homeconnect_websocket.message import Message as HC_Message
 
 from .entity import HCEntity
 from .helpers import create_entities, entity_is_available, error_decorator
 
 if TYPE_CHECKING:
+    from home_disconnect.entities import Entity as HcEntity
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
-    from homeconnect_websocket.entities import Entity as HcEntity
 
     from . import HCConfigEntry, HCData
     from .entity_descriptions.descriptions_definitions import HCLightEntityDescription

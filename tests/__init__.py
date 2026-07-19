@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Self
 from unittest.mock import AsyncMock
 
 from custom_components.homeconnect_ws.const import DOMAIN
-from homeconnect_websocket import ConnectionState, DeviceDescription
+from home_disconnect import ConnectionState, DeviceDescription
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from .const import MOCK_TLS_DEVICE_INFO

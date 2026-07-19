@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from home_disconnect.message import Action, Message
 from homeassistant.components.number import (
     ATTR_MAX,
     ATTR_MIN,
@@ -13,14 +14,13 @@ from homeassistant.components.number import (
 )
 from homeassistant.components.number import DOMAIN as NUMBER_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_FRIENDLY_NAME
-from homeconnect_websocket.message import Action, Message
 
 from . import setup_config_entry
 from .const import MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
+    from home_disconnect.testutils import MockAppliance
     from homeassistant.core import HomeAssistant
-    from homeconnect_websocket.testutils import MockAppliance
 
 
 async def test_setup(

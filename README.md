@@ -346,7 +346,7 @@ Use one of these two methods enable debug logging:
         logs:
             custom_components.homeconnect_ws: debug # Home Connect Local Integration
             homeconnect_ws: debug
-            homeconnect_websocket: debug # Homeconnect websocket Python package
+            home_disconnect: debug # home-disconnect Python package
         ```
 
     2. Restart Home Assistant

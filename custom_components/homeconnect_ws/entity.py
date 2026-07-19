@@ -11,8 +11,8 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .helpers import entity_is_available
 
 if TYPE_CHECKING:
+    from home_disconnect.entities import Entity as HcEntity
     from homeassistant.helpers.device_registry import DeviceInfo
-    from homeconnect_websocket.entities import Entity as HcEntity
 
     from . import HCData
     from .entity_descriptions.descriptions_definitions import (

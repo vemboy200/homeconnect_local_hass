@@ -6,9 +6,9 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from home_disconnect.errors import AccessError, CodeResponsError, NotConnectedError
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.service import async_extract_config_entry_ids
-from homeconnect_websocket.errors import AccessError, CodeResponsError, NotConnectedError
 
 from .const import DOMAIN
 
@@ -16,10 +16,10 @@ if TYPE_CHECKING:
     import re
     from collections.abc import Callable, Coroutine
 
+    from home_disconnect import HomeAppliance
+    from home_disconnect.entities import Access
+    from home_disconnect.entities import Entity as HcEntity
     from homeassistant.core import HomeAssistant, ServiceCall
-    from homeconnect_websocket import HomeAppliance
-    from homeconnect_websocket.entities import Access
-    from homeconnect_websocket.entities import Entity as HcEntity
 
     from . import HCConfigEntry, HCData
     from .entity import HCEntity

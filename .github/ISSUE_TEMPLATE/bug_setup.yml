@@ -24,7 +24,7 @@ body:
         - label: I have tried the latest beta release of Home Connect Local.
         - label: I have checked that my Appliance is controllable through the HomeConnect App.
         - label: I have checked that the HomeConnect App shows a local connection to the Appliance. (Appliance ⇒ Settings ⇒ Scroll down to Network)
-        - label: I have checked the [open issues](https://github.com/chris-mc1/homeconnect_local_hass/issues) to ensure my issue isn't a duplicate.
+        - label: I have checked the [open issues](https://github.com/vemboy200/homeconnect_local_hass/issues) to ensure my issue isn't a duplicate.
     validations:
       required: true
 

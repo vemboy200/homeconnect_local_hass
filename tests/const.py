@@ -17,15 +17,15 @@ from custom_components.homeconnect_ws.entity_descriptions import (
     HCSwitchEntityDescription,
     _EntityDescriptionsType,
 )
-from homeassistant.components.sensor import SensorDeviceClass
-from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE_ID, CONF_HOST, CONF_NAME
-from homeconnect_websocket.entities import (
+from home_disconnect.entities import (
     Access,
     DeviceDescription,
     EntityDescription,
     Execution,
     OptionDescription,
 )
+from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE_ID, CONF_HOST, CONF_NAME
 
 MOCK_APPLIANCE_INFO = {
     "brand": "Fake_Brand",

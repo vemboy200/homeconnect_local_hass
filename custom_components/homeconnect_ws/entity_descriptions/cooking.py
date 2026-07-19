@@ -5,12 +5,12 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from home_disconnect.entities import Access
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.number import NumberDeviceClass, NumberMode
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.switch import SwitchDeviceClass
 from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfTemperature, UnitOfTime
-from homeconnect_websocket.entities import Access
 
 from custom_components.homeconnect_ws.helpers import get_groups_from_regex
 
@@ -28,7 +28,7 @@ from .descriptions_definitions import (
 )
 
 if TYPE_CHECKING:
-    from homeconnect_websocket import HomeAppliance
+    from home_disconnect import HomeAppliance
 
 _VENTING_PROGRAM = "Cooking.Common.Program.Hood.Venting"
 

@@ -17,13 +17,13 @@ from custom_components.homeconnect_ws.entity_descriptions.common import (
     generate_program,
 )
 from custom_components.homeconnect_ws.helpers import merge_dicts
+from home_disconnect.entities import Access, DeviceDescription, EntityDescription
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.switch import SwitchDeviceClass
-from homeconnect_websocket.entities import Access, DeviceDescription, EntityDescription
 
 if TYPE_CHECKING:
     import pytest
-    from homeconnect_websocket.testutils import MockAppliance, MockApplianceType
+    from home_disconnect.testutils import MockAppliance, MockApplianceType
 
 
 def test_merge_dicts() -> None:

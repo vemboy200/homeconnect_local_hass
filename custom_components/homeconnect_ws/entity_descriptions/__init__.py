@@ -29,7 +29,7 @@ from .laundry_care import LAUNDRY_ENTITY_DESCRIPTIONS
 from .refrigeration import REFRIGERATION_ENTITY_DESCRIPTIONS
 
 if TYPE_CHECKING:
-    from homeconnect_websocket import HomeAppliance
+    from home_disconnect import HomeAppliance
 
 
 ALL_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType | None = None

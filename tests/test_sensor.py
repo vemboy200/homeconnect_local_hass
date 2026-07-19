@@ -11,8 +11,8 @@ from . import setup_config_entry
 from .const import MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
+    from home_disconnect.testutils import MockAppliance
     from homeassistant.core import HomeAssistant
-    from homeconnect_websocket.testutils import MockAppliance
 
 
 async def test_setup(

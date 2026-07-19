@@ -16,10 +16,10 @@ from .entity_descriptions.descriptions_definitions import HCBinarySensorEntityDe
 from .helpers import create_entities
 
 if TYPE_CHECKING:
+    from home_disconnect import HomeAppliance
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.device_registry import DeviceInfo
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
-    from homeconnect_websocket import HomeAppliance
 
     from . import HCConfigEntry, HCData
 

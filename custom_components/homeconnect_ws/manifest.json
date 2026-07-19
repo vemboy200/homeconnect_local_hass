@@ -14,11 +14,11 @@
   "issue_tracker": "https://github.com/vemboy200/homeconnect_local_hass/issues",
   "loggers": [
     "custom_components.homeconnect_ws",
-    "homeconnect_websocket"
+    "home_disconnect"
   ],
   "quality_scale": "gold",
   "requirements": [
-    "homeconnect-websocket==1.5.3"
+    "home-disconnect==1.5.4"
   ],
   "version": "1.0.5b10",
   "zeroconf": [

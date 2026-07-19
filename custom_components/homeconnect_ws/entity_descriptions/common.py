@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from home_disconnect.entities import Execution
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
 )
@@ -21,7 +22,6 @@ from homeassistant.const import (
     EntityCategory,
     UnitOfTime,
 )
-from homeconnect_websocket.entities import Execution
 
 from .descriptions_definitions import (
     EntityDescriptions,
@@ -36,7 +36,7 @@ from .descriptions_definitions import (
 )
 
 if TYPE_CHECKING:
-    from homeconnect_websocket import HomeAppliance
+    from home_disconnect import HomeAppliance
 
 
 POWER_SWITCH_VALUE_MAPINGS = (

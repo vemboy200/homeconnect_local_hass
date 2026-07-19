@@ -15,6 +15,13 @@ from zipfile import ZipFile
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from aiohttp import ClientConnectionError, ClientConnectorSSLError
+from home_disconnect import (
+    ConnectionState,
+    DeviceDescription,
+    HomeAppliance,
+    ParserError,
+    parse_device_description,
+)
 from homeassistant.components.file_upload import process_uploaded_file
 from homeassistant.config_entries import SOURCE_IGNORE, ConfigFlow
 from homeassistant.const import (
@@ -31,13 +38,6 @@ from homeassistant.helpers.selector import (
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
-)
-from homeconnect_websocket import (
-    ConnectionState,
-    DeviceDescription,
-    HomeAppliance,
-    ParserError,
-    parse_device_description,
 )
 
 from . import HC_KEY, HCConfig

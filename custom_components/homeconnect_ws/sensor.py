@@ -7,8 +7,8 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from aiohttp.client_exceptions import ClientConnectionResetError
+from home_disconnect import NotConnectedError
 from homeassistant.components.sensor import SensorEntity
-from homeconnect_websocket import NotConnectedError
 
 from .entity import HCEntity
 from .helpers import create_entities
