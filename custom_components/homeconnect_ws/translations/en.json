@@ -1,21 +1,11 @@
 {
-  "application_credentials": {
-    "description": "To sign in with Home Connect, you need your own client ID and secret. To acquire them, please follow the following steps.\n\n1. Visit the [Home Connect Developer Program website]({developer_dashboard_url}) and sign up for a development account.\n1. Enter the email of your login for the Home Connect app under **Default Home Connect User Account for Testing** in the signup process.\n1. Go to the [Applications]({applications_url}) page and select [Register Application]({register_application_url}) and set the fields to the following values:\n   * **Application ID**: Home Assistant (or any other name that makes sense)\n   * **OAuth Flow**: Authorization Code Grant Flow\n   * **Redirect URI**: `{redirect_url}`\n\nIn the newly created application's details, you will find the **Client ID** and the **Client Secret**."
-  },
   "config": {
     "step": {
       "user": {
         "title": "Add new Home Connect Appliances",
         "menu_options": {
-          "region": "Sign in with Home Connect",
+          "legacy_oauth_region": "[DIAGNOSTIC] Sign in with Home Connect",
           "upload": "Upload Profile File"
-        }
-      },
-      "region": {
-        "title": "Home Connect Account Region",
-        "description": "Select the region your Home Connect account is registered in.",
-        "data": {
-          "region": "Region"
         }
       },
       "legacy_oauth_region": {
@@ -62,16 +52,7 @@
       "profile_file_parser_error": "Profile File is invalid: {error}",
       "appliance_not_in_profile_file": "Profile File dose not contain profile for this Appliance",
       "all_setup": "All Appliances in this Profile File are already setup",
-      "oauth_fetch_failed": "Could not fetch appliance profiles from Home Connect: {error}",
-      "missing_configuration": "[%key:common::config_flow::abort::oauth2_missing_configuration%]",
-      "missing_credentials": "[%key:common::config_flow::abort::oauth2_missing_credentials%]",
-      "no_url_available": "[%key:common::config_flow::abort::oauth2_no_url_available%]",
-      "oauth_error": "[%key:common::config_flow::abort::oauth2_error%]",
-      "oauth_failed": "[%key:common::config_flow::abort::oauth2_failed%]",
-      "oauth_implementation_unavailable": "[%key:common::config_flow::abort::oauth2_implementation_unavailable%]",
-      "oauth_timeout": "[%key:common::config_flow::abort::oauth2_timeout%]",
-      "oauth_unauthorized": "[%key:common::config_flow::abort::oauth2_unauthorized%]",
-      "user_rejected_authorize": "Sign-in was cancelled: {error}"
+      "oauth_fetch_failed": "Could not fetch appliance profiles from Home Connect: {error}"
     }
   },
   "entity": {

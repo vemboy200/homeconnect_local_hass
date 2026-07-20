@@ -24,7 +24,7 @@ from home_disconnect import (
     parse_device_description,
 )
 from homeassistant.components.file_upload import process_uploaded_file
-from homeassistant.config_entries import SOURCE_IGNORE
+from homeassistant.config_entries import SOURCE_IGNORE, ConfigFlow
 from homeassistant.const import (
     CONF_DESCRIPTION,
     CONF_DEVICE,
@@ -33,7 +33,6 @@ from homeassistant.const import (
     CONF_MODE,
     CONF_NAME,
 )
-from homeassistant.helpers import config_entry_oauth2_flow
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     FileSelector,
@@ -126,10 +125,8 @@ def process_json_file(config_path: Path) -> dict[str, dict[str, dict | DeviceDes
     return {"config_entry": entry_data["data"]["entry_data"]}
 
 
-class HomeConnectConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, domain=DOMAIN):
+class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
     """HomeConnect Config flow."""
-
-    DOMAIN = DOMAIN
 
     def __init__(self) -> None:
         super().__init__()
@@ -141,11 +138,6 @@ class HomeConnectConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, 
         self._region: str = "EU"
         self._legacy_code_verifier: str | None = None
         self._legacy_state: str | None = None
-
-    @property
-    def logger(self) -> logging.Logger:
-        """Return logger."""
-        return _LOGGER
 
     def _process_profile_file(
         self, uploaded_file_id: str
@@ -195,16 +187,7 @@ class HomeConnectConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, 
         # legacy_oauth_region is unconditionally visible on this beta branch -
         # temporary diagnostic code, deleted before this reaches main. No
         # config flag needed since the branch itself is already not-for-general-use.
-        return self.async_show_menu(
-            step_id="user", menu_options=["region", "legacy_oauth_region", "upload"]
-        )
-
-    async def async_step_region(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Ask which Home Connect account region to use before starting sign-in."""
-        if user_input is not None:
-            self._region = user_input[CONF_REGION]
-            return await self.async_step_pick_implementation()
-        return self.async_show_form(step_id="region", data_schema=CONFIG_REGION_SCHEMA)
+        return self.async_show_menu(step_id="user", menu_options=["legacy_oauth_region", "upload"])
 
     async def async_step_legacy_oauth_region(
         self, user_input: dict[str, Any] | None = None
@@ -247,19 +230,6 @@ class HomeConnectConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, 
             data_schema=schema,
             description_placeholders={"authorize_url": authorize_url},
         )
-
-    async def async_oauth_create_entry(self, data: dict) -> ConfigFlowResult:
-        """Fetch appliance profiles via the cloud API instead of creating an entry directly."""
-        access_token = data["token"]["access_token"]
-        session = async_get_clientsession(self.hass)
-        try:
-            self.appliances = await async_fetch_appliances(session, access_token, self._region)
-        except HCCloudApiError as err:
-            _LOGGER.debug("Fetching appliance profiles failed: %s", err)
-            return self.async_abort(
-                reason="oauth_fetch_failed", description_placeholders={"error": str(err)}
-            )
-        return await self.async_step_device_select()
 
     async def async_step_upload(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle profile file upload."""
