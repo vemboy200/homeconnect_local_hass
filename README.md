@@ -104,8 +104,14 @@ There are two ways to add an appliance. Signing in is quicker and doesn't requir
 >Do note that your device will **not** get firmware updates once disconnected, if you want to, you can occasionally (once every 1-3 months) reenable the cloud connection for 1-2 days so the device can check for an update.
 
 
+Here's an example automation that occasionally reenables the cloud connection, checks for and installs a firmware update if one's available, then disables it again:
+
+- **Trigger**: `time` trigger at `"03:00:00"`.
+- **Conditions**: only runs on the 1st of the month (`now().day == 1`).
+- **Actions**: turn on `switch.dishwasher_allow_cloud_connection` → wait up to 24 hours for an `update` entity to report one available → install it if found → wait up to 30 minutes for the install to finish → turn `switch.dishwasher_allow_cloud_connection` back off.
+
 <details>
-<summary> Heres an example automation in yaml you can do with Home Assistant to occasionally reenable the cloud then do a firmware update (incase if theres one) then disable it.</summary>
+<summary>YAML example for periodically reconnecting the cloud to check for firmware updates</summary>
 <br>
     
 ```yaml
@@ -263,8 +269,11 @@ Get started with these automation examples
 ### Send a notification when the appliance ends the program
 [comment]: <> (Also stolen directly from the Core Home Connect integration)
 
+- **Trigger**: `sensor.appliance_operation_state` changes to `finished`.
+- **Actions**: `notify.notify` with a message that the program has finished.
+
 <details>
-<summary> Yaml for the automation.</summary>
+<summary>YAML example for notifying when the appliance's program ends</summary>
 <br>
     
 ```yaml
@@ -285,8 +294,12 @@ actions:
 [comment]: <> ( Also also stolen directly from the Core Home Connect integration)
 Because electricity is typically cheaper at night, this automation will activate the silent mode when starting the program at night.
 
+- **Trigger**: `sensor.electricity_price` drops to `"0.10"`.
+- **Conditions**: `sensor.diswasher_door` is `closed`.
+- **Actions**: `home_connect.set_program_and_options` — between `22:00` and `06:00`, starts the Eco 50 program with silent mode on; otherwise starts it without silent mode.
+
 <details>
-<summary> Yaml for the automation.</summary>
+<summary>YAML example for starting a program when electricity is cheap</summary>
 <br>
     
 ```yaml
