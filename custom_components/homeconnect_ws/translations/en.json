@@ -59,7 +59,7 @@
     "step": {
       "init": {
         "title": "Export Appliance Profile",
-        "description": "Export this appliance's profile as a downloadable ZIP file.",
+        "description": "Export this appliance's profile as a downloadable ZIP file.\n\n**Safe**: no encryption key or other sensitive data. Safe to share for a feature request. Delivered as a download link.\n\n**Full**: also includes the appliance's local encryption key, for transferring it to another system. Written to your config directory (`homeconnect_ws_export` folder) instead of a download link, to avoid exposing the key over HTTP.",
         "data": {
           "mode": "Export type"
         }

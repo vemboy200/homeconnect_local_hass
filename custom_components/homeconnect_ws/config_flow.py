@@ -522,7 +522,7 @@ class HCOptionsFlowHandler(OptionsFlow):
         except OSError as err:
             return await self._notify_and_close(f"Could not write export file: {err}")
         return await self._notify_and_close(
-            f"Wrote `{filename}` to your Home Assistant config directory, under"
+            f"Wrote `{filename}` to your config directory, under"
             f" `homeconnect_ws_export/`. Retrieve it via Samba, SSH, or the File"
             f" Editor add-on."
         )
