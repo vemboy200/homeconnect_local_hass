@@ -84,13 +84,6 @@ CONFIG_REGION_SCHEMA = vol.Schema(
     }
 )
 
-# PR #405's scope string (which includes ReadOrigApi/WriteOrigApi/ReadAccount/
-# DeleteAppliance/WriteAppliance) only works because it reuses the profile
-# downloader's borrowed client_id, which BSH has specially authorized for those
-# undocumented scopes. A normal self-registered app gets invalid_scope for them
-# - stick to the documented public scopes only.
-OAUTH_SCOPE = "IdentifyAppliance Monitor Control Images Settings"
-
 
 def process_zip_file(config_path: Path) -> dict[str, dict[str, dict | DeviceDescription]]:
     """Process uploaded zip file."""
@@ -142,11 +135,6 @@ class HomeConnectConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, 
     def logger(self) -> logging.Logger:
         """Return logger."""
         return _LOGGER
-
-    @property
-    def extra_authorize_data(self) -> dict:
-        """Extra data appended to the authorize url."""
-        return {"scope": OAUTH_SCOPE}
 
     def _process_profile_file(
         self, uploaded_file_id: str
