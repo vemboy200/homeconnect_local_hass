@@ -32,7 +32,10 @@ To use this integration, you must first create a Home Connect account and connec
 
 ## Setup
 
-There are two ways to add an appliance. Signing in is quicker and doesn't require a separate tool, but see the note below on what it actually does before using it.
+> [!NOTE]
+> Both of these methods aren't something Home Connect has authorized for third-party use, and the endpoints involved are undocumented and could change or be locked down without notice. If that's not something you're comfortable with, dont use this integration and instead use the core [home connect integration](https://www.home-assistant.io/integrations/home_connect/).
+> 
+There are two ways to add an appliance. Signing in is quicker and doesn't require a separate tool.
 
 ### Option A: Sign in with Home Connect
 
@@ -46,9 +49,6 @@ There are two ways to add an appliance. Signing in is quicker and doesn't requir
 5. Select the Appliance you want to setup (skipped automatically if it's the only one left to add).
 6. When the initial connection to the Appliance fails, you're asked to manually enter your Appliance IP-Address.
 7. Repeat from Step 1 if you want to setup more than one Appliance.
-
-> [!NOTE]
-> Home Connect's developer program doesn't grant third-party applications the permissions needed to retrieve an appliance's local encryption key, only Home Connect's own mobile app has them. Signing in this way authenticates using that same app's credentials rather than a normal registered application, since there is currently no other way to obtain the key without the Profile Downloader tool below. It isn't something Home Connect has authorized for third-party use, and the endpoints involved are undocumented and could change or be locked down without notice. If that's not something you're comfortable with, use Option B instead.
 
 ### Option B: Upload Profile File
 
@@ -67,7 +67,7 @@ There are two ways to add an appliance. Signing in is quicker and doesn't requir
 > 
 > - The device may disconnect itself from your Wi-Fi
 > - You cannot troubleshoot if the appliance does not connect to Home Assistant
-> - You cannot connect any more devices to it
+> - You cannot connect any more devices to Home Connect
 >
 > If you value your privacy you can instead go to the app settings an disable all the data collection stuff in the "Privacy and Legal" section of the app
 
@@ -79,32 +79,35 @@ There are two ways to add an appliance. Signing in is quicker and doesn't requir
 - Select Appliance: Select the Appliance you want to setup
 - Host / IP-Address: Manually enter your Appliance Hostname or IP-Address if auto discovery did not work
 
-### Protip!
-
-If you want to, once you have connected the appliance to Home Assistant you can disable its cloud access.
-
-Through Home Assistant
-
-1. (OPTIONAL) Before starting, in the Home Connect app, make sure the bottom line (direct connection between your phone and device) is green in case if something goes wrong.
-2. In the configuration section there is a disabled entity called "Allow Cloud Connection" enable it and turn off the switch
-3. (OPTIONAL) Enable the "Cloud Connection" diagnostic entity to verify its disconnected from the cloud.
-
-If you see the "Cloud Connection" entity saying disconnected then you have succesfully disabled cloud access for your appliance.
-
-Through Home Connect
-1. Open the Home Connect app and go to your appliance's settings.
-2. Scroll down until you get the "network" and tap the details button.
-3. (OPTIONAL) Make sure the bottom line (direct connection between your phone and device) is green in case if something goes wrong.
-4. Scroll down (again) until you see the connection to the server toggle.
-5. Turn off the toggle and ignore the scare screen (they have it there so they can continue collecting your data)
-6. Then save
-
-You'll know if you have successfully done it if you see the line between your appliance and their cloud is grayed out and disconnected.
+> [!TIP]
+>If you want to, once you have connected the appliance to Home Assistant you can disable its cloud access.
+>
+> ### Through Home Assistant
+>
+>1. (OPTIONAL) Before starting, in the Home Connect app, make sure the bottom line (direct connection between your phone and device) is green in case if something goes wrong.
+>2. In the configuration section there is a disabled entity called "Allow Cloud Connection" enable it and turn off the switch
+>3. (OPTIONAL) Enable the "Cloud Connection" diagnostic entity to verify its disconnected from the cloud.
+>
+>If you see the "Cloud Connection" entity saying disconnected then you have succesfully disabled cloud access for your appliance.
+>
+>### Through Home Connect
+>1. Open the Home Connect app and go to your appliance's settings.
+>2. Scroll down until you get the "network" and tap the details button.
+>3. (OPTIONAL) Make sure the bottom line (direct connection between your phone and device) is green in case if something goes wrong.
+>4. Scroll down (again) until you see the connection to the server toggle.
+>5. Turn off the toggle and ignore the scare screen (they have it there so they can continue collecting your data)
+>6. Then save
+>
+>You'll know if you have successfully done it if you see the line between your appliance and their cloud is grayed out and disconnected.
 
 >[!NOTE]
 >Do note that your device will **not** get firmware updates once disconnected, if you want to, you can occasionally (once every 1-3 months) reenable the cloud connection for 1-2 days so the device can check for an update.
 
-Heres an example automation you can do with Home Assistant to occasionally reenable the cloud then do a firmware update (incase if theres one) then disable it.
+
+<details>
+<summary> Heres an example automation in yaml you can do with Home Assistant to occasionally reenable the cloud then do a firmware update (incase if theres one) then disable it.</summary>
+<br>
+    
 ```yaml
 alias: Periodically check for and install Home Connect firmware updates
 description: >-
@@ -159,6 +162,7 @@ actions:
       entity_id: switch.dishwasher_allow_cloud_connection
 mode: single
 ```
+</details>
 
 ## Exporting an Appliance Profile
 
@@ -179,10 +183,13 @@ This integration is almost entirely push based, receiving updates from the appli
 The one exception is the Wi-Fi Signal Strength sensor. The entity can only be polled from the appliance, so that entity is polled once an hour instead. It is polled infrequently due to the fact appliances dont move.
 
 ## Supported Functions
-
+<details>
+<summary> Supported Functions (very long).</summary>
+<br>
+    
 The following entities are available. Which ones appear depends on the appliance type and its feature set. Not every device supports every entity listed here.
 
-### All Appliances
+### Supported across multiple kinds of appliances
 
 | Entity | Type | Description |
 | --- | --- | --- |
@@ -239,6 +246,8 @@ Bean container and amount, grind coarseness, coffee strength, temperature, brew 
 
 Fridge, freezer, and chiller setpoint temperatures (°C and °F); door open and door alarm binary sensors; super-freeze and super-cool modes; eco, vacation, and fresh-food modes; interior light with brightness control; water filter alert; sabbath mode duration.
 
+</details>
+
 ## Actions
 
 This integration provides the following actions:
@@ -253,6 +262,11 @@ Get started with these automation examples
 
 ### Send a notification when the appliance ends the program
 [comment]: <> (Also stolen directly from the Core Home Connect integration)
+
+<details>
+<summary> Yaml for the automation.</summary>
+<br>
+    
 ```yaml
 alias: "Notify when program ends"
 triggers:
@@ -265,12 +279,16 @@ actions:
     data:
       message: "The appliance has finished the program."
 ```
-
+</details>
 
 ### Start a program when electricity is cheap
 [comment]: <> ( Also also stolen directly from the Core Home Connect integration)
 Because electricity is typically cheaper at night, this automation will activate the silent mode when starting the program at night.
 
+<details>
+<summary> Yaml for the automation.</summary>
+<br>
+    
 ```yaml
 alias: "Start program when electricity is cheap"
 triggers:
@@ -300,6 +318,7 @@ actions:
           affects_to: "active_program"
           program: "dishcare_dishwasher_program_eco_50"
 ```
+</details>
 
 ## Known Limitations
 
