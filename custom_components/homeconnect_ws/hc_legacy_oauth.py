@@ -26,6 +26,14 @@ if TYPE_CHECKING:
 
 CLIENT_ID = "9B75AC9EC512F36C84256AC47D813E2C1DD0D6520DF774B020E1E6E2EB29B1F3"
 REDIRECT_URI = "hcauth://auth/prod"
+# Matches bruestel/homeconnect-profile-downloader's main.js exactly. The borrowed
+# client is pre-authorized for the undocumented internal scopes (ReadAccount,
+# ReadOrigApi, WriteOrigApi, ...) that paired-appliances/encryption-information/iddf
+# actually require - omitting them yields a token with no rights to those endpoints.
+SCOPE = (
+    "Control DeleteAppliance IdentifyAppliance Images Monitor "
+    "ReadAccount ReadOrigApi Settings WriteAppliance WriteOrigApi"
+)
 REGION_API_BASE = {
     "EU": "https://api.home-connect.com",
     "NA": "https://api-rna.home-connect.com",
@@ -67,6 +75,8 @@ def build_authorize_url(region: str, code_verifier: str, state: str) -> str:
         "code_challenge_method": "S256",
         "code_challenge": generate_code_challenge(code_verifier),
         "state": state,
+        "nonce": generate_state(),
+        "scope": SCOPE,
     }
     return f"{REGION_API_BASE[region]}/security/oauth/authorize?{urlencode(params)}"
 
