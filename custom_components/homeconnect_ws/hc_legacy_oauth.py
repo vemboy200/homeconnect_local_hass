@@ -1,16 +1,19 @@
 """
-Diagnostic-only OAuth path using the Profile Downloader's borrowed credentials.
+OAuth sign-in using the Home Connect mobile app's own client credentials.
 
-NOT for real use, not core-compliant, not something that should ship. This
-exists solely to answer one question: do the profile-fetch endpoints
-(paired-appliances/encryption-information/iddf) work for a normal
-self-registered application_credentials app, or only for BSH's own
-first-party client (which the bruestel/homeconnect-profile-downloader tool
-and PR chris-mc1/homeconnect_local_hass#405 borrow the credentials of)?
+The profile-fetch endpoints this integration needs (paired-appliances,
+encryption-information, iddf) are gated behind internal OAuth scopes
+(ReadAccount, ReadOrigApi, WriteOrigApi, ...) that BSH's developer portal
+never grants to a self-registered application_credentials app - confirmed
+by testing both paths live. Only BSH's own first-party mobile app client
+gets them, so this borrows those credentials the same way
+bruestel/homeconnect-profile-downloader and PR
+chris-mc1/homeconnect_local_hass#405 do, since there is no other way to
+retrieve a local encryption key without the Profile Downloader tool.
 
-Unconditionally visible on this beta branch (simplified-setup) so it doesn't
-require editing configuration.yaml just to test - deleted before this reaches
-main or a real release. Delete this once the question above is answered.
+Not core-compliant and not something BSH has authorized third-party use
+of - see the homeconnect_local_legal_basis project memory for the
+reasoning on why this is likely the only path that will ever work here.
 """
 
 from __future__ import annotations
@@ -43,7 +46,7 @@ URLENCODED = {"Content-Type": "application/x-www-form-urlencoded"}
 
 
 class HCLegacyOAuthError(Exception):
-    """Raised when the diagnostic PKCE handshake fails."""
+    """Raised when the PKCE handshake fails."""
 
 
 def generate_code_verifier() -> str:
@@ -93,7 +96,7 @@ def extract_code_from_redirect(redirect_url: str, expected_state: str) -> str:
         msg = "No authorization code found in the pasted URL"
         raise HCLegacyOAuthError(msg)
     if params.get("state", [None])[0] != expected_state:
-        msg = "State mismatch - please restart this diagnostic flow"
+        msg = "State mismatch - please restart the sign-in flow"
         raise HCLegacyOAuthError(msg)
     return params["code"][0]
 

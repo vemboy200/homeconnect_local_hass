@@ -184,15 +184,12 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         """Handle a flow initialized by the user."""
         _LOGGER.debug("Config flow initialized by user")
         self.global_config = self.hass.data.get(HC_KEY)
-        # legacy_oauth_region is unconditionally visible on this beta branch -
-        # temporary diagnostic code, deleted before this reaches main. No
-        # config flag needed since the branch itself is already not-for-general-use.
         return self.async_show_menu(step_id="user", menu_options=["legacy_oauth_region", "upload"])
 
     async def async_step_legacy_oauth_region(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Diagnostic-only: ask region, then show the borrowed-client authorize URL."""
+        """Ask which Home Connect account region to use, then show the authorize URL."""
         if user_input is not None:
             self._region = user_input[CONF_REGION]
             self._legacy_code_verifier = legacy_generate_code_verifier()
@@ -203,7 +200,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_legacy_oauth_paste(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Diagnostic-only: show the authorize URL, then accept the pasted-back redirect."""
+        """Show the authorize URL, then accept the pasted-back redirect."""
         if user_input is not None:
             session = async_get_clientsession(self.hass)
             try:
@@ -215,7 +212,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
                 self.appliances = await async_fetch_appliances(session, access_token, self._region)
             except (HCLegacyOAuthError, HCCloudApiError) as err:
-                _LOGGER.debug("Legacy OAuth diagnostic flow failed: %s", err)
+                _LOGGER.debug("Legacy OAuth flow failed: %s", err)
                 return self.async_abort(
                     reason="oauth_fetch_failed", description_placeholders={"error": str(err)}
                 )

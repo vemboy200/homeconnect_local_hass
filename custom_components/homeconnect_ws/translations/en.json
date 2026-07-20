@@ -4,19 +4,19 @@
       "user": {
         "title": "Add new Home Connect Appliances",
         "menu_options": {
-          "legacy_oauth_region": "[DIAGNOSTIC] Sign in with Home Connect",
+          "legacy_oauth_region": "Sign in with Home Connect",
           "upload": "Upload Profile File"
         }
       },
       "legacy_oauth_region": {
-        "title": "[DIAGNOSTIC] Home Connect Account Region",
+        "title": "Home Connect Account Region",
         "description": "Select the region your Home Connect account is registered in.",
         "data": {
           "region": "Region"
         }
       },
       "legacy_oauth_paste": {
-        "title": "[DIAGNOSTIC] Legacy Sign-In",
+        "title": "Home Connect Sign-In",
         "description": "Open this URL in your browser and sign in: {authorize_url}\n\nThe page will fail to load afterward (that's expected) - copy the full URL from your browser's address bar and paste it below.",
         "data": {
           "legacy_redirect_url": "Redirect URL"
