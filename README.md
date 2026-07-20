@@ -32,12 +32,32 @@ To use this integration, you must first create a Home Connect account and connec
 
 ## Setup
 
+There are two ways to add an appliance. Signing in is quicker and doesn't require a separate tool, but see the note below on what it actually does before using it.
+
+### Option A: Sign in with Home Connect
+
+1. Click the button below or use "Add Integration" in Home Assistant and select "Home Connect Local".
+
+    [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=homeconnect_ws)
+
+2. Choose "Sign in with Home Connect" and select the region your Home Connect account is registered in.
+3. Open the shown URL in a browser and sign in with your Home Connect account. The page will fail to load afterward — that's expected.
+4. Copy the full URL from your browser's address bar and paste it back into Home Assistant.
+5. Select the Appliance you want to setup (skipped automatically if it's the only one left to add).
+6. When the initial connection to the Appliance fails, you're asked to manually enter your Appliance IP-Address.
+7. Repeat from Step 1 if you want to setup more than one Appliance.
+
+> [!NOTE]
+> Home Connect's developer program doesn't grant third-party applications the permissions needed to retrieve an appliance's local encryption key — only Home Connect's own mobile app has them. Signing in this way authenticates using that same app's credentials rather than a normal registered application, since there is currently no other way to obtain the key without the Profile Downloader tool below. It isn't something Home Connect has authorized for third-party use, and the endpoints involved are undocumented and could change or be locked down without notice. If that's not something you're comfortable with, use Option B instead.
+
+### Option B: Upload Profile File
+
 1. Use the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader) to download your Appliance profiles, select "Home Assistant - Home Connect Local" as target. The downloaded ZIP-file contains each Appliance encryption Key and feature descriptions
 2. Click the button below or use "Add Integration" in Home Assistant and select "Home Connect Local".
 
     [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=homeconnect_ws)
 
-3. Upload the downloaded Profile file.
+3. Choose "Upload Profile File" and upload the downloaded Profile file.
 4. Select the Appliance you want to setup.
 5. When the initial connection to the Appliance fails, your asked to manually enter your Appliance IP-Address.
 6. Repeat from Step 2 if you want to setup more than one Appliances.
@@ -53,7 +73,9 @@ To use this integration, you must first create a Home Connect account and connec
 
 ### Configuration parameters
 
-- Profile file: The Profile File you've downloaded with the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader)
+- Region: The region your Home Connect account is registered in (Option A only)
+- Redirect URL: The URL from your browser's address bar after signing in and being redirected (Option A only)
+- Profile file: The Profile File you've downloaded with the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader) (Option B only)
 - Select Appliance: Select the Appliance you want to setup
 - Host / IP-Address: Manually enter your Appliance Hostname or IP-Address if auto discovery did not work
 
