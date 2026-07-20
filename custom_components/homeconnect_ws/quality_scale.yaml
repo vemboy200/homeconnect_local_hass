@@ -122,5 +122,14 @@ rules:
 
   # Platinum
   async-dependency: done
-  inject-websession: todo
+  inject-websession:
+    status: done
+    comment: |
+      HomeAppliance now receives Home Assistant's shared clientsession
+      (async_get_clientsession) instead of letting home_disconnect create its
+      own aiohttp.ClientSession for the local websocket connection.
+      home_disconnect already tracked an _owned_session flag before this
+      change and only closes a session it created itself, so injecting HA's
+      shared session here doesn't risk it being closed out from under other
+      integrations.
   strict-typing: todo

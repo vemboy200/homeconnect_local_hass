@@ -18,6 +18,7 @@ from home_disconnect import (
 )
 from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE_ID, CONF_HOST
 from homeassistant.exceptions import ConfigEntryError
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
@@ -73,6 +74,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator):
             app_id=config_entry.data[CONF_DEVICE_ID],
             psk64=config_entry.data[CONF_PSK],
             iv64=config_entry.data.get(CONF_AES_IV, None),
+            session=async_get_clientsession(hass),
             connection_callback=self._connection_state_callback,
         )
         self.disconnect_time = time.time()
