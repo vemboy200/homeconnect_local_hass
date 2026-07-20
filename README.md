@@ -159,6 +159,19 @@ actions:
       entity_id: switch.dishwasher_allow_cloud_connection
 mode: single
 ```
+
+## Exporting an Appliance Profile
+
+Once an appliance is set up, you can export its profile from Settings → Devices & Services → Home Connect Local → the appliance's device page → gear/settings icon:
+
+- **Export Safe Profile**: the two XML files (renamed to `{brand}_{model}`, no encryption key or other sensitive data), delivered as a download link in a notification. This is what you want for [Requesting a New Feature](#requesting-a-new-feature).
+- **Export Full Profile**: the same two XML files plus the local encryption key, in the same shape as the Profile Downloader ZIP (re-importable via Upload Profile File). Meant for transferring an appliance between Home Assistant systems, not something most users need. Written to a `homeconnect_ws_export` folder in your Home Assistant config directory rather than offered as a download link, since a link to a file containing your encryption key would be a real (if brief) exposure window - retrieve it via Samba, SSH, or another file-access method.
+
+> [!NOTE]
+> Two things noticed so far that aren't specific to this integration:
+> - The Safe export's download link didn't work in the Arc desktop browser (opened fine on mobile Safari) - if a link doesn't work, try a different browser.
+> - Home Assistant's File Editor add-on's own download button returned a 401 error trying to retrieve the Full export file. A Samba share worked without issue. If File Editor's download button fails for you too, use Samba (or SSH) instead.
+
 ## Data Updates
 
 This integration is almost entirely push based, receiving updates from the appliance the moment something happens to it. Post setup, this integration can work completely offline, unlike the Home Connect app.
@@ -303,7 +316,7 @@ Since this integration's functions have to be reverse engineered (see [Known Lim
 
 ### Basic method
 
-1. Go to Settings → Devices & Services → Home Connect Local, open the appliance's device page, click the gear/settings icon, and choose **Export Safe Profile**. This downloads a ZIP containing a `*_DeviceDescription.xml` and `*_FeatureMapping.xml`, already renamed to `{brand}_{model}` instead of your appliance's MAC address, with no encryption key or other sensitive data included - safe to share as-is.
+1. Use the [Export Safe Profile](#exporting-an-appliance-profile) option to get a ZIP with the two XML files, already renamed and with no sensitive data - safe to share as-is.
    - Alternatively, use the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader) tool and manually remove the `.json` file (contains your encryption key - don't share it) and the MAC address segment from the two XML filenames.
 2. Download the [Diagnostics](https://www.home-assistant.io/docs/configuration/troubleshooting/#download-diagnostics) of the appliance's Config Entry.
 3. [Open a feature request](https://github.com/vemboy200/homeconnect_local_hass/issues/new?template=feature_request.yml) describing, in plain terms, the feature/entity you'd like added (e.g. "I want a sensor for my appliance's door state"), and attach the two XML files from the ZIP along with the Diagnostics.
