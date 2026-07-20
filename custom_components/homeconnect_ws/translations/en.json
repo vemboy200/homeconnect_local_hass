@@ -55,6 +55,17 @@
       "oauth_fetch_failed": "Could not fetch appliance profiles from Home Connect: {error}"
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Export Appliance Profile",
+        "description": "Export this appliance's profile as a downloadable ZIP file.",
+        "data": {
+          "mode": "Export type"
+        }
+      }
+    }
+  },
   "entity": {
     "switch": {
       "switch_allow_backend_connection": {

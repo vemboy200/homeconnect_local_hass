@@ -24,7 +24,7 @@ from home_disconnect import (
     parse_device_description,
 )
 from homeassistant.components.file_upload import process_uploaded_file
-from homeassistant.config_entries import SOURCE_IGNORE, ConfigFlow
+from homeassistant.config_entries import SOURCE_IGNORE, ConfigFlow, OptionsFlow
 from homeassistant.const import (
     CONF_DESCRIPTION,
     CONF_DEVICE,
@@ -34,6 +34,7 @@ from homeassistant.const import (
     CONF_NAME,
 )
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.network import get_url
 from homeassistant.helpers.selector import (
     FileSelector,
     FileSelectorConfig,
@@ -44,6 +45,7 @@ from homeassistant.helpers.selector import (
 
 from . import HC_KEY, HCConfig
 from .const import CONF_AES_IV, CONF_FILE, CONF_MANUAL_HOST, CONF_PSK, CONF_REGION, DOMAIN
+from .export_profile import filename_stub
 from .hc_cloud_api import REGION_ASSET_BASE, HCCloudApiError, async_fetch_appliances
 from .hc_legacy_oauth import HCLegacyOAuthError
 from .hc_legacy_oauth import async_exchange_code_for_token as legacy_async_exchange_code_for_token
@@ -129,6 +131,11 @@ def process_json_file(config_path: Path) -> dict[str, dict[str, dict | DeviceDes
 
 class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
     """HomeConnect Config flow."""
+
+    @staticmethod
+    def async_get_options_flow(config_entry: HCConfigEntry) -> HCOptionsFlowHandler:
+        """Get the options flow for this handler."""
+        return HCOptionsFlowHandler(config_entry)
 
     def __init__(self) -> None:
         super().__init__()
@@ -455,3 +462,52 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
             return await self.async_step_upload()
         except KeyError:
             return self.async_abort(reason="invalid_discovery_info")
+
+
+class HCOptionsFlowHandler(OptionsFlow):
+    """Options flow: export the appliance's profile as a downloadable ZIP."""
+
+    def __init__(self, config_entry: HCConfigEntry) -> None:
+        """Initialize options flow."""
+        # Do not assign to self.config_entry - it's a read-only property in HA.
+        self._config_entry = config_entry
+
+    async def _notify_and_close(self, message: str) -> ConfigFlowResult:
+        await self.hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": "Home Connect Local export",
+                "message": message,
+                "notification_id": f"homeconnect_ws_export_{self._config_entry.entry_id}",
+            },
+        )
+        return self.async_create_entry(title="", data=self._config_entry.options)
+
+    async def _handle_export(self, mode: str) -> ConfigFlowResult:
+        base_url = get_url(self.hass)
+        path = f"/api/{DOMAIN}/export/{self._config_entry.entry_id}?mode={mode}"
+        stub = filename_stub(self._config_entry)
+        message = (
+            f"Open this link in your browser to download `{stub}_profile_{mode}.zip`:\n\n"
+            f"{base_url.rstrip('/')}{path}"
+        )
+        return await self._notify_and_close(message)
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Show the export menu."""
+        if user_input is not None:
+            return await self._handle_export(user_input["mode"])
+        schema = vol.Schema(
+            {
+                vol.Required("mode", default="full"): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            SelectOptionDict(value="full", label="Export Full Profile"),
+                            SelectOptionDict(value="safe", label="Export Safe Profile"),
+                        ]
+                    )
+                ),
+            }
+        )
+        return self.async_show_form(step_id="init", data_schema=schema)
