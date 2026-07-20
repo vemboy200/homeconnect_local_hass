@@ -18,6 +18,20 @@
           "region": "Region"
         }
       },
+      "legacy_oauth_region": {
+        "title": "[DIAGNOSTIC] Home Connect Account Region",
+        "description": "Select the region your Home Connect account is registered in.",
+        "data": {
+          "region": "Region"
+        }
+      },
+      "legacy_oauth_paste": {
+        "title": "[DIAGNOSTIC] Legacy Sign-In",
+        "description": "Open this URL in your browser and sign in: {authorize_url}\n\nThe page will fail to load afterward (that's expected) - copy the full URL from your browser's address bar and paste it below.",
+        "data": {
+          "legacy_redirect_url": "Redirect URL"
+        }
+      },
       "upload": {
         "title": "Add new Home Connect Appliances",
         "description": "Upload your Profile file",

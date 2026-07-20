@@ -45,6 +45,14 @@ from homeassistant.helpers.selector import (
 from . import HC_KEY, HCConfig
 from .const import CONF_AES_IV, CONF_FILE, CONF_MANUAL_HOST, CONF_PSK, CONF_REGION, DOMAIN
 from .hc_cloud_api import REGION_ASSET_BASE, HCCloudApiError, async_fetch_appliances
+from .hc_legacy_oauth import HCLegacyOAuthError
+from .hc_legacy_oauth import async_exchange_code_for_token as legacy_async_exchange_code_for_token
+from .hc_legacy_oauth import build_authorize_url as legacy_build_authorize_url
+from .hc_legacy_oauth import extract_code_from_redirect as legacy_extract_code_from_redirect
+from .hc_legacy_oauth import generate_code_verifier as legacy_generate_code_verifier
+from .hc_legacy_oauth import generate_state as legacy_generate_state
+
+CONF_LEGACY_REDIRECT_URL = "legacy_redirect_url"
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -130,6 +138,8 @@ class HomeConnectConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, 
         self.reauth_entry: HCConfigEntry = None
         self.global_config: HCConfig | None = None
         self._region: str = "EU"
+        self._legacy_code_verifier: str | None = None
+        self._legacy_state: str | None = None
 
     @property
     def logger(self) -> logging.Logger:
@@ -181,7 +191,10 @@ class HomeConnectConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, 
         """Handle a flow initialized by the user."""
         _LOGGER.debug("Config flow initialized by user")
         self.global_config = self.hass.data.get(HC_KEY)
-        return self.async_show_menu(step_id="user", menu_options=["region", "upload"])
+        menu_options = ["region", "upload"]
+        if self.global_config and self.global_config.legacy_oauth:
+            menu_options.insert(1, "legacy_oauth_region")
+        return self.async_show_menu(step_id="user", menu_options=menu_options)
 
     async def async_step_region(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Ask which Home Connect account region to use before starting sign-in."""
@@ -189,6 +202,48 @@ class HomeConnectConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, 
             self._region = user_input[CONF_REGION]
             return await self.async_step_pick_implementation()
         return self.async_show_form(step_id="region", data_schema=CONFIG_REGION_SCHEMA)
+
+    async def async_step_legacy_oauth_region(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Diagnostic-only: ask region, then show the borrowed-client authorize URL."""
+        if user_input is not None:
+            self._region = user_input[CONF_REGION]
+            self._legacy_code_verifier = legacy_generate_code_verifier()
+            self._legacy_state = legacy_generate_state()
+            return await self.async_step_legacy_oauth_paste()
+        return self.async_show_form(step_id="legacy_oauth_region", data_schema=CONFIG_REGION_SCHEMA)
+
+    async def async_step_legacy_oauth_paste(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Diagnostic-only: show the authorize URL, then accept the pasted-back redirect."""
+        if user_input is not None:
+            session = async_get_clientsession(self.hass)
+            try:
+                code = legacy_extract_code_from_redirect(
+                    user_input[CONF_LEGACY_REDIRECT_URL], self._legacy_state
+                )
+                access_token = await legacy_async_exchange_code_for_token(
+                    session, self._region, code, self._legacy_code_verifier
+                )
+                self.appliances = await async_fetch_appliances(session, access_token, self._region)
+            except (HCLegacyOAuthError, HCCloudApiError) as err:
+                _LOGGER.debug("Legacy OAuth diagnostic flow failed: %s", err)
+                return self.async_abort(
+                    reason="oauth_fetch_failed", description_placeholders={"error": str(err)}
+                )
+            return await self.async_step_device_select()
+
+        authorize_url = legacy_build_authorize_url(
+            self._region, self._legacy_code_verifier, self._legacy_state
+        )
+        schema = vol.Schema({vol.Required(CONF_LEGACY_REDIRECT_URL): cv.string})
+        return self.async_show_form(
+            step_id="legacy_oauth_paste",
+            data_schema=schema,
+            description_placeholders={"authorize_url": authorize_url},
+        )
 
     async def async_oauth_create_entry(self, data: dict) -> ConfigFlowResult:
         """Fetch appliance profiles via the cloud API instead of creating an entry directly."""
