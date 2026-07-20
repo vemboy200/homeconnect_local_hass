@@ -23,7 +23,7 @@
   "requirements": [
     "home-disconnect==1.5.5b0"
   ],
-  "version": "1.6.0b5",
+  "version": "1.6.0rc0",
   "zeroconf": [
     "_homeconnect._tcp.local."
   ]
