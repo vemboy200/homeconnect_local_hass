@@ -9,6 +9,8 @@ import re
 from asyncio import Event, wait_for
 from binascii import Error as BinasciiError
 from copy import deepcopy
+from datetime import timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from zipfile import ZipFile
 
@@ -24,6 +26,7 @@ from home_disconnect import (
     parse_device_description,
 )
 from homeassistant.components.file_upload import process_uploaded_file
+from homeassistant.components.http.auth import async_sign_path
 from homeassistant.config_entries import SOURCE_IGNORE, ConfigFlow, OptionsFlow
 from homeassistant.const import (
     CONF_DESCRIPTION,
@@ -45,7 +48,7 @@ from homeassistant.helpers.selector import (
 
 from . import HC_KEY, HCConfig
 from .const import CONF_AES_IV, CONF_FILE, CONF_MANUAL_HOST, CONF_PSK, CONF_REGION, DOMAIN
-from .export_profile import filename_stub
+from .export_profile import build_profile_zip, filename_stub
 from .hc_cloud_api import REGION_ASSET_BASE, HCCloudApiError, async_fetch_appliances
 from .hc_legacy_oauth import HCLegacyOAuthError
 from .hc_legacy_oauth import async_exchange_code_for_token as legacy_async_exchange_code_for_token
@@ -57,8 +60,6 @@ from .hc_legacy_oauth import generate_state as legacy_generate_state
 CONF_LEGACY_REDIRECT_URL = "legacy_redirect_url"
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from homeassistant.config_entries import ConfigFlowResult
     from homeassistant.data_entry_flow import FlowResult
     from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
@@ -484,27 +485,61 @@ class HCOptionsFlowHandler(OptionsFlow):
         )
         return self.async_create_entry(title="", data=self._config_entry.options)
 
-    async def _handle_export(self, mode: str) -> ConfigFlowResult:
+    async def _handle_export_safe(self) -> ConfigFlowResult:
+        # Safe has no sensitive content (no key, no MAC/serial - just the
+        # feature schema, meant to be shared), so a signed link is fine even
+        # though the link itself briefly appears in the notification and in
+        # HA's own access log.
         base_url = get_url(self.hass)
-        path = f"/api/{DOMAIN}/export/{self._config_entry.entry_id}?mode={mode}"
+        path = f"/api/{DOMAIN}/export/{self._config_entry.entry_id}"
+        signed_path = async_sign_path(self.hass, path, timedelta(minutes=5))
         stub = filename_stub(self._config_entry)
         message = (
-            f"Open this link in your browser to download `{stub}_profile_{mode}.zip`:\n\n"
-            f"{base_url.rstrip('/')}{path}"
+            f"Open this link in your browser to download `{stub}_profile_safe.zip`"
+            f" (valid for 5 minutes):\n\n{base_url.rstrip('/')}{signed_path}"
         )
         return await self._notify_and_close(message)
+
+    async def _handle_export_full(self) -> ConfigFlowResult:
+        # Full contains the appliance's real encryption key. Deliberately NOT
+        # served over HTTP even via a signed link - a link is "possession
+        # equals access" and would sit in the notification history and in
+        # HA's own access log for its whole validity window. Writing to the
+        # config directory instead requires actual filesystem access
+        # (Samba/SSH/File Editor) to retrieve, a real access-control boundary
+        # rather than a leaked-link problem.
+        stub = filename_stub(self._config_entry)
+        filename = f"{stub}_profile_full.zip"
+        folder = Path(self.hass.config.path("homeconnect_ws_export"))
+
+        def _write() -> None:
+            folder.mkdir(exist_ok=True)
+            zip_bytes = build_profile_zip(self._config_entry, True)  # noqa: FBT003
+            (folder / filename).write_bytes(zip_bytes)
+
+        try:
+            await self.hass.async_add_executor_job(_write)
+        except OSError as err:
+            return await self._notify_and_close(f"Could not write export file: {err}")
+        return await self._notify_and_close(
+            f"Wrote `{filename}` to your Home Assistant config directory, under"
+            f" `homeconnect_ws_export/`. Retrieve it via Samba, SSH, or the File"
+            f" Editor add-on."
+        )
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Show the export menu."""
         if user_input is not None:
-            return await self._handle_export(user_input["mode"])
+            if user_input["mode"] == "full":
+                return await self._handle_export_full()
+            return await self._handle_export_safe()
         schema = vol.Schema(
             {
-                vol.Required("mode", default="full"): SelectSelector(
+                vol.Required("mode", default="safe"): SelectSelector(
                     SelectSelectorConfig(
                         options=[
-                            SelectOptionDict(value="full", label="Export Full Profile"),
                             SelectOptionDict(value="safe", label="Export Safe Profile"),
+                            SelectOptionDict(value="full", label="Export Full Profile"),
                         ]
                     )
                 ),

@@ -31,11 +31,11 @@ async def test_export_view_returns_zip(
     hass.http.register_view(HCExportView())
     client = await hass_client()
 
-    resp = await client.get(f"/api/homeconnect_ws/export/{entry.entry_id}?mode=full")
+    resp = await client.get(f"/api/homeconnect_ws/export/{entry.entry_id}")
 
     assert resp.status == 200
     assert resp.content_type == "application/zip"
-    assert "fake_brand_Fake_vib_profile_full.zip" in resp.headers["Content-Disposition"]
+    assert "fake_brand_Fake_vib_profile_safe.zip" in resp.headers["Content-Disposition"]
 
 
 async def test_export_view_unknown_entry_returns_404(
@@ -47,6 +47,6 @@ async def test_export_view_unknown_entry_returns_404(
     hass.http.register_view(HCExportView())
     client = await hass_client()
 
-    resp = await client.get("/api/homeconnect_ws/export/does-not-exist?mode=full")
+    resp = await client.get("/api/homeconnect_ws/export/does-not-exist")
 
     assert resp.status == 404
