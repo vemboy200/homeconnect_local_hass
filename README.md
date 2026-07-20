@@ -41,14 +41,14 @@ There are two ways to add an appliance. Signing in is quicker and doesn't requir
     [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=homeconnect_ws)
 
 2. Choose "Sign in with Home Connect" and select the region your Home Connect account is registered in.
-3. Open the shown URL in a browser and sign in with your Home Connect account. The page will fail to load afterward — that's expected.
+3. Open the shown URL in a browser and sign in with your Home Connect account. The page will fail to load afterward. That's expected.
 4. Copy the full URL from your browser's address bar and paste it back into Home Assistant.
 5. Select the Appliance you want to setup (skipped automatically if it's the only one left to add).
 6. When the initial connection to the Appliance fails, you're asked to manually enter your Appliance IP-Address.
 7. Repeat from Step 1 if you want to setup more than one Appliance.
 
 > [!NOTE]
-> Home Connect's developer program doesn't grant third-party applications the permissions needed to retrieve an appliance's local encryption key — only Home Connect's own mobile app has them. Signing in this way authenticates using that same app's credentials rather than a normal registered application, since there is currently no other way to obtain the key without the Profile Downloader tool below. It isn't something Home Connect has authorized for third-party use, and the endpoints involved are undocumented and could change or be locked down without notice. If that's not something you're comfortable with, use Option B instead.
+> Home Connect's developer program doesn't grant third-party applications the permissions needed to retrieve an appliance's local encryption key, only Home Connect's own mobile app has them. Signing in this way authenticates using that same app's credentials rather than a normal registered application, since there is currently no other way to obtain the key without the Profile Downloader tool below. It isn't something Home Connect has authorized for third-party use, and the endpoints involved are undocumented and could change or be locked down without notice. If that's not something you're comfortable with, use Option B instead.
 
 ### Option B: Upload Profile File
 
@@ -317,7 +317,7 @@ If you're comfortable digging a bit deeper, you can help pinpoint exactly which 
 1. Follow steps 1-4 of the Basic method above.
 2. [Enable debug logging](#enabling-debug-logging) for the integration.
 3. Trigger the feature on the appliance itself (e.g. open the door, change a setting, start a program) and watch the debug log for the corresponding update message.
-4. Note the UID logged for that update. It will be in **decimal**, while the UIDs inside the `*_DeviceDescription.xml`/`*_FeatureMapping.xml` files are in **hexadecimal** — convert between the two to match them up. For example, on a Thermador oven, the live oven temperature in fahrenheit logs as UID `5959` (decimal), which is `1747` in hex, matching `Cooking.Oven.Status.Cavity.340.CurrentTemperatureFahrenheit` in the FeatureMapping file.
+4. Note the UID logged for that update. It will be in **decimal**, while the UIDs inside the `*_DeviceDescription.xml`/`*_FeatureMapping.xml` files are in **hexadecimal**. Convert between the two to match them up. For example, on a Thermador oven, the live oven temperature in fahrenheit logs as UID `5959` (decimal), which is `1747` in hex, matching `Cooking.Oven.Status.Cavity.340.CurrentTemperatureFahrenheit` in the FeatureMapping file.
 5. Include that UID/feature name (and what it corresponds to) in your issue, alongside everything from the Basic method, so developers know exactly which feature to wire up.
 
 ## Trouble Shooting
