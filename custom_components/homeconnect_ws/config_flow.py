@@ -80,12 +80,14 @@ CONFIG_HOST_SCHEMA = vol.Schema(
         vol.Required(CONF_HOST): cv.string,
     }
 )
+REGION_LABELS = {"EU": "Europe", "NA": "North America", "CN": "China"}
 CONFIG_REGION_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_REGION, default="EU"): SelectSelector(
             SelectSelectorConfig(
                 options=[
-                    SelectOptionDict(value=region, label=region) for region in REGION_ASSET_BASE
+                    SelectOptionDict(value=region, label=REGION_LABELS[region])
+                    for region in REGION_ASSET_BASE
                 ]
             )
         ),
