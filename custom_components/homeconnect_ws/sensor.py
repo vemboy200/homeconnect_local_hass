@@ -171,6 +171,17 @@ class HCWiFI(HCEntity, SensorEntity):
         return "mdi:wifi-strength-1-alert"
 
     async def async_update(self) -> None:
+        if not self._runtime_data.appliance.session.connected:
+            # Entities can be added (and the immediate poll below fired) before
+            # the appliance's first handshake completes - test-before-setup is
+            # exempt for this integration precisely because setup doesn't block
+            # on a successful connection. Polling here anyway crashed with a
+            # TypeError deep in home_disconnect's message-ID counter, which
+            # only gets initialized once the handshake actually finishes. Same
+            # guard covers a poll that happens to land during a later
+            # disconnect/reconnect window, not just the initial add.
+            _LOGGER.debug("WiFi update skipped: not connected")
+            return
         try:
             network_info = await self._runtime_data.appliance.get_network_config()
             if network_info and isinstance(network_info, list) and "rssi" in network_info[0]:
