@@ -54,6 +54,9 @@ async def test_reauth(
     mock_config.add_to_hass(hass)
 
     result = await mock_config.start_reauth_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "upload"}
+    )
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "upload"
 
@@ -93,6 +96,9 @@ async def test_reauth_appliance_not_in_profile(
     mock_config.add_to_hass(hass)
     result = await mock_config.start_reauth_flow(hass)
     result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "upload"}
+    )
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         user_input={
             CONF_FILE: UPLOADED_FILE,
@@ -123,6 +129,9 @@ async def test_reauth_auth_failed_ssl_error(
     appliance._connect.side_effect = ClientConnectorSSLError(MagicMock(), MagicMock())
 
     result = await mock_config.start_reauth_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "upload"}
+    )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         user_input={
@@ -157,6 +166,9 @@ async def test_reauth_auth_failed_binascii_error(
 
     result = await mock_config.start_reauth_flow(hass)
     result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "upload"}
+    )
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         user_input={
             CONF_FILE: UPLOADED_FILE,
@@ -189,6 +201,9 @@ async def test_reauth_connection_failed_timeout(
     appliance._connect.side_effect = TimeoutError()
 
     result = await mock_config.start_reauth_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "upload"}
+    )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         user_input={
@@ -226,6 +241,9 @@ async def test_reauth_connection_failed_connection_error(
 
     result = await mock_config.start_reauth_flow(hass)
     result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "upload"}
+    )
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         user_input={
             CONF_FILE: UPLOADED_FILE,
@@ -258,6 +276,9 @@ async def test_reauth_invalid_config_parser(
 
     result = await mock_config.start_reauth_flow(hass)
     result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "upload"}
+    )
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         user_input={
             CONF_FILE: UPLOADED_FILE,
@@ -286,6 +307,9 @@ async def test_reauth_invalid_profile_no_info(
 
     result = await mock_config.start_reauth_flow(hass)
     result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "upload"}
+    )
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         user_input={
             CONF_FILE: UPLOADED_FILE,
@@ -313,6 +337,9 @@ async def test_reauth_invalid_profile_info(
     mock_config.add_to_hass(hass)
 
     result = await mock_config.start_reauth_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "upload"}
+    )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         user_input={

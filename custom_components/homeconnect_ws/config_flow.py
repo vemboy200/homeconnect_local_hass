@@ -23,7 +23,7 @@ from home_disconnect import (
     parse_device_description,
 )
 from homeassistant.components.file_upload import process_uploaded_file
-from homeassistant.config_entries import SOURCE_IGNORE, ConfigFlow
+from homeassistant.config_entries import SOURCE_IGNORE
 from homeassistant.const import (
     CONF_DESCRIPTION,
     CONF_DEVICE,
@@ -32,6 +32,8 @@ from homeassistant.const import (
     CONF_MODE,
     CONF_NAME,
 )
+from homeassistant.helpers import config_entry_oauth2_flow
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     FileSelector,
     FileSelectorConfig,
@@ -41,7 +43,8 @@ from homeassistant.helpers.selector import (
 )
 
 from . import HC_KEY, HCConfig
-from .const import CONF_AES_IV, CONF_FILE, CONF_MANUAL_HOST, CONF_PSK, DOMAIN
+from .const import CONF_AES_IV, CONF_FILE, CONF_MANUAL_HOST, CONF_PSK, CONF_REGION, DOMAIN
+from .hc_cloud_api import REGION_ASSET_BASE, HCCloudApiError, async_fetch_appliances
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -68,6 +71,25 @@ CONFIG_HOST_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): cv.string,
     }
+)
+CONFIG_REGION_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_REGION, default="EU"): SelectSelector(
+            SelectSelectorConfig(
+                options=[
+                    SelectOptionDict(value=region, label=region) for region in REGION_ASSET_BASE
+                ]
+            )
+        ),
+    }
+)
+
+# Same scope PR #405 verified working against the (undocumented) profile-fetch
+# endpoints - IdentifyAppliance alone isn't enough for paired-appliances/
+# encryption-information/iddf, which aren't part of the public documented API.
+OAUTH_SCOPE = (
+    "Control DeleteAppliance IdentifyAppliance Images Monitor "
+    "ReadAccount ReadOrigApi Settings WriteAppliance WriteOrigApi"
 )
 
 
@@ -103,8 +125,10 @@ def process_json_file(config_path: Path) -> dict[str, dict[str, dict | DeviceDes
     return {"config_entry": entry_data["data"]["entry_data"]}
 
 
-class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
+class HomeConnectConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, domain=DOMAIN):
     """HomeConnect Config flow."""
+
+    DOMAIN = DOMAIN
 
     def __init__(self) -> None:
         super().__init__()
@@ -113,6 +137,17 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         self.appliances: dict[str, dict[str, dict | DeviceDescription]] = {}
         self.reauth_entry: HCConfigEntry = None
         self.global_config: HCConfig | None = None
+        self._region: str = "EU"
+
+    @property
+    def logger(self) -> logging.Logger:
+        """Return logger."""
+        return _LOGGER
+
+    @property
+    def extra_authorize_data(self) -> dict:
+        """Extra data appended to the authorize url."""
+        return {"scope": OAUTH_SCOPE}
 
     def _process_profile_file(
         self, uploaded_file_id: str
@@ -159,7 +194,27 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         """Handle a flow initialized by the user."""
         _LOGGER.debug("Config flow initialized by user")
         self.global_config = self.hass.data.get(HC_KEY)
-        return await self.async_step_upload()
+        return self.async_show_menu(step_id="user", menu_options=["region", "upload"])
+
+    async def async_step_region(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Ask which Home Connect account region to use before starting sign-in."""
+        if user_input is not None:
+            self._region = user_input[CONF_REGION]
+            return await self.async_step_pick_implementation()
+        return self.async_show_form(step_id="region", data_schema=CONFIG_REGION_SCHEMA)
+
+    async def async_oauth_create_entry(self, data: dict) -> ConfigFlowResult:
+        """Fetch appliance profiles via the cloud API instead of creating an entry directly."""
+        access_token = data["token"]["access_token"]
+        session = async_get_clientsession(self.hass)
+        try:
+            self.appliances = await async_fetch_appliances(session, access_token, self._region)
+        except HCCloudApiError as err:
+            _LOGGER.debug("Fetching appliance profiles failed: %s", err)
+            return self.async_abort(
+                reason="oauth_fetch_failed", description_placeholders={"error": str(err)}
+            )
+        return await self.async_step_device_select()
 
     async def async_step_upload(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle profile file upload."""
@@ -333,7 +388,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         _LOGGER.debug("Reauth flow initialized")
         self.reauth_entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
         self.data[CONF_HOST] = self.reauth_entry.data[CONF_HOST]
-        return await self.async_step_upload()
+        return await self.async_step_user()
 
     async def async_step_set_data(
         self, user_input: dict[str, Any] | None = None
