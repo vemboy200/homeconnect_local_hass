@@ -135,7 +135,14 @@ class HCActiveProgram(HCSensor):
 class HCWiFI(HCEntity, SensorEntity):
     """WiFi signal Sensor Entity, polled since the appliance never pushes it."""
 
-    _attr_should_poll = True
+    @property
+    def should_poll(self) -> bool:
+        # HCEntity inherits from CoordinatorEntity, whose should_poll is a hardcoded
+        # False and takes priority over Entity's (which reads _attr_should_poll) in
+        # the MRO - setting _attr_should_poll here alone is silently ignored. This
+        # explicit override is required for the SCAN_INTERVAL polling below to
+        # actually run at all.
+        return True
 
     def __init__(
         self,
