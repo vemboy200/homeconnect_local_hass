@@ -84,13 +84,12 @@ CONFIG_REGION_SCHEMA = vol.Schema(
     }
 )
 
-# Same scope PR #405 verified working against the (undocumented) profile-fetch
-# endpoints - IdentifyAppliance alone isn't enough for paired-appliances/
-# encryption-information/iddf, which aren't part of the public documented API.
-OAUTH_SCOPE = (
-    "Control DeleteAppliance IdentifyAppliance Images Monitor "
-    "ReadAccount ReadOrigApi Settings WriteAppliance WriteOrigApi"
-)
+# PR #405's scope string (which includes ReadOrigApi/WriteOrigApi/ReadAccount/
+# DeleteAppliance/WriteAppliance) only works because it reuses the profile
+# downloader's borrowed client_id, which BSH has specially authorized for those
+# undocumented scopes. A normal self-registered app gets invalid_scope for them
+# - stick to the documented public scopes only.
+OAUTH_SCOPE = "IdentifyAppliance Monitor Control Images Settings"
 
 
 def process_zip_file(config_path: Path) -> dict[str, dict[str, dict | DeviceDescription]]:
