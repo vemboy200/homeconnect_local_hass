@@ -5,7 +5,7 @@ authors = [{ name = "chris-mc1" }, { name = "vemboy200" }]
 description = "Home Connect Local for Homeassistant"
 readme = "README.md"
 requires-python = ">=3.14.2"
-dependencies = ["home-disconnect==1.5.4"]
+dependencies = ["home-disconnect==1.5.5b0"]
 
 [project.urls]
 Homepage = "https://github.com/vemboy200/homeconnect_local_hass"
