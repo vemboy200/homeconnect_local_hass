@@ -191,10 +191,12 @@ class HomeConnectConfigFlow(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, 
         """Handle a flow initialized by the user."""
         _LOGGER.debug("Config flow initialized by user")
         self.global_config = self.hass.data.get(HC_KEY)
-        menu_options = ["region", "upload"]
-        if self.global_config and self.global_config.legacy_oauth:
-            menu_options.insert(1, "legacy_oauth_region")
-        return self.async_show_menu(step_id="user", menu_options=menu_options)
+        # legacy_oauth_region is unconditionally visible on this beta branch -
+        # temporary diagnostic code, deleted before this reaches main. No
+        # config flag needed since the branch itself is already not-for-general-use.
+        return self.async_show_menu(
+            step_id="user", menu_options=["region", "legacy_oauth_region", "upload"]
+        )
 
     async def async_step_region(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Ask which Home Connect account region to use before starting sign-in."""

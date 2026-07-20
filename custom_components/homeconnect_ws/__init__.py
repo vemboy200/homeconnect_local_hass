@@ -19,7 +19,6 @@ from homeassistant.helpers.device_registry import (
 from homeassistant.util.hass_dict import HassKey
 
 from .const import (
-    CONF_DEV_LEGACY_OAUTH,
     CONF_DEV_OVERRIDE_HOST,
     CONF_DEV_OVERRIDE_PSK,
     CONF_DEV_SETUP_FROM_DUMP,
@@ -45,7 +44,6 @@ CONFIG_SCHEMA = vol.Schema(
             vol.Optional(CONF_DEV_SETUP_FROM_DUMP, default=False): vol.Boolean(),
             vol.Optional(CONF_DEV_OVERRIDE_HOST): str,
             vol.Optional(CONF_DEV_OVERRIDE_PSK): str,
-            vol.Optional(CONF_DEV_LEGACY_OAUTH, default=False): vol.Boolean(),
         }
     },
     extra=vol.ALLOW_EXTRA,
@@ -69,7 +67,6 @@ class HCConfig:
     setup_from_dump: bool = False
     override_host: str | None = None
     override_psk: str | None = None
-    legacy_oauth: bool = False
 
 
 type HCConfigEntry = ConfigEntry[HCData]
@@ -84,7 +81,6 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         hass.data[HC_KEY].setup_from_dump = config[DOMAIN].get(CONF_DEV_SETUP_FROM_DUMP, False)
         hass.data[HC_KEY].override_host = config[DOMAIN].get(CONF_DEV_OVERRIDE_HOST)
         hass.data[HC_KEY].override_psk = config[DOMAIN].get(CONF_DEV_OVERRIDE_PSK)
-        hass.data[HC_KEY].legacy_oauth = config[DOMAIN].get(CONF_DEV_LEGACY_OAUTH, False)
 
     def _get_entity_or_raise(appliance: HomeAppliance, key: str, error_key: str) -> Entity:
         entity = appliance.entities.get(key)

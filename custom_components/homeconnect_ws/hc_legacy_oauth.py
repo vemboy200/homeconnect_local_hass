@@ -8,8 +8,9 @@ self-registered application_credentials app, or only for BSH's own
 first-party client (which the bruestel/homeconnect-profile-downloader tool
 and PR chris-mc1/homeconnect_local_hass#405 borrow the credentials of)?
 
-Only reachable via the legacy_oauth_enabled dev config flag - not linked from
-the normal setup menu. Delete this once that question is answered.
+Unconditionally visible on this beta branch (simplified-setup) so it doesn't
+require editing configuration.yaml just to test - deleted before this reaches
+main or a real release. Delete this once the question above is answered.
 """
 
 from __future__ import annotations
