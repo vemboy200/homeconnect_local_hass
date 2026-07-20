@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
 
+from custom_components.homeconnect_ws import HCData
+from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitions import (
+    HCSensorEntityDescription,
+)
+from custom_components.homeconnect_ws.sensor import HCWiFI
 from homeassistant.components.sensor import ATTR_OPTIONS
 from homeassistant.const import ATTR_FRIENDLY_NAME
 
@@ -145,3 +151,31 @@ async def test_update_active_program(
 
     state = hass.states.get(entity_id)
     assert state.state == "Named Favorite"
+
+
+async def test_wifi_update_skips_when_not_connected() -> None:
+    """
+    WiFi polling must not attempt a request before the appliance has connected.
+
+    Entities can be added (and HCWiFI's immediate poll-on-add fired) before the
+    appliance's first handshake completes, since setup doesn't block on a
+    successful connection. Polling anyway used to crash deep in
+    home_disconnect's message-ID counter, which is only initialized once the
+    handshake finishes.
+    """
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    appliance.session.connected = False
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(),
+    )
+    entity_description = HCSensorEntityDescription(key="sensor_wifi_signal_strength")
+    entity = HCWiFI(entity_description, runtime_data)
+
+    await entity.async_update()
+
+    assert entity.native_value is None
+    appliance.get_network_config.assert_not_called()
