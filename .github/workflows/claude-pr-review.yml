@@ -1,0 +1,62 @@
+name: Claude PR Review
+
+# Runs once automatically when a PR opens (including from forks - see the
+# pull_request_target note below). To ask for a fresh look after new commits,
+# a maintainer/collaborator can comment "@claude review" instead of it
+# re-running on every push - keeps subscription usage bounded and avoids
+# spamming the PR with a new comment on every commit.
+#
+# SECURITY: pull_request_target runs with repo secrets available even for
+# fork PRs, unlike plain pull_request. That's only safe because this job
+# never checks out or executes the PR's actual code - it stays on the base
+# ref and reads the diff as inert text via `gh pr diff`/`gh pr view`. Do not
+# add a checkout of the PR head ref or run any command from the fork here.
+
+on:
+  pull_request_target:
+    types: [opened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+  id-token: write
+
+jobs:
+  review:
+    if: |
+      github.event_name == 'pull_request_target' ||
+      (
+        github.event.issue.pull_request != null &&
+        contains(github.event.comment.body, '@claude review') &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout base branch (not the PR head - see security note above)
+        uses: actions/checkout@v4
+
+      - name: Review with Claude
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+
+            You are reviewing a pull request on Home Connect Local, a Home Assistant
+            custom integration for local (no-cloud) control of Bosch/Siemens/Thermador
+            Home Connect appliances. Read the PR's diff with `gh pr diff` and its
+            metadata with `gh pr view` - do not check out or run any code from the PR.
+
+            Review for correctness, security issues, and code-quality problems. Skip
+            style nitpicks already enforced by ruff/the repo's linter. Post your
+            findings as a single PR comment via `gh pr comment`, referencing specific
+            file paths and line numbers. If nothing is worth flagging, say so briefly
+            rather than inventing minor issues.
+          claude_args: |
+            --allowedTools "Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
