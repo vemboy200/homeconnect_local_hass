@@ -123,8 +123,8 @@ class HCUpdateEntityDescription(
     command_entity: str | None = None
 
 
-class EntityDescriptions(TypedDict):
-    """Entity descriptions by type."""
+class EntityDescriptions(TypedDict, total=False):
+    """Entity descriptions by type; a "dynamic" generator fills in only the relevant keys."""
 
     button: list[HCButtonEntityDescription]
     active_program: list[HCSensorEntityDescription]

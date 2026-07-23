@@ -130,10 +130,10 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
                 msg = f"Can't connect to {self.config_entry.data[CONF_HOST]}"
                 self.logger.exception(msg)
 
-            if not self._connecting:  # type: ignore[unreachable]
+            if not self._connecting:
                 # mypy can't see that close() (a different method) may have
                 # flipped this flag while we were suspended on an await above.
-                return
+                return  # type: ignore[unreachable]
             await asyncio.sleep(retry_delay)
             retry_delay = min(retry_delay * 2, CONNECT_RETRY_MAX_DELAY)
 
