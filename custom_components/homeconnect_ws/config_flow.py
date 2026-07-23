@@ -11,7 +11,7 @@ from binascii import Error as BinasciiError
 from copy import deepcopy
 from datetime import timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from zipfile import ZipFile
 
 import homeassistant.helpers.config_validation as cv
@@ -20,7 +20,6 @@ from aiohttp import ClientConnectionError, ClientConnectorSSLError
 from home_disconnect import (
     ConnectionFailedError,
     ConnectionState,
-    DeviceDescription,
     HomeAppliance,
     ParserError,
     parse_device_description,
@@ -47,7 +46,15 @@ from homeassistant.helpers.selector import (
 )
 
 from . import HC_KEY, HCConfig
-from .const import CONF_AES_IV, CONF_FILE, CONF_MANUAL_HOST, CONF_PSK, CONF_REGION, DOMAIN
+from .const import (
+    CONF_AES_IV,
+    CONF_FILE,
+    CONF_MANUAL_HOST,
+    CONF_PSK,
+    CONF_REGION,
+    DOMAIN,
+    AppliancePayload,
+)
 from .export_profile import build_profile_zip, filename_stub
 from .hc_cloud_api import REGION_ASSET_BASE, HCCloudApiError, async_fetch_appliances
 from .hc_legacy_oauth import HCLegacyOAuthError
@@ -61,7 +68,6 @@ CONF_LEGACY_REDIRECT_URL = "legacy_redirect_url"
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigFlowResult
-    from homeassistant.data_entry_flow import FlowResult
     from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
     from . import HCConfigEntry
@@ -98,11 +104,11 @@ CONFIG_REGION_SCHEMA = vol.Schema(
 )
 
 
-def process_zip_file(config_path: Path) -> dict[str, dict[str, dict | DeviceDescription]]:
+def process_zip_file(config_path: Path) -> dict[str, AppliancePayload]:
     """Process uploaded zip file."""
     profile_file = ZipFile(config_path)
 
-    appliances = {}
+    appliances: dict[str, AppliancePayload] = {}
     re_info = re.compile(".*.json$")
     infolist = profile_file.infolist()
     for file in infolist:
@@ -114,7 +120,12 @@ def process_zip_file(config_path: Path) -> dict[str, dict[str, dict | DeviceDesc
             description_file = profile_file.open(description_file_name).read()
             feature_file = profile_file.open(feature_file_name).read()
 
-            appliance_description = parse_device_description(description_file, feature_file)
+            # home_disconnect's parse_device_description() is typed as
+            # str | TextIO, but it just forwards to xmltodict.parse(), which
+            # also accepts bytes (as returned by ZipFile.open().read() here).
+            appliance_description = parse_device_description(
+                cast("str", description_file), cast("str", feature_file)
+            )
             appliances[appliance_info["haId"]] = {
                 "info": appliance_info,
                 "description": appliance_description,
@@ -123,7 +134,7 @@ def process_zip_file(config_path: Path) -> dict[str, dict[str, dict | DeviceDesc
     return appliances
 
 
-def process_json_file(config_path: Path) -> dict[str, dict[str, dict | DeviceDescription]]:
+def process_json_file(config_path: Path) -> dict[str, AppliancePayload]:
     """Process uploaded json file."""
     with config_path.open() as file:
         entry_data = json.load(file)
@@ -140,10 +151,10 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         super().__init__()
-        self.errors = {}
-        self.data = {}
-        self.appliances: dict[str, dict[str, dict | DeviceDescription]] = {}
-        self.reauth_entry: HCConfigEntry = None
+        self.errors: dict[str, str] = {}
+        self.data: dict[str, Any] = {}
+        self.appliances: dict[str, AppliancePayload] = {}
+        self.reauth_entry: HCConfigEntry | None = None
         self.global_config: HCConfig | None = None
         self._region: str = "EU"
         self._legacy_code_verifier: str | None = None
@@ -151,7 +162,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def _process_profile_file(
         self, uploaded_file_id: str
-    ) -> dict[str, dict[str, dict | DeviceDescription]]:
+    ) -> dict[str, AppliancePayload]:
         with process_uploaded_file(self.hass, uploaded_file_id) as config_path:
             if config_path.suffix == ".zip":
                 return process_zip_file(config_path)
@@ -160,7 +171,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
             msg = "Unexpected profile file suffix: %s"
             raise ValueError(msg, config_path.name)
 
-    def _set_encryption_keys(self, appliance_info: dict) -> None:
+    def _set_encryption_keys(self, appliance_info: dict[str, Any]) -> None:
         self.data[CONF_MODE] = appliance_info["connectionType"]
         if self.data[CONF_MODE] == "TLS":
             if CONF_HOST not in self.data:
@@ -190,7 +201,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
                 self.data[CONF_AES_IV] = None
                 _LOGGER.info("PSK override")
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle a flow initialized by the user."""
         _LOGGER.debug("Config flow initialized by user")
         self.global_config = self.hass.data.get(HC_KEY)
@@ -198,7 +209,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_legacy_oauth_region(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Ask which Home Connect account region to use, then show the authorize URL."""
         if user_input is not None:
             self._region = user_input[CONF_REGION]
@@ -209,8 +220,13 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_legacy_oauth_paste(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Show the authorize URL, then accept the pasted-back redirect."""
+        # Set together, one step earlier, by async_step_legacy_oauth_region -
+        # only None if this step is somehow reached without going through it.
+        if self._legacy_code_verifier is None or self._legacy_state is None:
+            return self.async_abort(reason="oauth_fetch_failed")
+
         if user_input is not None:
             session = async_get_clientsession(self.hass)
             try:
@@ -238,7 +254,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders={"authorize_url": authorize_url},
         )
 
-    async def async_step_upload(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_upload(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle profile file upload."""
         if user_input is not None:
             _LOGGER.debug("Got Profile file")
@@ -249,7 +265,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
                 _LOGGER.debug("Found %s Appliances in Profile file", len(self.appliances))
                 if "config_entry" in self.appliances:
                     _LOGGER.debug("Setting up form config entry")
-                    self.data = self.appliances["config_entry"]
+                    self.data = cast("dict[str, Any]", self.appliances["config_entry"])
                     if self.global_config:
                         if self.global_config.override_host is not None:
                             # Dev mode host override
@@ -287,7 +303,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_device_select(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle device selection."""
         if user_input is not None:
             await self.async_set_unique_id(user_input[CONF_DEVICE])
@@ -334,7 +350,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_test_connection(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Test connection with Appliance."""
         _LOGGER.debug("Testing connection to %s Appliance", self.data[CONF_MODE])
         self.errors = {}
@@ -378,7 +394,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         _LOGGER.debug("config vaild, adding config entry")
         return await self.async_step_create_entry(self.data)
 
-    async def async_step_host(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_host(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle Host setting."""
         if user_input is not None:
             self.data[CONF_MANUAL_HOST] = True
@@ -396,7 +412,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders={CONF_HOST: self.data[CONF_HOST]},
         )
 
-    async def async_step_create_entry(self, data: dict) -> ConfigFlowResult:
+    async def async_step_create_entry(self, data: dict[str, Any]) -> ConfigFlowResult:
         """Create an config entry or update existing entry for reauth."""
         if self.reauth_entry:
             return self.async_update_reload_and_abort(
@@ -409,6 +425,8 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         """Reauth flow initialized."""
         _LOGGER.debug("Reauth flow initialized")
         self.reauth_entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+        if self.reauth_entry is None:
+            return self.async_abort(reason="reauth_entry_not_found")
         self.data[CONF_HOST] = self.reauth_entry.data[CONF_HOST]
         return await self.async_step_user()
 
@@ -434,17 +452,18 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return await self.async_step_test_connection()
 
-    async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> FlowResult:
+    async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
         try:
             _LOGGER.debug(
                 "Discovered Appliance %s @ %s",
                 discovery_info.properties["vib"],
                 discovery_info.host,
             )
-            await self.async_set_unique_id(discovery_info.properties["id"])
+            appliance_id = discovery_info.properties["id"]
+            await self.async_set_unique_id(appliance_id)
             updates = None
             config_entry = self.hass.config_entries.async_entry_for_domain_unique_id(
-                self.handler, self.unique_id
+                self.handler, appliance_id
             )
             if config_entry and not config_entry.data.get(CONF_MANUAL_HOST, False):
                 updates = {CONF_HOST: str(discovery_info.ip_address)}
@@ -527,7 +546,7 @@ class HCOptionsFlowHandler(OptionsFlow):
             f" Editor add-on."
         )
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Show the export menu."""
         if user_input is not None:
             if user_input["mode"] == "full":
