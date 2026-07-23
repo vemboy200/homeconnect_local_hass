@@ -17,7 +17,7 @@ from home_disconnect import (
     HomeAppliance,
 )
 from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE_ID, CONF_HOST
-from homeassistant.exceptions import ConfigEntryError
+from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -37,11 +37,19 @@ _LOGGER = logging.getLogger(__name__)
 CONNECT_RETRY_INITIAL_DELAY = 5  # seconds
 CONNECT_RETRY_MAX_DELAY = 60  # seconds
 
-# Appliance types that routinely cut their own WiFi when powered off between
-# cycles. Being unreachable is a normal, expected state for these, not a
-# fault, so we don't escalate connect failures past debug-level logging for
-# them (see upstream chris-mc1/homeconnect_local_hass issues #274 and #293).
-EXPECTED_OFFLINE_APPLIANCE_TYPES = frozenset({"Washer", "Dryer", "WasherDryer"})
+# Standalone washers and dryers routinely cut their own WiFi radio entirely
+# when powered off between cycles (confirmed via fork issue #7 - a clean
+# WebSocket close code 1000 followed by the device dropping off the LAN
+# entirely, not just closing the local API). Being unreachable is a normal,
+# expected state for these, not a fault: setup doesn't block on a successful
+# connection, and connect failures don't get escalated past debug-level
+# logging (see also upstream chris-mc1/homeconnect_local_hass issues #274 and
+# #293). Washer/dryer *combo* units are deliberately excluded here - the one
+# combo model checked (WNC254A0BY) stayed connected over Wi-Fi while powered
+# off instead, closer to the dishwasher pattern, so combos get the same
+# test-before-setup treatment as every other appliance type until there's
+# evidence a given combo actually needs the exemption too.
+EXPECTED_OFFLINE_APPLIANCE_TYPES = frozenset({"Washer", "Dryer"})
 
 
 class HomeConnectCoordinator(DataUpdateCoordinator[None]):
@@ -92,7 +100,32 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
         await self.appliance.close()
 
     async def _async_setup(self) -> None:
-        self.config_entry.async_create_task(self.hass, self._connect())
+        if not self._escalate_connectivity_logging:
+            # Standalone washer/dryer: connect in the background, non-blocking.
+            # Being unreachable at setup is expected for these (see
+            # EXPECTED_OFFLINE_APPLIANCE_TYPES), so we don't want a temporarily
+            # powered-off appliance to prevent its entities from being created
+            # at all.
+            self.config_entry.async_create_task(self.hass, self._connect())
+            return
+
+        self.logger.debug(
+            "Connecting to %s", self.config_entry.data[CONF_DESCRIPTION]["info"].get("vib")
+        )
+        try:
+            await self.appliance.connect()
+        except Exception as err:
+            await self.appliance.close()
+            msg = f"Can't connect to {self.config_entry.data[CONF_HOST]}"
+            raise ConfigEntryNotReady(msg) from err
+
+        if not self.appliance.session.connected:
+            await self.appliance.close()
+            msg = f"Can't connect to {self.config_entry.data[CONF_HOST]}"
+            raise ConfigEntryNotReady(msg)
+
+        self.connected = True
+        self.async_set_updated_data(None)
 
     async def _connect(self) -> None:
         self.logger.debug(
