@@ -132,4 +132,14 @@ rules:
       change and only closes a session it created itself, so injecting HA's
       shared session here doesn't risk it being closed out from under other
       integrations.
-  strict-typing: todo
+  strict-typing:
+    status: done
+    comment: |
+      mypy --strict runs against custom_components/homeconnect_ws (see the
+      [tool.mypy] config in pyproject.toml and the lint CI workflow). Went
+      from 259 errors across 23 files to zero, fixing a handful of real bugs
+      found along the way (a missing await that silently no-opped two
+      service actions, a step=1 kwarg HA core deliberately typed as
+      accepting only None after renaming it to native_step, several
+      generator functions annotated with the wrong return type, ~25 config
+      flow steps annotated FlowResult instead of ConfigFlowResult).
