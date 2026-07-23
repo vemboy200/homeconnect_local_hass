@@ -14,7 +14,7 @@ import io
 import json
 import logging
 import zipfile
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from home_disconnect import ParserError, parse_device_description
 
@@ -47,14 +47,14 @@ def _account_id_from_token(access_token: str) -> str:
     if not account_id:
         msg = "No account ID (sub claim) in access token"
         raise HCCloudApiError(msg)
-    return account_id
+    return str(account_id)
 
 
 async def async_fetch_appliances(
     session: ClientSession,
     access_token: str,
     region: str,
-) -> dict[str, dict[str, dict | DeviceDescription]]:
+) -> dict[str, dict[str, dict[str, Any] | DeviceDescription]]:
     """Fetch every paired appliance's profile data, keyed by haId."""
     if region not in REGION_ASSET_BASE:
         msg = f"Invalid region '{region}'"
@@ -102,7 +102,7 @@ async def _async_fetch_one_appliance(
     asset_base: str,
     auth_headers: dict[str, str],
     appliance: dict[str, Any],
-) -> dict[str, dict | DeviceDescription]:
+) -> dict[str, dict[str, Any] | DeviceDescription]:
     ha_id: str = appliance["haId"]
 
     async with session.get(
@@ -151,7 +151,12 @@ async def _async_fetch_one_appliance(
         raise HCCloudApiError(msg)
 
     try:
-        description = parse_device_description(description_xml, feature_mapping_xml)
+        # home_disconnect's parse_device_description() is typed as str | TextIO,
+        # but it just forwards to xmltodict.parse(), which also accepts bytes
+        # (and does at every other call site in this codebase too).
+        description = parse_device_description(
+            cast("str", description_xml), cast("str", feature_mapping_xml)
+        )
     except ParserError as err:
         msg = f"Could not parse device description for {ha_id}"
         raise HCCloudApiError(msg) from err

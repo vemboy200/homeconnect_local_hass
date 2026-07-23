@@ -47,9 +47,9 @@ def create_entities(
     return entities
 
 
-def merge_dicts(*args: dict[str, list]) -> dict[str, list]:
+def merge_dicts(*args: dict[str, list[Any]]) -> dict[str, list[Any]]:
     """Merge multiple dictionaries of type dict[str, list]."""
-    out_dict: dict[str, list] = {}
+    out_dict: dict[str, list[Any]] = {}
     for in_dict in args:
         for key, value in in_dict.items():
             if key not in out_dict:
@@ -64,10 +64,12 @@ class EntityMatch:
     """Returned by get_entities_from_regex."""
 
     entity: str
-    groups: tuple[str]
+    groups: tuple[str, ...]
 
 
-def get_entities_from_regex(appliance: HomeAppliance, pattern: re.Pattern) -> list[EntityMatch]:
+def get_entities_from_regex(
+    appliance: HomeAppliance, pattern: re.Pattern[str]
+) -> list[EntityMatch]:
     """Get all entities matching the pattern."""
     return [
         EntityMatch(entity=entity, groups=match.groups())
@@ -76,9 +78,11 @@ def get_entities_from_regex(appliance: HomeAppliance, pattern: re.Pattern) -> li
     ]
 
 
-def get_groups_from_regex(appliance: HomeAppliance, pattern: re.Pattern) -> set[tuple[str]]:
+def get_groups_from_regex(
+    appliance: HomeAppliance, pattern: re.Pattern[str]
+) -> set[tuple[str, ...]]:
     """Get all regex groups matching the pattern."""
-    groups = set()
+    groups: set[tuple[str, ...]] = set()
     for entity in appliance.entities:
         if (match := pattern.match(entity)) and match.groups() not in groups:
             groups.add(match.groups())
@@ -87,28 +91,32 @@ def get_groups_from_regex(appliance: HomeAppliance, pattern: re.Pattern) -> set[
 
 async def get_config_entry_from_call(
     hass: HomeAssistant, service_call: ServiceCall
-) -> HCConfigEntry | None:
+) -> HCConfigEntry:
     """Get the config entry from a service call."""
     config_entry_ids = await async_extract_config_entry_ids(service_call)
     for config_entry_id in config_entry_ids:
         config_entry = hass.config_entries.async_get_entry(config_entry_id)
-        if config_entry.domain == DOMAIN:
+        if config_entry is not None and config_entry.domain == DOMAIN:
             return config_entry
     raise ServiceValidationError(translation_domain=DOMAIN, translation_key="not_appliance")
 
 
-def entity_is_available(entity: HcEntity, available_access: tuple[Access]) -> bool:
+def entity_is_available(
+    entity: HcEntity | None, available_access: tuple[Access, ...] | None
+) -> bool:
     """Check is HC entity is available."""
     available = True
-    if hasattr(entity, "available"):
+    if entity is not None and hasattr(entity, "available"):
         available &= entity.available
 
-    if hasattr(entity, "access"):
+    if entity is not None and available_access is not None and hasattr(entity, "access"):
         available &= entity.access in available_access
     return available
 
 
-def error_decorator[T](func: Callable[..., Coroutine[T]]) -> Callable[..., Coroutine[T]]:
+def error_decorator[T](
+    func: Callable[..., Coroutine[Any, Any, T]],
+) -> Callable[..., Coroutine[Any, Any, T]]:
     """Catches HomeConnect Errors and raise HomeAssistantError."""
 
     async def wrap(*args: Any, **kwargs: Any) -> Any:

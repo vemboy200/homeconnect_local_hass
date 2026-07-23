@@ -44,7 +44,7 @@ CONNECT_RETRY_MAX_DELAY = 60  # seconds
 EXPECTED_OFFLINE_APPLIANCE_TYPES = frozenset({"Washer", "Dryer", "WasherDryer"})
 
 
-class HomeConnectCoordinator(DataUpdateCoordinator):
+class HomeConnectCoordinator(DataUpdateCoordinator[None]):
     """My custom coordinator."""
 
     config_entry: HCConfigEntry

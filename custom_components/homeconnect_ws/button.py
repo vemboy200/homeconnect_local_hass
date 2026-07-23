@@ -62,4 +62,7 @@ class HCStartButton(HCEntity, ButtonEntity):
 
     @error_decorator
     async def async_press(self) -> None:
-        await self._runtime_data.appliance.selected_program.start()
+        selected_program = self._runtime_data.appliance.selected_program
+        if selected_program is None:
+            return
+        await selected_program.start()
