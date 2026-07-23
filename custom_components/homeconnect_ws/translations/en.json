@@ -1,6 +1,27 @@
 {
   "config": {
     "step": {
+      "user": {
+        "title": "Add new Home Connect Appliances",
+        "menu_options": {
+          "legacy_oauth_region": "Sign in with Home Connect",
+          "upload": "Upload Profile File"
+        }
+      },
+      "legacy_oauth_region": {
+        "title": "Home Connect Account Region",
+        "description": "Select the region your Home Connect account is registered in.",
+        "data": {
+          "region": "Region"
+        }
+      },
+      "legacy_oauth_paste": {
+        "title": "Home Connect Sign-In",
+        "description": "Open this URL in your browser and sign in: {authorize_url}\n\nThe page will fail to load afterward (that's expected) - copy the full URL from your browser's address bar and paste it below.",
+        "data": {
+          "legacy_redirect_url": "Redirect URL"
+        }
+      },
       "upload": {
         "title": "Add new Home Connect Appliances",
         "description": "Upload your Profile file",
@@ -30,7 +51,19 @@
       "invalid_profile_file": "Profile File is invalid",
       "profile_file_parser_error": "Profile File is invalid: {error}",
       "appliance_not_in_profile_file": "Profile File dose not contain profile for this Appliance",
-      "all_setup": "All Appliances in this Profile File are already setup"
+      "all_setup": "All Appliances in this Profile File are already setup",
+      "oauth_fetch_failed": "Could not fetch appliance profiles from Home Connect: {error}"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Export Appliance Profile",
+        "description": "Export this appliance's profile as a downloadable ZIP file.\n\n**Safe**: no encryption key or other sensitive data. Safe to share for a feature request. Delivered as a download link.\n\n**Full**: also includes the appliance's local encryption key, for transferring it to another system. Written to your config directory (`homeconnect_ws_export` folder) instead of a download link, to avoid exposing the key over HTTP.",
+        "data": {
+          "mode": "Export type"
+        }
+      }
     }
   },
   "entity": {
