@@ -32,12 +32,32 @@ To use this integration, you must first create a Home Connect account and connec
 
 ## Setup
 
+> [!NOTE]
+> Both of these methods aren't something Home Connect has authorized for third-party use, and the endpoints involved are undocumented and could change or be locked down without notice. If that's not something you're comfortable with, dont use this integration and instead use the core [home connect integration](https://www.home-assistant.io/integrations/home_connect/).
+> 
+There are two ways to add an appliance. Signing in is quicker and doesn't require a separate tool.
+
+### Option A: Sign in with Home Connect
+
+1. Click the button below or use "Add Integration" in Home Assistant and select "Home Connect Local".
+
+    [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=homeconnect_ws)
+
+2. Choose "Sign in with Home Connect" and select the region your Home Connect account is registered in.
+3. Open the shown URL in a browser and sign in with your Home Connect account. The page will fail to load afterward. That's expected.
+4. Copy the full URL from your browser's address bar and paste it back into Home Assistant.
+5. Select the Appliance you want to setup (skipped automatically if it's the only one left to add).
+6. When the initial connection to the Appliance fails, you're asked to manually enter your Appliance IP-Address.
+7. Repeat from Step 1 if you want to setup more than one Appliance.
+
+### Option B: Upload Profile File
+
 1. Use the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader) to download your Appliance profiles, select "Home Assistant - Home Connect Local" as target. The downloaded ZIP-file contains each Appliance encryption Key and feature descriptions
 2. Click the button below or use "Add Integration" in Home Assistant and select "Home Connect Local".
 
     [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=homeconnect_ws)
 
-3. Upload the downloaded Profile file.
+3. Choose "Upload Profile File" and upload the downloaded Profile file.
 4. Select the Appliance you want to setup.
 5. When the initial connection to the Appliance fails, your asked to manually enter your Appliance IP-Address.
 6. Repeat from Step 2 if you want to setup more than one Appliances.
@@ -47,42 +67,53 @@ To use this integration, you must first create a Home Connect account and connec
 > 
 > - The device may disconnect itself from your Wi-Fi
 > - You cannot troubleshoot if the appliance does not connect to Home Assistant
-> - You cannot connect any more devices to it
+> - You cannot connect any more devices to Home Connect
 >
 > If you value your privacy you can instead go to the app settings an disable all the data collection stuff in the "Privacy and Legal" section of the app
 
 ### Configuration parameters
 
-- Profile file: The Profile File you've downloaded with the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader)
+- Region: The region your Home Connect account is registered in (Option A only)
+- Redirect URL: The URL from your browser's address bar after signing in and being redirected (Option A only)
+- Profile file: The Profile File you've downloaded with the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader) (Option B only)
 - Select Appliance: Select the Appliance you want to setup
 - Host / IP-Address: Manually enter your Appliance Hostname or IP-Address if auto discovery did not work
 
-### Protip!
-
-If you want to, once you have connected the appliance to Home Assistant you can disable its cloud access.
-
-Through Home Assistant
-
-1. (OPTIONAL) Before starting, in the Home Connect app, make sure the bottom line (direct connection between your phone and device) is green in case if something goes wrong.
-2. In the configuration section there is a disabled entity called "Allow Cloud Connection" enable it and turn off the switch
-3. (OPTIONAL) Enable the "Cloud Connection" diagnostic entity to verify its disconnected from the cloud.
-
-If you see the "Cloud Connection" entity saying disconnected then you have succesfully disabled cloud access for your appliance.
-
-Through Home Connect
-1. Open the Home Connect app and go to your appliance's settings.
-2. Scroll down until you get the "network" and tap the details button.
-3. (OPTIONAL) Make sure the bottom line (direct connection between your phone and device) is green in case if something goes wrong.
-4. Scroll down (again) until you see the connection to the server toggle.
-5. Turn off the toggle and ignore the scare screen (they have it there so they can continue collecting your data)
-6. Then save
-
-You'll know if you have successfully done it if you see the line between your appliance and their cloud is grayed out and disconnected.
+> [!TIP]
+>If you want to, once you have connected the appliance to Home Assistant you can disable its cloud access.
+>
+> ### Through Home Assistant
+>
+>1. (OPTIONAL) Before starting, in the Home Connect app, make sure the bottom line (direct connection between your phone and device) is green in case if something goes wrong.
+>2. In the configuration section there is a disabled entity called "Allow Cloud Connection" enable it and turn off the switch
+>3. (OPTIONAL) Enable the "Cloud Connection" diagnostic entity to verify its disconnected from the cloud.
+>
+>If you see the "Cloud Connection" entity saying disconnected then you have succesfully disabled cloud access for your appliance.
+>
+>### Through Home Connect
+>1. Open the Home Connect app and go to your appliance's settings.
+>2. Scroll down until you get the "network" and tap the details button.
+>3. (OPTIONAL) Make sure the bottom line (direct connection between your phone and device) is green in case if something goes wrong.
+>4. Scroll down (again) until you see the connection to the server toggle.
+>5. Turn off the toggle and ignore the scare screen (they have it there so they can continue collecting your data)
+>6. Then save
+>
+>You'll know if you have successfully done it if you see the line between your appliance and their cloud is grayed out and disconnected.
 
 >[!NOTE]
 >Do note that your device will **not** get firmware updates once disconnected, if you want to, you can occasionally (once every 1-3 months) reenable the cloud connection for 1-2 days so the device can check for an update.
 
-Heres an example automation you can do with Home Assistant to occasionally reenable the cloud then do a firmware update (incase if theres one) then disable it.
+
+Here's an example automation that occasionally reenables the cloud connection, checks for and installs a firmware update if one's available, then disables it again:
+
+- **Trigger**: `time` trigger at `"03:00:00"`.
+- **Conditions**: only runs on the 1st of the month (`now().day == 1`).
+- **Actions**: turn on `switch.dishwasher_allow_cloud_connection` → wait up to 24 hours for an `update` entity to report one available → install it if found → wait up to 30 minutes for the install to finish → turn `switch.dishwasher_allow_cloud_connection` back off.
+
+<details>
+<summary>YAML example for periodically reconnecting the cloud to check for firmware updates</summary>
+<br>
+    
 ```yaml
 alias: Periodically check for and install Home Connect firmware updates
 description: >-
@@ -137,6 +168,20 @@ actions:
       entity_id: switch.dishwasher_allow_cloud_connection
 mode: single
 ```
+</details>
+
+## Exporting an Appliance Profile
+
+Once an appliance is set up, you can export its profile from Settings → Devices & Services → Home Connect Local → the appliance's device page → gear/settings icon:
+
+- **Export Safe Profile**: the two XML files (renamed to `{brand}_{model}`, no encryption key or other sensitive data), delivered as a download link in a notification. This is what you want for [Requesting a New Feature](#requesting-a-new-feature).
+- **Export Full Profile**: the same two XML files plus the local encryption key, in the same shape as the Profile Downloader ZIP (re-importable via Upload Profile File). Meant for transferring an appliance to another system - not just Home Assistant, but other local-control projects like [openHAB's Home Connect Direct Binding](https://community.openhab.org/t/home-connect-direct-binding-no-cloud/160857) or the [Homey Home Connect (Local) app](https://homey.app/en-us/app/codes.lucasvdh.homeconnect/Home-Connect-(Local)/test/) - not something most users need. Written to a `homeconnect_ws_export` folder in your config directory rather than offered as a download link, since a link to a file containing your encryption key would be a real (if brief) exposure window - retrieve it via Samba, SSH, or another file-access method.
+
+> [!NOTE]
+> Two things noticed so far that aren't specific to this integration:
+> - The Safe export's download link didn't work in the Arc desktop browser (opened fine on mobile Safari) - if a link doesn't work, try a different browser.
+> - Home Assistant's File Editor add-on's own download button returned a 401 error trying to retrieve the Full export file. A Samba share worked without issue. If File Editor's download button fails for you too, use Samba (or SSH) instead.
+
 ## Data Updates
 
 This integration is almost entirely push based, receiving updates from the appliance the moment something happens to it. Post setup, this integration can work completely offline, unlike the Home Connect app.
@@ -144,10 +189,13 @@ This integration is almost entirely push based, receiving updates from the appli
 The one exception is the Wi-Fi Signal Strength sensor. The entity can only be polled from the appliance, so that entity is polled once an hour instead. It is polled infrequently due to the fact appliances dont move.
 
 ## Supported Functions
-
+<details>
+<summary> Supported Functions (very long).</summary>
+<br>
+    
 The following entities are available. Which ones appear depends on the appliance type and its feature set. Not every device supports every entity listed here.
 
-### All Appliances
+### Supported across multiple kinds of appliances
 
 | Entity | Type | Description |
 | --- | --- | --- |
@@ -204,6 +252,8 @@ Bean container and amount, grind coarseness, coffee strength, temperature, brew 
 
 Fridge, freezer, and chiller setpoint temperatures (°C and °F); door open and door alarm binary sensors; super-freeze and super-cool modes; eco, vacation, and fresh-food modes; interior light with brightness control; water filter alert; sabbath mode duration.
 
+</details>
+
 ## Actions
 
 This integration provides the following actions:
@@ -218,6 +268,14 @@ Get started with these automation examples
 
 ### Send a notification when the appliance ends the program
 [comment]: <> (Also stolen directly from the Core Home Connect integration)
+
+- **Trigger**: `sensor.appliance_operation_state` changes to `finished`.
+- **Actions**: `notify.notify` with a message that the program has finished.
+
+<details>
+<summary>YAML example for notifying when the appliance's program ends</summary>
+<br>
+    
 ```yaml
 alias: "Notify when program ends"
 triggers:
@@ -230,12 +288,20 @@ actions:
     data:
       message: "The appliance has finished the program."
 ```
-
+</details>
 
 ### Start a program when electricity is cheap
 [comment]: <> ( Also also stolen directly from the Core Home Connect integration)
 Because electricity is typically cheaper at night, this automation will activate the silent mode when starting the program at night.
 
+- **Trigger**: `sensor.electricity_price` drops to `"0.10"`.
+- **Conditions**: `sensor.diswasher_door` is `closed`.
+- **Actions**: `home_connect.set_program_and_options` — between `22:00` and `06:00`, starts the Eco 50 program with silent mode on; otherwise starts it without silent mode.
+
+<details>
+<summary>YAML example for starting a program when electricity is cheap</summary>
+<br>
+    
 ```yaml
 alias: "Start program when electricity is cheap"
 triggers:
@@ -265,6 +331,7 @@ actions:
           affects_to: "active_program"
           program: "dishcare_dishwasher_program_eco_50"
 ```
+</details>
 
 ## Known Limitations
 
@@ -281,21 +348,19 @@ Since this integration's functions have to be reverse engineered (see [Known Lim
 
 ### Basic method
 
-1. Use the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader) to download your appliance profile, selecting "Home Assistant - Home Connect Local" as the target.
-2. Unzip the downloaded file. You'll get three files: a `*_DeviceDescription.xml`, a `*_FeatureMapping.xml`, and a `.json` file.
-   - **Do not share the `.json` file.** It contains sensitive info like your appliance's local encryption key.
-3. Rename the `*_DeviceDescription.xml` and `*_FeatureMapping.xml` files to remove the MAC address segment from the filename (e.g. `THERMADOR-PRG486WDH-##MACADDRESS##_DeviceDescription.xml` → `THERMADOR-PRG486WDH_DeviceDescription.xml`). That segment only identifies your specific physical appliance and isn't needed by developers.
-4. Download the [Diagnostics](https://www.home-assistant.io/docs/configuration/troubleshooting/#download-diagnostics) of the appliance's Config Entry.
-5. [Open a feature request](https://github.com/vemboy200/homeconnect_local_hass/issues/new?template=feature_request.yml) describing, in plain terms, the feature/entity you'd like added (e.g. "I want a sensor for my appliance's door state"), and attach the two renamed XML files along with the Diagnostics.
+1. Use the [Export Safe Profile](#exporting-an-appliance-profile) option to get a ZIP with the two XML files, already renamed and with no sensitive data - safe to share as-is.
+   - Alternatively, use the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader) tool and manually remove the `.json` file (contains your encryption key - don't share it) and the MAC address segment from the two XML filenames.
+2. Download the [Diagnostics](https://www.home-assistant.io/docs/configuration/troubleshooting/#download-diagnostics) of the appliance's Config Entry.
+3. [Open a feature request](https://github.com/vemboy200/homeconnect_local_hass/issues/new?template=feature_request.yml) describing, in plain terms, the feature/entity you'd like added (e.g. "I want a sensor for my appliance's door state"), and attach the two XML files from the ZIP along with the Diagnostics.
 
 ### Advanced method
 
 If you're comfortable digging a bit deeper, you can help pinpoint exactly which feature maps to the entity you want, which makes it much faster for a developer to add:
 
-1. Follow steps 1-4 of the Basic method above.
+1. Follow steps 1-2 of the Basic method above.
 2. [Enable debug logging](#enabling-debug-logging) for the integration.
 3. Trigger the feature on the appliance itself (e.g. open the door, change a setting, start a program) and watch the debug log for the corresponding update message.
-4. Note the UID logged for that update. It will be in **decimal**, while the UIDs inside the `*_DeviceDescription.xml`/`*_FeatureMapping.xml` files are in **hexadecimal** — convert between the two to match them up. For example, on a Thermador oven, the live oven temperature in fahrenheit logs as UID `5959` (decimal), which is `1747` in hex, matching `Cooking.Oven.Status.Cavity.340.CurrentTemperatureFahrenheit` in the FeatureMapping file.
+4. Note the UID logged for that update. It will be in **decimal**, while the UIDs inside the `*_DeviceDescription.xml`/`*_FeatureMapping.xml` files are in **hexadecimal**. Convert between the two to match them up. For example, on a Thermador oven, the live oven temperature in fahrenheit logs as UID `5959` (decimal), which is `1747` in hex, matching `Cooking.Oven.Status.Cavity.340.CurrentTemperatureFahrenheit` in the FeatureMapping file.
 5. Include that UID/feature name (and what it corresponds to) in your issue, alongside everything from the Basic method, so developers know exactly which feature to wire up.
 
 ## Trouble Shooting

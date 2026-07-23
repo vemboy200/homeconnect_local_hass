@@ -46,6 +46,7 @@ async def test_load_unload_entry(
         app_id="Test_Device_ID",
         psk64="PSK_KEY",
         iv64="AES_IV",
+        session=ANY,
         connection_callback=ANY,
     )
 

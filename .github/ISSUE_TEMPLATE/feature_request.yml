@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Every entity in this integration has to be reverse engineered from a real appliance's profile data. Entity coverage for the maintainer's own appliances (Thermador dishwasher/oven/freezer) is essentially complete - beyond that, there is no way to add support for a feature, appliance, or brand without the Diagnostics and Device Description/Feature Mapping files from someone who actually owns one. The two fields below aren't optional extras, they're what makes a request actionable at all.
+        Every entity in this integration has to be reverse engineered from a real appliance's profile data. Entity coverage for the maintainer's own appliances (Thermador dishwasher/oven/freezer) is essentially complete. Beyond that, there is no way to add support for a feature, appliance, or brand without the Diagnostics and Device Description/Feature Mapping files from someone who actually owns one.
   - type: textarea
     attributes:
       label: Feature Description
@@ -41,8 +41,9 @@ body:
       placeholder: "drag-and-drop the *_DeviceDescription.xml and *_FeatureMapping.xml files here"
       description: >-
         See [Requesting a New Feature](https://github.com/vemboy200/homeconnect_local_hass#requesting-a-new-feature) in the README for how to get these.
-        Use the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader) to get your appliance's `*_DeviceDescription.xml` and `*_FeatureMapping.xml` files, rename them to remove the MAC address segment from the filename, and attach them here.
-        **Do not attach the `.json` file** from the same download — it contains your appliance's local encryption key.
+        Use the **Export Safe Profile** option from the appliance's device page (Settings → Devices & Services → Home Connect Local → gear/settings icon) to get a ZIP with these two files already renamed and safe to attach as-is.
+        Alternatively, use the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader), rename the two files to remove the MAC address segment from the filename, and attach them here.
+        **Do not attach the `.json` file** from the Profile Downloader — it contains your appliance's local encryption key. Export Safe Profile never includes it.
     validations:
       required: true
 
