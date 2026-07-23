@@ -47,9 +47,9 @@ def create_entities(
     return entities
 
 
-def merge_dicts(*args: dict[str, list[Any]]) -> dict[str, list[Any]]:
+def merge_dicts[K, V](*args: dict[K, list[V]]) -> dict[K, list[V]]:
     """Merge multiple dictionaries of type dict[str, list]."""
-    out_dict: dict[str, list[Any]] = {}
+    out_dict: dict[K, list[V]] = {}
     for in_dict in args:
         for key, value in in_dict.items():
             if key not in out_dict:

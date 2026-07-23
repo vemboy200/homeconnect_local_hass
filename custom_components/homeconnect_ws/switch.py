@@ -40,10 +40,12 @@ class HCSwitch(HCEntity, SwitchEntity):
         runtime_data: HCData,
     ) -> None:
         super().__init__(entity_description, runtime_data)
-        self._value_mapping: tuple[str, str] = entity_description.value_mapping
+        self._value_mapping: tuple[str, str] | None = entity_description.value_mapping
 
     @property
-    def is_on(self) -> bool:
+    def is_on(self) -> bool | None:
+        if self._entity is None:
+            return None
         if self._value_mapping:
             if self._value_mapping[0] == self._entity.value:
                 return True
@@ -54,6 +56,8 @@ class HCSwitch(HCEntity, SwitchEntity):
 
     @error_decorator
     async def async_turn_on(self, **kwargs: Any) -> None:
+        if self._entity is None:
+            return
         if self._value_mapping:
             await self._entity.set_value(self._value_mapping[0])
         else:
@@ -61,6 +65,8 @@ class HCSwitch(HCEntity, SwitchEntity):
 
     @error_decorator
     async def async_turn_off(self, **kwargs: Any) -> None:
+        if self._entity is None:
+            return
         if self._value_mapping:
             await self._entity.set_value(self._value_mapping[1])
         else:

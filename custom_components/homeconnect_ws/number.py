@@ -40,34 +40,50 @@ class HCNumber(HCEntity, NumberEntity):
         runtime_data: HCData,
     ) -> None:
         super().__init__(entity_description, runtime_data)
-        self._entity._type = int  # noqa: SLF001 Force integer type
+        if self._entity is not None:
+            self._entity._type = int  # noqa: SLF001 Force integer type
 
     @property
-    def native_value(self) -> int | float:
+    def native_value(self) -> int | float | None:
+        if self._entity is None:
+            return None
         return self._entity.value
 
     @property
     def native_min_value(self) -> float:
-        if hasattr(self._entity, "min") and self._entity.min is not None:
-            return self._entity.min
+        if (
+            self._entity is not None
+            and hasattr(self._entity, "min")
+            and self._entity.min is not None
+        ):
+            return float(self._entity.min)
         if self.entity_description.native_min_value is not None:
             return self.entity_description.native_min_value
         return DEFAULT_MIN_VALUE
 
     @property
     def native_max_value(self) -> float:
-        if hasattr(self._entity, "max") and self._entity.max is not None:
-            return self._entity.max
+        if (
+            self._entity is not None
+            and hasattr(self._entity, "max")
+            and self._entity.max is not None
+        ):
+            return float(self._entity.max)
         if self.entity_description.native_max_value is not None:
             return self.entity_description.native_max_value
         return DEFAULT_MAX_VALUE
 
     @property
     def native_step(self) -> float | None:
-        if hasattr(self._entity, "step") and self._entity.step is not None:
-            return self._entity.step
+        if (
+            self._entity is not None
+            and hasattr(self._entity, "step")
+            and self._entity.step is not None
+        ):
+            return float(self._entity.step)
         return None
 
     @error_decorator
     async def async_set_native_value(self, value: float) -> None:
-        await self._entity.set_value(int(value))
+        if self._entity is not None:
+            await self._entity.set_value(int(value))

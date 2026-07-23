@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 from home_disconnect.entities import Access
 from homeassistant.components.fan import FanEntity, FanEntityFeature
@@ -54,8 +54,8 @@ class HCFan(HCEntity, FanEntity):
     """Fan Entity."""
 
     entity_description: HCFanEntityDescription
-    _speed_entities: dict[str, HcEntity] | None = None
-    _speed_range: range = None
+    _speed_entities: dict[str, HcEntity]
+    _speed_range: tuple[float, float]
     _speed_mapping: list[SpeedMapping]
 
     def __init__(
@@ -70,10 +70,10 @@ class HCFan(HCEntity, FanEntity):
         self._speed_mapping = []
         self._speed_entities = {}
         self._attr_speed_count = 0
-        for entity_name in entity_description.entities:
+        for entity_name in entity_description.entities or []:
             entity = self._runtime_data.appliance.entities[entity_name]
             self._speed_entities[entity_name] = entity
-            for option in entity.enum:
+            for option in entity.enum or {}:
                 if option != 0:
                     self._attr_speed_count += 1
                     self._speed_mapping.append(
@@ -161,7 +161,7 @@ class HCFan(HCEntity, FanEntity):
                 new_speed_entity = speed.entity_name
                 new_speed_value = speed.entity_value
 
-        if new_speed_entity is None:
+        if new_speed_entity is None or new_speed_value is None:
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
                 translation_key="speed_invalid",
@@ -181,7 +181,11 @@ class HCFan(HCEntity, FanEntity):
                 translation_placeholders={"percentage": str(percentage)},
             )
 
-        await program.start(options)
+        # Program.start() is typed as dict[str, ...] (option name -> value),
+        # but its actual implementation (_build_options in home_disconnect)
+        # forwards the dict's keys verbatim as UIDs, matching what
+        # _speed_options() builds here (option.uid -> value).
+        await program.start(cast("dict[str, str | int | bool]", options))
         self.async_write_ha_state()
 
     @error_decorator
@@ -207,5 +211,5 @@ class HCFan(HCEntity, FanEntity):
         if not options:
             return
 
-        await appliance.active_program.start(options)
+        await appliance.active_program.start(cast("dict[str, str | int | bool]", options))
         self.async_write_ha_state()
