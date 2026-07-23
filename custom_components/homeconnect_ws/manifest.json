@@ -21,9 +21,9 @@
   ],
   "quality_scale": "gold",
   "requirements": [
-    "home-disconnect==1.5.5b0"
+    "home-disconnect==1.5.5"
   ],
-  "version": "1.6.0rc0",
+  "version": "1.6.0",
   "zeroconf": [
     "_homeconnect._tcp.local."
   ]
