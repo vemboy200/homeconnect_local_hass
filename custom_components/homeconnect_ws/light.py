@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from home_disconnect.message import Action
 from home_disconnect.message import Message as HC_Message
@@ -10,10 +10,13 @@ from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
     ATTR_RGB_COLOR,
-    ColorMode,
     LightEntity,
 )
-from homeassistant.components.light.const import DEFAULT_MAX_KELVIN, DEFAULT_MIN_KELVIN
+from homeassistant.components.light.const import (
+    DEFAULT_MAX_KELVIN,
+    DEFAULT_MIN_KELVIN,
+    ColorMode,
+)
 from homeassistant.util.color import (
     brightness_to_value,
     color_rgb_to_hex,
@@ -124,56 +127,59 @@ class HCLight(HCEntity, LightEntity):
 
     @property
     def is_on(self) -> bool | None:
+        if self._entity is None:
+            return None
         return bool(self._entity.value)
 
     @property
     def brightness(self) -> int | None:
         if self._color_entity is not None:
-            rgb = rgb_hex_to_rgb_list(self._color_entity.value.strip("#"))
+            rgb = rgb_hex_to_rgb_list(cast("str", self._color_entity.value).strip("#"))
             return max(rgb)
         if self._brightness_entity is not None:
-            return value_to_brightness((1, 100), self._brightness_entity.value)
+            return value_to_brightness((1, 100), cast("float", self._brightness_entity.value))
         return None
 
     @property
     def color_temp_kelvin(self) -> int | None:
         if self._color_temperature_entity is not None:
+            color_temp_value = cast("float", self._color_temperature_entity.value)
             if self._color_temp_inverted:
                 return scale_ranged_value_to_int_range(
                     (101, 0),
                     (DEFAULT_MIN_KELVIN + 1, DEFAULT_MAX_KELVIN),
-                    self._color_temperature_entity.value,
+                    color_temp_value,
                 )
 
             return scale_ranged_value_to_int_range(
                 (1, 100),
                 (DEFAULT_MIN_KELVIN + 1, DEFAULT_MAX_KELVIN),
-                self._color_temperature_entity.value,
+                color_temp_value,
             )
         return None
 
     @property
     def rgb_color(self) -> tuple[int, int, int] | None:
         if self._color_entity is not None:
-            rgb = rgb_hex_to_rgb_list(self._color_entity.value.strip("#"))
-            return match_max_scale((255,), rgb)
+            rgb = rgb_hex_to_rgb_list(cast("str", self._color_entity.value).strip("#"))
+            return cast("tuple[int, int, int]", match_max_scale((255,), tuple(rgb)))
         return None
 
     @error_decorator
     async def async_turn_on(self, **kwargs: Any) -> None:
-        message = HC_Message(
-            resource="/ro/values",
-            action=Action.POST,
-            data=[],
-        )
+        message_data: list[dict[str, Any]] = []
         brightness = kwargs.get(ATTR_BRIGHTNESS, self.brightness)
         rgb = kwargs.get(ATTR_RGB_COLOR, self.rgb_color)
 
-        if self._attr_color_mode == ColorMode.RGB:
+        # _attr_color_mode is only ever RGB when _color_entity was set in
+        # __init__, and only ever BRIGHTNESS/COLOR_TEMP when _brightness_entity
+        # was set there too - both entities are guaranteed non-None below.
+        if self._attr_color_mode == ColorMode.RGB and rgb is not None and brightness is not None:
+            color_entity = cast("HcEntity", self._color_entity)
             rgb_with_brightness = tuple(color * brightness // 255 for color in rgb)
-            message.data.append(
+            message_data.append(
                 {
-                    "uid": self._color_entity.uid,
+                    "uid": color_entity.uid,
                     "value": "#" + color_rgb_to_hex(*rgb_with_brightness),
                 }
             )
@@ -182,21 +188,25 @@ class HCLight(HCEntity, LightEntity):
                 and self._color_mode_entity.value != "CustomColor"
             ):
                 color_mode_value = self._color_mode_entity._rev_enumeration["CustomColor"]  # noqa: SLF001
-                message.data.append({"uid": self._color_mode_entity.uid, "value": color_mode_value})
+                message_data.append(
+                    {"uid": self._color_mode_entity.uid, "value": color_mode_value}
+                )
 
         elif (
             self._attr_color_mode in (ColorMode.BRIGHTNESS, ColorMode.COLOR_TEMP)
             and ATTR_BRIGHTNESS in kwargs
+            and brightness is not None
         ):
+            brightness_entity = cast("HcEntity", self._brightness_entity)
             value_in_range = int(
                 max(
                     brightness_to_value((1, 100), brightness),
-                    self._brightness_entity.min,
+                    cast("float", getattr(brightness_entity, "min", 0.0)),
                 )
             )
-            message.data.append({"uid": self._brightness_entity.uid, "value": value_in_range})
+            message_data.append({"uid": brightness_entity.uid, "value": value_in_range})
 
-        if ATTR_COLOR_TEMP_KELVIN in kwargs:
+        if ATTR_COLOR_TEMP_KELVIN in kwargs and self._color_temperature_entity is not None:
             if self._color_temp_inverted:
                 value_in_range = int(
                     scale_ranged_value_to_int_range(
@@ -213,14 +223,21 @@ class HCLight(HCEntity, LightEntity):
                         kwargs[ATTR_COLOR_TEMP_KELVIN],
                     )
                 )
-            message.data.append(
+            message_data.append(
                 {"uid": self._color_temperature_entity.uid, "value": value_in_range}
             )
 
-        if self._entity.value is not True:
-            message.data.append({"uid": self._entity.uid, "value": True})
+        if self._entity is not None and self._entity.value is not True:
+            message_data.append({"uid": self._entity.uid, "value": True})
+
+        message = HC_Message(
+            resource="/ro/values",
+            action=Action.POST,
+            data=message_data,
+        )
         await self._runtime_data.appliance.session.send_sync(message)
 
     @error_decorator
     async def async_turn_off(self, **kwargs: Any) -> None:
-        await self._entity.set_value(False)
+        if self._entity is not None:
+            await self._entity.set_value(False)
