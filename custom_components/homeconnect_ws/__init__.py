@@ -138,9 +138,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 # value), but its actual implementation (_build_options in
                 # home_disconnect) forwards the dict's keys verbatim as UIDs,
                 # matching what's built here (option uid -> value).
-                await appliance.selected_program.start(
-                    cast("dict[str, str | int | bool]", options)
-                )
+                await appliance.selected_program.start(cast("dict[str, str | int | bool]", options))
             except CodeResponsError as exc:
                 _raise_start_error(exc)
         else:

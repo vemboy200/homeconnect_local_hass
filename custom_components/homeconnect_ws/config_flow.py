@@ -160,9 +160,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         self._legacy_code_verifier: str | None = None
         self._legacy_state: str | None = None
 
-    def _process_profile_file(
-        self, uploaded_file_id: str
-    ) -> dict[str, AppliancePayload]:
+    def _process_profile_file(self, uploaded_file_id: str) -> dict[str, AppliancePayload]:
         with process_uploaded_file(self.hass, uploaded_file_id) as config_path:
             if config_path.suffix == ".zip":
                 return process_zip_file(config_path)

@@ -188,9 +188,7 @@ class HCLight(HCEntity, LightEntity):
                 and self._color_mode_entity.value != "CustomColor"
             ):
                 color_mode_value = self._color_mode_entity._rev_enumeration["CustomColor"]  # noqa: SLF001
-                message_data.append(
-                    {"uid": self._color_mode_entity.uid, "value": color_mode_value}
-                )
+                message_data.append({"uid": self._color_mode_entity.uid, "value": color_mode_value})
 
         elif (
             self._attr_color_mode in (ColorMode.BRIGHTNESS, ColorMode.COLOR_TEMP)
