@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -87,3 +87,10 @@ class HCConnectionSensor(CoordinatorEntity[HomeConnectCoordinator], BinarySensor
     @property
     def is_on(self) -> bool:
         return self._appliance.session.connected
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        # Reflects the most recent close, regardless of current connectivity -
+        # not just "while currently disconnected" - so it stays checkable
+        # after the appliance reconnects, not only in the moment it's down.
+        return {"clean_disconnect": self._appliance.session.last_close_code == 1000}
