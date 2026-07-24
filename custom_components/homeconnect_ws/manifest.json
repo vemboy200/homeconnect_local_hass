@@ -19,7 +19,7 @@
     "custom_components.homeconnect_ws",
     "home_disconnect"
   ],
-  "quality_scale": "gold",
+  "quality_scale": "platinum",
   "requirements": [
     "home-disconnect==1.6.0b0"
   ],
