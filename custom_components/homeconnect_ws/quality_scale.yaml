@@ -99,7 +99,15 @@ rules:
   entity-disabled-by-default: done
   entity-translations: done
   exception-translations: done
-  icon-translations: done
+  icon-translations:
+    status: done
+    comment: |
+      The WiFi signal-strength sensor picks its icon from a Python property
+      based on the RSSI magnitude, not icons.json's range selector - the
+      value is negative (dBm) and the selector's ascending-threshold model
+      doesn't map onto that cleanly. Same reasoning as e.g. huawei_lte's own
+      quality_scale.yaml: some numeric-range icon logic isn't expressible
+      with icons.json's state/range selectors alone.
   reconfiguration-flow:
     status: exempt
     comment: |
