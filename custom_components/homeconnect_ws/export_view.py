@@ -6,7 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from aiohttp import web
-from homeassistant.components.http import HomeAssistantView
+from homeassistant.helpers.http import HomeAssistantView
 
 from .const import DOMAIN
 from .export_profile import build_profile_zip, filename_stub

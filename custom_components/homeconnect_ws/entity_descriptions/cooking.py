@@ -76,10 +76,10 @@ def generate_oven_status(appliance: HomeAppliance) -> EntityDescriptions:
             group_name = ""
 
         # Water Tank
-        entities = (
+        entities = [
             f"Cooking.Oven.Status.Cavity.{group[0]}.WaterTankUnplugged",
             f"Cooking.Oven.Status.Cavity.{group[0]}.WaterTankEmpty",
-        )
+        ]
         if all(entity in appliance.entities for entity in entities):
             descriptions["event_sensor"].append(
                 HCSensorEntityDescription(
@@ -197,7 +197,7 @@ HOOD_FAN_ENTITIES = [
 ]
 
 
-def generate_hood_fan(appliance: HomeAppliance) -> HCFanEntityDescription:
+def generate_hood_fan(appliance: HomeAppliance) -> HCFanEntityDescription | None:
     """Get Hood Fan description."""
     if _VENTING_PROGRAM not in appliance.programs:
         return None
@@ -219,7 +219,7 @@ def generate_hood_fan(appliance: HomeAppliance) -> HCFanEntityDescription:
     )
 
 
-def generate_hob_zones(appliance: HomeAppliance) -> HCFanEntityDescription:
+def generate_hob_zones(appliance: HomeAppliance) -> EntityDescriptions:
     """Get Oven status descriptions."""
     pattern = re.compile(r"^Cooking\.Hob\.Status\.Zone\.([0-9]*)\..*$")
     groups = get_groups_from_regex(appliance, pattern)
@@ -381,7 +381,7 @@ def generate_hob_zones(appliance: HomeAppliance) -> HCFanEntityDescription:
     return descriptions
 
 
-def generate_hood_light(appliance: HomeAppliance) -> HCFanEntityDescription:
+def generate_hood_light(appliance: HomeAppliance) -> HCLightEntityDescription | None:
     """Get Hood light descriptions."""
     if "Cooking.Hood.Setting.ColorTemperaturePercent" in appliance.entities:
         return HCLightEntityDescription(
@@ -409,7 +409,7 @@ def generate_hood_light(appliance: HomeAppliance) -> HCFanEntityDescription:
     return None
 
 
-def generate_hood_ambient_light(appliance: HomeAppliance) -> HCFanEntityDescription:
+def generate_hood_ambient_light(appliance: HomeAppliance) -> HCLightEntityDescription | None:
     """Get Hood light descriptions."""
     if (
         "BSH.Common.Setting.AmbientLightCustomColor" in appliance.entities
@@ -478,10 +478,10 @@ COOKING_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
         ),
         HCSensorEntityDescription(
             key="sensor_oven_water_tank",
-            entities=(
+            entities=[
                 "Cooking.Oven.Status.WaterTankUnplugged",
                 "Cooking.Oven.Status.WaterTankEmpty",
-            ),
+            ],
             device_class=SensorDeviceClass.ENUM,
             options=["unplugged", "empty", "ok"],
         ),

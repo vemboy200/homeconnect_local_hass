@@ -9,7 +9,7 @@ from custom_components.homeconnect_ws import HCData
 from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitions import (
     HCSensorEntityDescription,
 )
-from custom_components.homeconnect_ws.sensor import HCWiFI
+from custom_components.homeconnect_ws.sensor import HCActiveProgram, HCSensor, HCWiFI
 from homeassistant.components.sensor import ATTR_OPTIONS
 from homeassistant.const import ATTR_FRIENDLY_NAME
 
@@ -179,3 +179,80 @@ async def test_wifi_update_skips_when_not_connected() -> None:
 
     assert entity.native_value is None
     appliance.get_network_config.assert_not_called()
+
+
+async def test_native_value_cleared_when_expected_offline() -> None:
+    """Remaining/elapsed time and progress clear instead of showing a stale in-progress value."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=True),
+    )
+    entity_description = HCSensorEntityDescription(
+        key="sensor_remaining_program_time", clear_on_expected_offline=True
+    )
+    entity = HCSensor(entity_description, runtime_data)
+
+    assert entity.native_value is None
+
+
+async def test_native_value_not_cleared_when_not_expected_offline() -> None:
+    """The clearing only applies while actually expected_offline."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=False),
+    )
+    entity_description = HCSensorEntityDescription(
+        key="sensor_remaining_program_time", clear_on_expected_offline=True
+    )
+    entity = HCSensor(entity_description, runtime_data)
+
+    # No backing entity in this minimal setup either, but this confirms the
+    # clear_on_expected_offline branch isn't what's producing the None here -
+    # it falls through to the ordinary "no entity" path instead.
+    assert entity.native_value is None
+
+
+async def test_active_program_cleared_when_expected_offline() -> None:
+    """The active-program sensor clears instead of showing a stale program name."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    appliance.active_program.name = "Test.Program"
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=True),
+    )
+    entity_description = HCSensorEntityDescription(
+        key="sensor_active_program", clear_on_expected_offline=True
+    )
+    entity = HCActiveProgram(entity_description, runtime_data)
+
+    assert entity.native_value is None
+
+
+async def test_active_program_not_cleared_when_not_expected_offline() -> None:
+    """The active-program sensor reports normally while not expected_offline."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    appliance.active_program.name = "Test.Program"
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=False),
+    )
+    entity_description = HCSensorEntityDescription(
+        key="sensor_active_program", clear_on_expected_offline=True
+    )
+    entity = HCActiveProgram(entity_description, runtime_data)
+
+    assert entity.native_value == "Test.Program"

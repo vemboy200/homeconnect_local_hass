@@ -48,7 +48,7 @@ POWER_SWITCH_VALUE_MAPINGS = (
 )
 
 
-def generate_start_button(appliance: HomeAppliance) -> EntityDescriptions:
+def generate_start_button(appliance: HomeAppliance) -> HCButtonEntityDescription | None:
     """Get Start Button description."""
     programs = list(
         filter(
@@ -70,14 +70,16 @@ def generate_power_switch(appliance: HomeAppliance) -> EntityDescriptions:
     if entity := appliance.entities.get("BSH.Common.Setting.PowerState"):
         # Hood power toggles return 400 while venting; fan entity controls the hood.
         skip_switch = "Cooking.Common.Program.Hood.Venting" in appliance.programs
-        if entity.min and entity.max:
+        entity_min = getattr(entity, "min", None)
+        entity_max = getattr(entity, "max", None)
+        if entity_min is not None and entity_max is not None:
             # has min/max
             settable_states = set()
-            for key, value in entity.enum.items():
-                if int(key) >= entity.min and int(key) <= entity.max:
+            for key, value in (entity.enum or {}).items():
+                if int(key) >= entity_min and int(key) <= entity_max:
                     settable_states.add(value)
         else:
-            settable_states = set(entity.enum.values())
+            settable_states = set((entity.enum or {}).values())
 
         if len(settable_states) == 2 and not skip_switch:
             # only two power states
@@ -89,6 +91,7 @@ def generate_power_switch(appliance: HomeAppliance) -> EntityDescriptions:
                             entity="BSH.Common.Setting.PowerState",
                             device_class=SwitchDeviceClass.SWITCH,
                             value_mapping=mapping,
+                            force_off_when_expected_offline=True,
                         )
                     ]
 
@@ -100,6 +103,7 @@ def generate_power_switch(appliance: HomeAppliance) -> EntityDescriptions:
                 has_state_translation=True,
                 # more then two power states
                 entity_registry_enabled_default=len(settable_states) > 2,
+                force_option_when_expected_offline="off",
             )
         ]
     return entity_descriptions
@@ -108,7 +112,7 @@ def generate_power_switch(appliance: HomeAppliance) -> EntityDescriptions:
 def generate_door_state(appliance: HomeAppliance) -> HCSensorEntityDescription | None:
     """Get Door sensor description."""
     entity = appliance.entities.get("BSH.Common.Status.DoorState")
-    if entity and len(entity.enum) > 2:
+    if entity and len(entity.enum or {}) > 2:
         return HCSensorEntityDescription(
             key="sensor_door_state",
             entity="BSH.Common.Status.DoorState",
@@ -152,6 +156,7 @@ def generate_program(appliance: HomeAppliance) -> EntityDescriptions:
                 device_class=SensorDeviceClass.ENUM,
                 has_state_translation=False,
                 mapping=sorted_programs,
+                clear_on_expected_offline=True,
             )
         ]
         descriptions["program"] = [
@@ -187,7 +192,7 @@ def generate_wifi(appliance: HomeAppliance) -> HCSensorEntityDescription:  # noq
 def generate_temperature_unit(appliance: HomeAppliance) -> HCSelectEntityDescription | None:
     """Get Temperature unit description."""
     entity = appliance.entities.get("BSH.Common.Setting.TemperatureUnit")
-    if entity and len(entity.enum) > 2:
+    if entity and len(entity.enum or {}) > 2:
         return HCSelectEntityDescription(
             key="select_temperature_unit",
             entity="BSH.Common.Setting.TemperatureUnit",
@@ -361,6 +366,7 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
                     "entity": "BSH.Common.Option.RemainingProgramTimeIsEstimated",
                 }
             ],
+            clear_on_expected_offline=True,
         ),
         HCSensorEntityDescription(
             key="sensor_elapsed_program_time",
@@ -368,11 +374,13 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             device_class=SensorDeviceClass.DURATION,
             native_unit_of_measurement=UnitOfTime.SECONDS,
             suggested_unit_of_measurement=UnitOfTime.HOURS,
+            clear_on_expected_offline=True,
         ),
         HCSensorEntityDescription(
             key="sensor_program_progress",
             entity="BSH.Common.Option.ProgramProgress",
             native_unit_of_measurement=PERCENTAGE,
+            clear_on_expected_offline=True,
         ),
         HCSensorEntityDescription(
             key="sensor_water_forecast",

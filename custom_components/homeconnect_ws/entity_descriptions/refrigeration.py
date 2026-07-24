@@ -191,7 +191,7 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             native_unit_of_measurement=UnitOfTemperature.CELSIUS,
             device_class=NumberDeviceClass.TEMPERATURE,
             mode=NumberMode.AUTO,
-            step=1,
+            native_step=1,
         ),
         HCNumberEntityDescription(
             key="number_setpoint_refrigerator",
@@ -199,7 +199,7 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             native_unit_of_measurement=UnitOfTemperature.CELSIUS,
             device_class=NumberDeviceClass.TEMPERATURE,
             mode=NumberMode.AUTO,
-            step=1,
+            native_step=1,
         ),
         HCNumberEntityDescription(
             key="number_setpoint_freezer",
@@ -207,7 +207,7 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             native_unit_of_measurement=UnitOfTemperature.CELSIUS,
             device_class=NumberDeviceClass.TEMPERATURE,
             mode=NumberMode.AUTO,
-            step=1,
+            native_step=1,
         ),
         HCNumberEntityDescription(
             key="number_setpoint_freezer_fahrenheit",
@@ -216,7 +216,7 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
             device_class=NumberDeviceClass.TEMPERATURE,
             mode=NumberMode.AUTO,
-            step=1,
+            native_step=1,
         ),
         HCNumberEntityDescription(
             key="number_setpoint_refrigerator",
@@ -224,7 +224,7 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             native_unit_of_measurement=UnitOfTemperature.CELSIUS,
             device_class=NumberDeviceClass.TEMPERATURE,
             mode=NumberMode.AUTO,
-            step=1,
+            native_step=1,
         ),
         HCNumberEntityDescription(
             key="number_setpoint_refrigerator_fahrenheit",
@@ -233,7 +233,7 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
             device_class=NumberDeviceClass.TEMPERATURE,
             mode=NumberMode.AUTO,
-            step=1,
+            native_step=1,
         ),
         # This is only available when the `ChillerCommon.Preset` is `custom`.
         HCNumberEntityDescription(
@@ -243,7 +243,7 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             device_class=NumberDeviceClass.TEMPERATURE,
             entity_registry_enabled_default=False,
             mode=NumberMode.AUTO,
-            step=1,
+            native_step=1,
         ),
         # This is only available when the `ChillerCommon.Preset` is `custom`.
         HCNumberEntityDescription(
@@ -254,14 +254,14 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             device_class=NumberDeviceClass.TEMPERATURE,
             entity_registry_enabled_default=False,
             mode=NumberMode.AUTO,
-            step=1,
+            native_step=1,
         ),
         HCNumberEntityDescription(
             key="number_light_internal_brightness",
             entity="Refrigeration.Common.Setting.Light.Internal.Brightness",
             native_unit_of_measurement=PERCENTAGE,
             mode=NumberMode.AUTO,
-            step=1,
+            native_step=1,
         ),
         HCNumberEntityDescription(
             key="number_refrigerator_door_assistant_freezer_timeout",

@@ -82,8 +82,8 @@ LAUNDRY_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity="LaundryCare.Dryer.Status.RefresherFillLevel",
             entity_category=EntityCategory.DIAGNOSTIC,
             device_class=BinarySensorDeviceClass.PROBLEM,
-            value_on=("Poor"),
-            value_off=("Filled"),
+            value_on={"Poor"},
+            value_off={"Filled"},
         ),
         HCBinarySensorEntityDescription(
             key="binary_sensor_condensate_container_full",

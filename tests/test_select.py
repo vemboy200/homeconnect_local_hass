@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
 
+from custom_components.homeconnect_ws import HCData
+from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitions import (
+    HCSelectEntityDescription,
+)
+from custom_components.homeconnect_ws.select import HCSelect
 from home_disconnect.message import Action, Message
 from homeassistant.components.select import (
     ATTR_OPTION,
@@ -237,3 +243,43 @@ async def test_select_program(
             },
         )
     )
+
+
+async def test_current_option_forced_when_expected_offline() -> None:
+    """A laundry appliance's power_state select shows the forced value, not its stale one."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=True),
+    )
+    entity_description = HCSelectEntityDescription(
+        key="select_power_state",
+        options=["on", "off", "standby"],
+        force_option_when_expected_offline="off",
+    )
+    entity = HCSelect(entity_description, runtime_data)
+
+    assert entity.current_option == "off"
+
+
+async def test_current_option_not_forced_when_not_expected_offline() -> None:
+    """The forced value only applies while actually expected_offline."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=False),
+    )
+    entity_description = HCSelectEntityDescription(
+        key="select_power_state",
+        options=["on", "off", "standby"],
+        force_option_when_expected_offline="off",
+    )
+    entity = HCSelect(entity_description, runtime_data)
+
+    assert entity.current_option is None

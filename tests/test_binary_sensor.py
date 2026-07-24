@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from custom_components.homeconnect_ws.const import DOMAIN
 from homeassistant.const import ATTR_FRIENDLY_NAME, STATE_OFF, STATE_ON, STATE_UNKNOWN
 
 from . import setup_config_entry
@@ -55,6 +56,32 @@ async def test_update(
 
     state = hass.states.get(entity_id)
     assert state.state == STATE_OFF
+
+
+async def test_connection_sensor_clean_disconnect_attribute(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,  # noqa: ARG001
+) -> None:
+    """clean_disconnect reflects the most recent close code, not current connectivity."""
+    entity_id = "binary_sensor.fake_brand_homeappliance_connection"
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    entry = hass.config_entries.async_entries(DOMAIN)[0]
+
+    mock_appliance.session.last_close_code = 1000
+    entry.runtime_data.coordinator.async_set_updated_data(None)
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state
+    assert state.attributes["clean_disconnect"] is True
+
+    mock_appliance.session.last_close_code = 1006
+    entry.runtime_data.coordinator.async_set_updated_data(None)
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.attributes["clean_disconnect"] is False
 
 
 async def test_update_enum(

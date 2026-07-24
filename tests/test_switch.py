@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
 
+from custom_components.homeconnect_ws import HCData
+from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitions import (
+    HCSwitchEntityDescription,
+)
+from custom_components.homeconnect_ws.switch import HCSwitch
 from home_disconnect.message import Action, Message
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import (
@@ -189,3 +195,43 @@ async def test_turn_off_enum(
             data={"uid": 202, "value": 0},
         )
     )
+
+
+async def test_is_on_forced_off_when_expected_offline() -> None:
+    """A laundry appliance's power_state switch shows off, not its stale value."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=True),
+    )
+    entity_description = HCSwitchEntityDescription(
+        key="switch_power_state",
+        value_mapping=("On", "Off"),
+        force_off_when_expected_offline=True,
+    )
+    entity = HCSwitch(entity_description, runtime_data)
+
+    assert entity.is_on is False
+
+
+async def test_is_on_not_forced_when_not_expected_offline() -> None:
+    """The forced-off value only applies while actually expected_offline."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=False),
+    )
+    entity_description = HCSwitchEntityDescription(
+        key="switch_power_state",
+        value_mapping=("On", "Off"),
+        force_off_when_expected_offline=True,
+    )
+    entity = HCSwitch(entity_description, runtime_data)
+
+    assert entity.is_on is None

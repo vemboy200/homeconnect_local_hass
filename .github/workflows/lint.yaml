@@ -21,3 +21,5 @@ jobs:
       - run: |
           uv run ruff check custom_components/
           uv run ruff check tests/
+      - run: |
+          uv run mypy custom_components/homeconnect_ws
