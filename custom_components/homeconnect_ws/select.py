@@ -82,6 +82,11 @@ class HCSelect(HCEntity, SelectEntity):
 
     @property
     def current_option(self) -> str | None:
+        if (
+            self.entity_description.force_option_when_expected_offline is not None
+            and self._runtime_data.coordinator.expected_offline
+        ):
+            return self.entity_description.force_option_when_expected_offline
         if self._entity is None:
             return None
         if self.entity_description.has_state_translation:

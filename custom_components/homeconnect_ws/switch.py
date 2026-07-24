@@ -44,6 +44,11 @@ class HCSwitch(HCEntity, SwitchEntity):
 
     @property
     def is_on(self) -> bool | None:
+        if (
+            self.entity_description.force_off_when_expected_offline
+            and self._runtime_data.coordinator.expected_offline
+        ):
+            return False
         if self._entity is None:
             return None
         if self._value_mapping:

@@ -81,6 +81,10 @@ class HCSensor(HCEntity, SensorEntity):
 
     @property
     def native_value(self) -> int | float | str | None:
+        if self.entity_description.clear_on_expected_offline and (
+            self._runtime_data.coordinator.expected_offline
+        ):
+            return None
         if self._entity is None or self._entity.value is None:
             return None
         if self._entity.enum and self.entity_description.has_state_translation:
@@ -124,6 +128,10 @@ class HCActiveProgram(HCSensor):
 
     @property
     def native_value(self) -> str | None:
+        if self.entity_description.clear_on_expected_offline and (
+            self._runtime_data.coordinator.expected_offline
+        ):
+            return None
         if self._runtime_data.appliance.active_program:
             mapping = self.entity_description.mapping or {}
             if self._runtime_data.appliance.active_program.name in mapping:

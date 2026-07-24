@@ -48,6 +48,12 @@ class HCSelectEntityDescription(
     available_access: tuple[Access, ...] = (Access.READ_WRITE, Access.WRITE_ONLY)
     has_state_translation: bool = False
     mapping: dict[str, str] | None = None
+    # A laundry appliance's own power-off write races its clean disconnect (see
+    # HCEntity/coordinator.expected_offline) - the confirming update never
+    # arrives before the socket closes, so the entity's last real value is
+    # stuck at the pre-off state. Forces current_option to this value instead
+    # of trusting that stale value, only while expected_offline is true.
+    force_option_when_expected_offline: str | None = None
 
 
 class HCSwitchEntityDescription(
@@ -57,6 +63,9 @@ class HCSwitchEntityDescription(
 
     value_mapping: tuple[str, str] | None = None
     available_access: tuple[Access, ...] = (Access.READ_WRITE, Access.WRITE_ONLY)
+    # See HCSelectEntityDescription.force_option_when_expected_offline - same
+    # race, but for the 2-state (on/off) power switch instead of the select.
+    force_off_when_expected_offline: bool = False
 
 
 class HCSensorEntityDescription(
@@ -67,6 +76,13 @@ class HCSensorEntityDescription(
     available_access: tuple[Access, ...] = (Access.READ, Access.READ_WRITE)
     has_state_translation: bool = False
     mapping: dict[str, str] | None = None
+    # For laundry appliances only: unlike appliance types that stay connected,
+    # these never get to send the natural end-of-program update (remaining
+    # time -> 0, progress -> 100%) that would otherwise settle these values -
+    # the clean disconnect that freezes them is the same event that prevents
+    # it. Clears to None instead of showing a stale in-progress-looking value
+    # once coordinator.expected_offline is true.
+    clear_on_expected_offline: bool = False
 
 
 class HCBinarySensorEntityDescription(

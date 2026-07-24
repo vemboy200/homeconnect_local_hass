@@ -91,6 +91,7 @@ def generate_power_switch(appliance: HomeAppliance) -> EntityDescriptions:
                             entity="BSH.Common.Setting.PowerState",
                             device_class=SwitchDeviceClass.SWITCH,
                             value_mapping=mapping,
+                            force_off_when_expected_offline=True,
                         )
                     ]
 
@@ -102,6 +103,7 @@ def generate_power_switch(appliance: HomeAppliance) -> EntityDescriptions:
                 has_state_translation=True,
                 # more then two power states
                 entity_registry_enabled_default=len(settable_states) > 2,
+                force_option_when_expected_offline="off",
             )
         ]
     return entity_descriptions
@@ -154,6 +156,7 @@ def generate_program(appliance: HomeAppliance) -> EntityDescriptions:
                 device_class=SensorDeviceClass.ENUM,
                 has_state_translation=False,
                 mapping=sorted_programs,
+                clear_on_expected_offline=True,
             )
         ]
         descriptions["program"] = [
@@ -363,6 +366,7 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
                     "entity": "BSH.Common.Option.RemainingProgramTimeIsEstimated",
                 }
             ],
+            clear_on_expected_offline=True,
         ),
         HCSensorEntityDescription(
             key="sensor_elapsed_program_time",
@@ -370,11 +374,13 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             device_class=SensorDeviceClass.DURATION,
             native_unit_of_measurement=UnitOfTime.SECONDS,
             suggested_unit_of_measurement=UnitOfTime.HOURS,
+            clear_on_expected_offline=True,
         ),
         HCSensorEntityDescription(
             key="sensor_program_progress",
             entity="BSH.Common.Option.ProgramProgress",
             native_unit_of_measurement=PERCENTAGE,
+            clear_on_expected_offline=True,
         ),
         HCSensorEntityDescription(
             key="sensor_water_forecast",
