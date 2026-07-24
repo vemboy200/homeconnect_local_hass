@@ -76,6 +76,13 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
     connected: bool = False
     _escalate_connectivity_logging: bool
     _poll_unsub: Callable[[], None] | None = None
+    # Laundry appliances have three independent triggers that can each call
+    # appliance.connect() (the initial _connect() loop, the fallback poll, and
+    # the mDNS nudge) - without this, two overlapping attempts would race:
+    # the second one raises AllreadyConnectedError, whose handler closes the
+    # shared session, tearing down the first attempt's in-progress connection
+    # too. Serializes them so at most one is ever actually in flight.
+    _connect_lock: asyncio.Lock
 
     def __init__(
         self,
@@ -117,6 +124,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
             reconect=self._escalate_connectivity_logging,
         )
         self.disconnect_time = time.time()
+        self._connect_lock = asyncio.Lock()
 
     @property
     def expected_offline(self) -> bool:
@@ -185,34 +193,41 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
         first_failure = True
         retry_delay = CONNECT_RETRY_INITIAL_DELAY
         while self._connecting:
-            try:
-                await self.appliance.connect()
-                if self.appliance.session.connected:
-                    self.connected = True  # FIX
-                    self.async_set_updated_data(None)  # FIX
+            async with self._connect_lock:
+                if self.connected:
+                    # Another caller (poll/nudge) already connected while we
+                    # were waiting for the lock.
                     return
-            except (ConnectionFailedError, HCHandshakeError, aiohttp.ClientResponseError):
-                # aiohttp.ClientResponseError (e.g. a 404 on the websocket upgrade)
-                # isn't wrapped by the library into ConnectionFailedError/
-                # HCHandshakeError, and doesn't trigger a connection state change
-                # either, so it needs to be handled here directly.
-                await self.appliance.close()
-                self.connected = False
-                msg = f"Can't connect to {self.config_entry.data[CONF_HOST]}, retrying"
-                if first_failure and self._escalate_connectivity_logging:
+                try:
+                    await self.appliance.connect()
+                    if self.appliance.session.connected:
+                        self.connected = True
+                        self.async_set_updated_data(None)
+                        return
+                except (ConnectionFailedError, HCHandshakeError, aiohttp.ClientResponseError):
+                    # aiohttp.ClientResponseError (e.g. a 404 on the websocket upgrade)
+                    # isn't wrapped by the library into ConnectionFailedError/
+                    # HCHandshakeError, and doesn't trigger a connection state change
+                    # either, so it needs to be handled here directly.
+                    await self.appliance.close()
+                    self.connected = False
+                    msg = f"Can't connect to {self.config_entry.data[CONF_HOST]}, retrying"
+                    if first_failure and self._escalate_connectivity_logging:
+                        self.logger.error(msg)  # noqa: TRY400
+                        first_failure = False  # first_failure_fix
+                    else:
+                        self.logger.debug(msg)
+                except AllreadyConnectedError:
+                    # Shouldn't happen now that _connect_lock serializes every
+                    # caller - kept as a defensive fallback, not the expected path.
+                    await self.appliance.close()
+                    msg = f"Allready connected to {self.config_entry.data[CONF_HOST]}"
                     self.logger.error(msg)  # noqa: TRY400
-                    first_failure = False  # first_failure_fix
-                else:
-                    self.logger.debug(msg)
-            except AllreadyConnectedError:
-                await self.appliance.close()
-                msg = f"Allready connected to {self.config_entry.data[CONF_HOST]}"
-                self.logger.error(msg)  # noqa: TRY400
-                return
-            except Exception:
-                await self.appliance.close()
-                msg = f"Can't connect to {self.config_entry.data[CONF_HOST]}"
-                self.logger.exception(msg)
+                    return
+                except Exception:
+                    await self.appliance.close()
+                    msg = f"Can't connect to {self.config_entry.data[CONF_HOST]}"
+                    self.logger.exception(msg)
 
             if not self._connecting:
                 # mypy can't see that close() (a different method) may have
@@ -231,30 +246,37 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
         """
         if self.connected:
             return
-        try:
-            await self.appliance.connect()
-        except (
-            ConnectionFailedError,
-            HCHandshakeError,
-            aiohttp.ClientResponseError,
-            AllreadyConnectedError,
-        ):
-            self.logger.debug(
-                "Reconnect poll: still can't reach %s", self.config_entry.data[CONF_HOST]
-            )
-            await self.appliance.close()
-        except Exception:
-            self.logger.exception(
-                "Reconnect poll: unexpected error connecting to %s",
-                self.config_entry.data[CONF_HOST],
-            )
-            await self.appliance.close()
-        else:
-            if self.appliance.session.connected:
-                self.connected = True
-                self.async_set_updated_data(None)
-            else:
+        async with self._connect_lock:
+            # Re-check: _connect()'s own loop, or an earlier poll/nudge
+            # invocation, may have already connected while we waited for
+            # the lock - mypy can't see that awaiting the lock above is a
+            # suspension point where that can happen.
+            if self.connected:
+                return  # type: ignore[unreachable]
+            try:
+                await self.appliance.connect()
+            except (
+                ConnectionFailedError,
+                HCHandshakeError,
+                aiohttp.ClientResponseError,
+                AllreadyConnectedError,
+            ):
+                self.logger.debug(
+                    "Reconnect poll: still can't reach %s", self.config_entry.data[CONF_HOST]
+                )
                 await self.appliance.close()
+            except Exception:
+                self.logger.exception(
+                    "Reconnect poll: unexpected error connecting to %s",
+                    self.config_entry.data[CONF_HOST],
+                )
+                await self.appliance.close()
+            else:
+                if self.appliance.session.connected:
+                    self.connected = True
+                    self.async_set_updated_data(None)
+                else:
+                    await self.appliance.close()
 
     def async_nudge_reconnect(self) -> None:
         """

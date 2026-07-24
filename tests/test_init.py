@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from copy import deepcopy
 from ipaddress import ip_address
 from typing import TYPE_CHECKING
@@ -373,3 +374,69 @@ async def test_zeroconf_does_not_nudge_unloaded_entry(
 
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
+
+
+async def test_concurrent_reconnect_attempts_are_serialized(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Two overlapping reconnect triggers don't race each other.
+
+    Without _connect_lock, a second caller arriving while the first's
+    appliance.connect() is still in flight would raise AllreadyConnectedError
+    and react by closing the shared session - tearing down the first
+    caller's in-progress connection too. Confirms only one connect() call
+    ever happens even when two triggers overlap.
+    """
+    description = deepcopy(DEVICE_DESCRIPTION)
+    description["info"]["type"] = "Washer"
+    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
+
+    connect_started = asyncio.Event()
+    release_connect = asyncio.Event()
+    connect_call_count = 0
+
+    async def slow_connect() -> None:
+        nonlocal connect_call_count
+        connect_call_count += 1
+        connect_started.set()
+        await release_connect.wait()
+        appliance.session.connected = True
+
+    appliance.session.connect = AsyncMock(side_effect=slow_connect)
+    appliance_mock = Mock(return_value=appliance)
+    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+
+    config_data = deepcopy(MOCK_CONFIG_DATA)
+    config_data[CONF_DESCRIPTION] = description
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=config_data,
+        unique_id=MOCK_TLS_DEVICE_ID,
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    coord = entry.runtime_data.coordinator
+
+    # Wait for the background _connect() task's first attempt to actually
+    # start and block (holding _connect_lock).
+    await connect_started.wait()
+    assert coord.connected is False
+
+    # A second trigger fires while the first is still in flight - it must
+    # wait for the lock rather than racing in with its own connect() call.
+    poll_task = asyncio.ensure_future(coord._async_poll_reconnect(dt_util.utcnow()))
+    await asyncio.sleep(0)
+    assert connect_call_count == 1
+
+    release_connect.set()
+    await poll_task
+    await hass.async_block_till_done()
+
+    # The second caller saw self.connected already True once it finally got
+    # the lock, and returned without calling connect() again.
+    assert connect_call_count == 1
+    assert coord.connected is True
+
+    await hass.config_entries.async_unload(entry.entry_id)
