@@ -286,6 +286,9 @@
           "drying": "Drogen"
         }
       },
+      "sensor_machine_care_reminder": {
+        "name": "Machineonderhoud herinnering"
+      },
       "sensor_active_program": {
         "name": "Actief programma",
         "state": {

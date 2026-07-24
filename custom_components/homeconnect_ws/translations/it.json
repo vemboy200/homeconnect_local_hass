@@ -396,6 +396,9 @@
           "drying": "Asciugatura"
         }
       },
+      "sensor_machine_care_reminder": {
+        "name": "Promemoria cura lavastoviglie"
+      },
       "sensor_active_program": {
         "name": "Programma attivo",
         "state": {

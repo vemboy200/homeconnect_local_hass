@@ -461,6 +461,9 @@
           "drying": "Trocknen"
         }
       },
+      "sensor_machine_care_reminder": {
+        "name": "Maschinenpflege Erinnerung"
+      },
       "sensor_active_program": {
         "name": "Aktives Programm",
         "state": {

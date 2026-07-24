@@ -527,6 +527,9 @@
           "drying": "Drying"
         }
       },
+      "sensor_machine_care_reminder": {
+        "name": "Machine Care Reminder"
+      },
       "sensor_active_program": {
         "name": "Active Program",
         "state": {
