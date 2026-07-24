@@ -61,12 +61,17 @@ rules:
     comment: |
       The integration does not have configuration options.
   docs-installation-parameters: done
-  entity-unavailable: 
+  entity-unavailable:
     status: done
     comment: |
-      Heartbeat signals are sent to the device every 30 seconds 
-      and if the device doesn't respond it's entites are marked 
-      as unavailable
+      Heartbeat signals are sent to the device every 30 seconds
+      and if the device doesn't respond it's entites are marked
+      as unavailable. Exception: standalone washers/dryers routinely
+      cut their own WiFi radio entirely when powered off between
+      cycles (see test-before-setup) - being unreachable is expected
+      for these, not a fault, so their entities stay available through
+      a clean code-1000 disconnect. An abnormal drop (any other close
+      code, or none seen yet) still correctly marks them unavailable.
   integration-owner: done
   log-when-unavailable: done
   parallel-updates: done
