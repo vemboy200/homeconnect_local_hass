@@ -25,33 +25,32 @@ rules:
   runtime-data: done
   test-before-configure: done
   test-before-setup:
-    status: exempt
+    status: done
     comment: |
-      Setup always succeeds and entities are created from the appliance profile
-      cached in the config entry, even if the appliance is unreachable. This is
-      intentional: appliances of any type can have temporary, recoverable
-      outages (e.g. a stuck local websocket, a brief network blip), and
-      raising ConfigEntryNotReady on a connection failure would tear down the
-      whole config entry and create no entities at all until it reconnects,
-      instead of letting the user see which entities/appliance are affected.
-      Instead, entities are marked unavailable in real time based on the live
-      websocket connection state (see entity-unavailable). This was a
-      deliberate design choice made after user complaints (issues #274 and
-      #293) about the previous ConfigEntryNotReady-based behavior, which
-      mainly affected washers/dryers that legitimately power off and
-      disconnect their own WiFi between cycles. Connect failures are only
-      logged loudly (warning/error) for appliance types where that's not
-      expected; for washers/dryers they stay at debug level.
+      Type-based split: standalone washers and dryers (EXPECTED_OFFLINE_APPLIANCE_TYPES
+      in coordinator.py) keep the old non-blocking setup - connect() runs in a
+      background task and setup always succeeds, since these appliances
+      routinely cut their own WiFi radio entirely when powered off between
+      cycles (confirmed via fork issue #7: a clean WebSocket close code 1000
+      followed by dropping off the LAN entirely). Every other appliance type,
+      including washer/dryer combos, now blocks setup on a single connect
+      attempt and raises ConfigEntryNotReady on failure, letting HA's normal
+      retry-with-backoff take over - matching how most other integrations
+      behave.
 
-      We considered a type-based split (raise ConfigEntryNotReady for
-      non-laundry appliances only), but Home Connect covers far more
-      appliance categories than we can reason about from what we own
-      (AirConditioner, CleaningRobot, CookProcessor, etc.), so a hand-picked
-      allowlist would be guesswork for most of them. ESPHome faces the same
-      "sleepy device" problem and its test-before-setup is also an
-      unconditional exempt, for the same underlying reason: entities/reconnect
-      logic reconciling availability after the fact is the actual solution,
-      not a stopgap.
+      This reverses an earlier decision (see the design history for issues
+      #274/#293) that rejected a type-based split as guesswork for appliance
+      categories we don't own (AirConditioner, CleaningRobot, CookProcessor,
+      etc.) and went with an unconditional exempt instead, following ESPHome's
+      precedent for the same "sleepy device" problem. What changed: issue #7
+      turned "washers/dryers might disconnect their WiFi" from a guess into a
+      confirmed fact (WiFi radio shutdown, not just the local API closing),
+      specifically for washers and dryers - not for the appliance categories
+      the earlier reasoning was actually worried about, and not even for
+      washer/dryer combos, at least one of which (a Bosch WNC254A0BY) stays
+      connected over Wi-Fi while powered off, closer to the dishwasher
+      pattern. The exemption is scoped to exactly what's confirmed, not
+      widened back into a guess.
   unique-config-entry: done
 
   # Silver
@@ -62,12 +61,17 @@ rules:
     comment: |
       The integration does not have configuration options.
   docs-installation-parameters: done
-  entity-unavailable: 
+  entity-unavailable:
     status: done
     comment: |
-      Heartbeat signals are sent to the device every 30 seconds 
-      and if the device doesn't respond it's entites are marked 
-      as unavailable
+      Heartbeat signals are sent to the device every 30 seconds
+      and if the device doesn't respond it's entites are marked
+      as unavailable. Exception: standalone washers/dryers routinely
+      cut their own WiFi radio entirely when powered off between
+      cycles (see test-before-setup) - being unreachable is expected
+      for these, not a fault, so their entities stay available through
+      a clean code-1000 disconnect. An abnormal drop (any other close
+      code, or none seen yet) still correctly marks them unavailable.
   integration-owner: done
   log-when-unavailable: done
   parallel-updates: done
@@ -132,4 +136,14 @@ rules:
       change and only closes a session it created itself, so injecting HA's
       shared session here doesn't risk it being closed out from under other
       integrations.
-  strict-typing: todo
+  strict-typing:
+    status: done
+    comment: |
+      mypy --strict runs against custom_components/homeconnect_ws (see the
+      [tool.mypy] config in pyproject.toml and the lint CI workflow). Went
+      from 259 errors across 23 files to zero, fixing a handful of real bugs
+      found along the way (a missing await that silently no-opped two
+      service actions, a step=1 kwarg HA core deliberately typed as
+      accepting only None after renaming it to native_step, several
+      generator functions annotated with the wrong return type, ~25 config
+      flow steps annotated FlowResult instead of ConfigFlowResult).

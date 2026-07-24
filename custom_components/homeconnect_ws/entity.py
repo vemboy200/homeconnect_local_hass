@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .coordinator import HomeConnectCoordinator
 from .helpers import entity_is_available
 
 if TYPE_CHECKING:
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-class HCEntity(CoordinatorEntity, Entity):
+class HCEntity(CoordinatorEntity[HomeConnectCoordinator], Entity):
     """Base Entity."""
 
     entity_description: HCEntityDescription
@@ -70,13 +71,17 @@ class HCEntity(CoordinatorEntity, Entity):
 
     @property
     def available(self) -> bool:
-        return self._runtime_data.appliance.session.connected and entity_is_available(
+        connected_or_expected_offline = (
+            self._runtime_data.appliance.session.connected
+            or self._runtime_data.coordinator.expected_offline
+        )
+        return connected_or_expected_offline and entity_is_available(
             self._entity, self.entity_description.available_access
         )
 
     @property
-    def extra_state_attributes(self) -> dict:
-        extra_state_attributes = {}
+    def extra_state_attributes(self) -> dict[str, Any]:
+        extra_state_attributes: dict[str, Any] = {}
         for description in self._extra_attributes:
             entity = self._runtime_data.appliance.entities[description["entity"]]
             if "value_fn" in description:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
 
@@ -48,9 +48,10 @@ class HCUpdate(HCEntity, UpdateEntity):
     ) -> None:
         super().__init__(entity_description, runtime_data)
         if entity_description.command_entity is not None:
-            self._command_entity = self._runtime_data.appliance.entities[
-                entity_description.command_entity
-            ]
+            self._command_entity = cast(
+                "Command",
+                self._runtime_data.appliance.entities[entity_description.command_entity],
+            )
 
     @property
     def installed_version(self) -> str | None:
@@ -58,7 +59,7 @@ class HCUpdate(HCEntity, UpdateEntity):
 
     @property
     def latest_version(self) -> str | None:
-        if self._entity.value in ("Present", "Confirmed"):
+        if self._entity is not None and self._entity.value in ("Present", "Confirmed"):
             return _LATEST_VERSION_PLACEHOLDER
         return self.installed_version
 

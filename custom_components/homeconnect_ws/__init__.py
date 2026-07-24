@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Never
+from typing import TYPE_CHECKING, Any, Never
 
 import voluptuous as vol
 from home_disconnect import CodeResponsError, Entity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_DESCRIPTION, EVENT_HOMEASSISTANT_STOP
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import ConfigEntryError, ServiceValidationError
 from homeassistant.helpers.device_registry import (
     CONNECTION_NETWORK_MAC,
     DeviceInfo,
@@ -94,7 +94,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             )
         return entity
 
-    def _duration_to_seconds(data: dict) -> int:
+    def _duration_to_seconds(data: dict[str, Any]) -> int:
         return (
             int(data.get("hours", 0)) * 3600
             + int(data.get("minutes", 0)) * 60
@@ -105,7 +105,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         raise ServiceValidationError(
             translation_domain=DOMAIN,
             translation_key="start_program_error",
-            translation_placeholders={"code": err.code, "resource": err.resource},
+            translation_placeholders={"code": str(err.code), "resource": err.resource},
         ) from None
 
     async def _set_value_or_raise(entity: Entity, relative_time_in_seconds: int) -> None:
@@ -118,7 +118,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     async def handle_start_program(call: ServiceCall) -> ServiceResponse:
         config_entry = await get_config_entry_from_call(hass, call)
 
-        options = {}
+        options: dict[int, str | int | bool] = {}
         appliance = config_entry.runtime_data.appliance
         if "start_in" in call.data:
             entity = _get_entity_or_raise(
@@ -142,28 +142,31 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 translation_domain=DOMAIN,
                 translation_key="no_program_selected",
             )
+        return None
 
     @error_decorator
     async def handle_set_start_in(call: ServiceCall) -> ServiceResponse:
         config_entry = await get_config_entry_from_call(hass, call)
         appliance = config_entry.runtime_data.appliance
-        _set_value_or_raise(
+        await _set_value_or_raise(
             _get_entity_or_raise(
                 appliance, "BSH.Common.Option.StartInRelative", "start_in_not_available"
             ),
             _duration_to_seconds(call.data["start_in"]),
         )
+        return None
 
     @error_decorator
     async def handle_set_finish_in(call: ServiceCall) -> ServiceResponse:
         config_entry = await get_config_entry_from_call(hass, call)
         appliance = config_entry.runtime_data.appliance
-        _set_value_or_raise(
+        await _set_value_or_raise(
             _get_entity_or_raise(
                 appliance, "BSH.Common.Option.FinishInRelative", "finish_in_not_available"
             ),
             _duration_to_seconds(call.data["finish_in"]),
         )
+        return None
 
     hass.services.async_register(DOMAIN, "start_program", handle_start_program)
     hass.services.async_register(DOMAIN, "set_start_in", handle_set_start_in)
@@ -179,6 +182,9 @@ async def async_setup_entry(
     _LOGGER.debug("Setting up %s", config_entry.data[CONF_DESCRIPTION]["info"].get("model"))
     coordinator = HomeConnectCoordinator(hass, config_entry)
     appliance = coordinator.appliance
+    if config_entry.unique_id is None:
+        msg = "Config entry is missing its unique_id"
+        raise ConfigEntryError(msg)
     device_info = DeviceInfo(
         hw_version=appliance.info.get("hwVersion"),
         identifiers={(DOMAIN, config_entry.unique_id)},

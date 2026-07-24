@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from aiohttp.client_exceptions import ClientConnectionResetError
 from home_disconnect import NotConnectedError
@@ -73,19 +73,23 @@ class HCSensor(HCEntity, SensorEntity):
     ) -> None:
         super().__init__(entity_description, runtime_data)
 
-        if self._entity.enum:
+        if self._entity is not None and self._entity.enum:
             if self.entity_description.has_state_translation:
                 self._attr_options = [str(value).lower() for value in self._entity.enum.values()]
             else:
                 self._attr_options = [str(value) for value in self._entity.enum.values()]
 
     @property
-    def native_value(self) -> int | float | str:
-        if self._entity.value is None:
+    def native_value(self) -> int | float | str | None:
+        if self.entity_description.clear_on_expected_offline and (
+            self._runtime_data.coordinator.expected_offline
+        ):
+            return None
+        if self._entity is None or self._entity.value is None:
             return None
         if self._entity.enum and self.entity_description.has_state_translation:
             return str(self._entity.value).lower()
-        return self._entity.value
+        return cast("int | float | str", self._entity.value)
 
 
 class HCEventSensor(HCEntity, SensorEntity):
@@ -95,23 +99,24 @@ class HCEventSensor(HCEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        if self.entity_description.options:
-            for entity, value in zip(self._entities, self.entity_description.options, strict=False):
-                if (entity.enum is not None and entity.value in {"Present", "Confirmed"}) or (
-                    entity.enum is None and bool(entity.value)
-                ):
-                    return value
-        return self.entity_description.options[-1]
+        options = self.entity_description.options or []
+        for entity, value in zip(self._entities, options, strict=False):
+            if (entity.enum is not None and entity.value in {"Present", "Confirmed"}) or (
+                entity.enum is None and bool(entity.value)
+            ):
+                return value
+        return options[-1]
 
     @property
     def available(self) -> bool:
-        return self._runtime_data.appliance.session.connected
+        return (
+            self._runtime_data.appliance.session.connected
+            or self._runtime_data.coordinator.expected_offline
+        )
 
 
 class HCActiveProgram(HCSensor):
     """Active Program Sensor Entity."""
-
-    entity_description: HCSensorEntityDescription
 
     def __init__(
         self,
@@ -119,21 +124,26 @@ class HCActiveProgram(HCSensor):
         runtime_data: HCData,
     ) -> None:
         super().__init__(entity_description, runtime_data)
-        self._attr_options = list(entity_description.mapping.values())
+        self._attr_options = list((entity_description.mapping or {}).values())
 
     @property
     def native_value(self) -> str | None:
+        if self.entity_description.clear_on_expected_offline and (
+            self._runtime_data.coordinator.expected_offline
+        ):
+            return None
         if self._runtime_data.appliance.active_program:
-            if self._runtime_data.appliance.active_program.name in self.entity_description.mapping:
-                return self.entity_description.mapping[
-                    self._runtime_data.appliance.active_program.name
-                ]
+            mapping = self.entity_description.mapping or {}
+            if self._runtime_data.appliance.active_program.name in mapping:
+                return mapping[self._runtime_data.appliance.active_program.name]
             return self._runtime_data.appliance.active_program.name
         return None
 
 
 class HCWiFI(HCEntity, SensorEntity):
     """WiFi signal Sensor Entity, polled since the appliance never pushes it."""
+
+    entity_description: HCSensorEntityDescription
 
     @property
     def should_poll(self) -> bool:
@@ -162,7 +172,7 @@ class HCWiFI(HCEntity, SensorEntity):
     @property
     def icon(self) -> str:
         value = self.native_value
-        if value is None:
+        if not isinstance(value, int | float):
             return "mdi:wifi-strength-outline"
         magnitude = abs(value)
         for threshold, icon in _WIFI_STRENGTH_ICONS:
