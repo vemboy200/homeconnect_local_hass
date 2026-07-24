@@ -21,7 +21,7 @@
   ],
   "quality_scale": "gold",
   "requirements": [
-    "home-disconnect==1.5.5"
+    "home-disconnect==1.6.0b0"
   ],
   "version": "1.6.0",
   "zeroconf": [

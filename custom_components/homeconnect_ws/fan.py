@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Any, NamedTuple, cast
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from home_disconnect.entities import Access
 from homeassistant.components.fan import FanEntity, FanEntityFeature
@@ -132,9 +132,9 @@ class HCFan(HCEntity, FanEntity):
         *,
         entity_name: str | None = None,
         value: int = 0,
-    ) -> dict[int, int]:
+    ) -> dict[int, str | int | bool]:
         """Build writable fan option uids for the given program."""
-        options: dict[int, int] = {}
+        options: dict[int, str | int | bool] = {}
         # Program.options has no public accessor in the library yet.
         for option in program._options:  # noqa: SLF001
             if option.name not in self._speed_entities:
@@ -181,11 +181,7 @@ class HCFan(HCEntity, FanEntity):
                 translation_placeholders={"percentage": str(percentage)},
             )
 
-        # Program.start() is typed as dict[str, ...] (option name -> value),
-        # but its actual implementation (_build_options in home_disconnect)
-        # forwards the dict's keys verbatim as UIDs, matching what
-        # _speed_options() builds here (option.uid -> value).
-        await program.start(cast("dict[str, str | int | bool]", options))
+        await program.start(options)
         self.async_write_ha_state()
 
     @error_decorator
@@ -211,5 +207,5 @@ class HCFan(HCEntity, FanEntity):
         if not options:
             return
 
-        await appliance.active_program.start(cast("dict[str, str | int | bool]", options))
+        await appliance.active_program.start(options)
         self.async_write_ha_state()

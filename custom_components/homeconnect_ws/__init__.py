@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Never, cast
+from typing import TYPE_CHECKING, Any, Never
 
 import voluptuous as vol
 from home_disconnect import CodeResponsError, Entity
@@ -118,7 +118,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     async def handle_start_program(call: ServiceCall) -> ServiceResponse:
         config_entry = await get_config_entry_from_call(hass, call)
 
-        options: dict[int, int] = {}
+        options: dict[int, str | int | bool] = {}
         appliance = config_entry.runtime_data.appliance
         if "start_in" in call.data:
             entity = _get_entity_or_raise(
@@ -134,11 +134,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
         if appliance.selected_program:
             try:
-                # Program.start() is typed as dict[str, ...] (option name ->
-                # value), but its actual implementation (_build_options in
-                # home_disconnect) forwards the dict's keys verbatim as UIDs,
-                # matching what's built here (option uid -> value).
-                await appliance.selected_program.start(cast("dict[str, str | int | bool]", options))
+                await appliance.selected_program.start(options)
             except CodeResponsError as exc:
                 _raise_start_error(exc)
         else:
