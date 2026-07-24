@@ -117,6 +117,24 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
         )
         self.disconnect_time = time.time()
 
+    @property
+    def expected_offline(self) -> bool:
+        """
+        Whether being disconnected right now is expected, not a fault.
+
+        True only for appliance types confirmed to legitimately cut their own
+        WiFi (EXPECTED_OFFLINE_APPLIANCE_TYPES) AND only when the *most
+        recent* disconnect was a clean code-1000 closure. An unexpected drop
+        - any other close code, or None if the appliance was never seen
+        sending one - still correctly reports as not expected, even for an
+        otherwise-exempt appliance type. Matches ESPHome's has_deep_sleep +
+        expected_disconnect pattern for its own sleepy-device entities.
+        """
+        return (
+            not self._escalate_connectivity_logging
+            and self.appliance.session.last_close_code == 1000
+        )
+
     async def close(self) -> None:
         self._connecting = False
         if self._poll_unsub is not None:

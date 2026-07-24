@@ -105,7 +105,10 @@ class HCEventSensor(HCEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        return self._runtime_data.appliance.session.connected
+        return (
+            self._runtime_data.appliance.session.connected
+            or self._runtime_data.coordinator.expected_offline
+        )
 
 
 class HCActiveProgram(HCSensor):
