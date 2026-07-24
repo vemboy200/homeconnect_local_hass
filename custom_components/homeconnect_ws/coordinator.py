@@ -6,6 +6,7 @@ import asyncio
 import logging
 import time
 from copy import deepcopy
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import aiohttp
@@ -19,6 +20,7 @@ from home_disconnect import (
 from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE_ID, CONF_HOST
 from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
@@ -28,6 +30,9 @@ from .const import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from datetime import datetime
+
     from homeassistant.core import HomeAssistant
 
     from . import HCConfigEntry
@@ -36,6 +41,15 @@ _LOGGER = logging.getLogger(__name__)
 
 CONNECT_RETRY_INITIAL_DELAY = 5  # seconds
 CONNECT_RETRY_MAX_DELAY = 60  # seconds
+
+# Standalone washers/dryers disable home-disconnect's own auto-reconnect (see
+# reconect=False below) - this is the fallback that takes its place. Fixed,
+# not exponential: unlike a connect failure at startup, we have no evidence
+# a temporarily-offline laundry appliance takes long to come back once it
+# does, and this is the guaranteed path (works even on networks where mDNS
+# doesn't route multicast) - an mDNS-triggered immediate reconnect is a
+# planned follow-up to shortcut this wait when discovery does work.
+LAUNDRY_RECONNECT_POLL_INTERVAL = timedelta(seconds=20)
 
 # Standalone washers and dryers routinely cut their own WiFi radio entirely
 # when powered off between cycles (confirmed via fork issue #7 - a clean
@@ -60,6 +74,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
     _connecting: bool = True
     connected: bool = False
     _escalate_connectivity_logging: bool
+    _poll_unsub: Callable[[], None] | None = None
 
     def __init__(
         self,
@@ -75,6 +90,15 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
             config_entry=config_entry,
             always_update=True,
         )
+        appliance_info = config_entry.data[CONF_DESCRIPTION].get("info", {})
+        if not appliance_info:
+            raise ConfigEntryError(
+                translation_domain=DOMAIN,
+                translation_key="no_device_info",
+            )
+        self._escalate_connectivity_logging = (
+            appliance_info.get("type") not in EXPECTED_OFFLINE_APPLIANCE_TYPES
+        )
         self.appliance = HomeAppliance(
             description=deepcopy(config_entry.data[CONF_DESCRIPTION]),
             host=config_entry.data[CONF_HOST],
@@ -84,19 +108,20 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
             iv64=config_entry.data.get(CONF_AES_IV, None),
             session=async_get_clientsession(hass),
             connection_callback=self._connection_state_callback,
+            # Standalone washers/dryers get their own fallback-poll-based
+            # reconnect (see LAUNDRY_RECONNECT_POLL_INTERVAL) instead of
+            # home-disconnect's built-in one, so the two don't hammer the
+            # appliance in parallel once the poll and the mDNS-triggered
+            # reconnect (a planned follow-up) both exist.
+            reconect=self._escalate_connectivity_logging,
         )
         self.disconnect_time = time.time()
-        if not self.appliance.info:
-            raise ConfigEntryError(
-                translation_domain=DOMAIN,
-                translation_key="no_device_info",
-            )
-        self._escalate_connectivity_logging = (
-            self.appliance.info.get("type") not in EXPECTED_OFFLINE_APPLIANCE_TYPES
-        )
 
     async def close(self) -> None:
         self._connecting = False
+        if self._poll_unsub is not None:
+            self._poll_unsub()
+            self._poll_unsub = None
         await self.appliance.close()
 
     async def _async_setup(self) -> None:
@@ -107,6 +132,13 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
             # powered-off appliance to prevent its entities from being created
             # at all.
             self.config_entry.async_create_task(self.hass, self._connect())
+            # _connect() above only covers the *first* connection - it returns
+            # for good once that succeeds. reconect=False (see __init__) means
+            # home-disconnect won't auto-reconnect after a *later* drop either,
+            # so this poll is what actually notices the appliance coming back.
+            self._poll_unsub = async_track_time_interval(
+                self.hass, self._async_poll_reconnect, LAUNDRY_RECONNECT_POLL_INTERVAL
+            )
             return
 
         self.logger.debug(
@@ -169,6 +201,41 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
                 return  # type: ignore[unreachable]
             await asyncio.sleep(retry_delay)
             retry_delay = min(retry_delay * 2, CONNECT_RETRY_MAX_DELAY)
+
+    async def _async_poll_reconnect(self, _now: datetime) -> None:
+        """
+        Fallback reconnect for standalone washers/dryers (reconect=False).
+
+        Runs unconditionally, regardless of mDNS: it's the guaranteed path,
+        not a backstop for a separate mDNS-driven reconnect (that's a planned
+        follow-up, layered on top of this rather than replacing it).
+        """
+        if self.connected:
+            return
+        try:
+            await self.appliance.connect()
+        except (
+            ConnectionFailedError,
+            HCHandshakeError,
+            aiohttp.ClientResponseError,
+            AllreadyConnectedError,
+        ):
+            self.logger.debug(
+                "Reconnect poll: still can't reach %s", self.config_entry.data[CONF_HOST]
+            )
+            await self.appliance.close()
+        except Exception:
+            self.logger.exception(
+                "Reconnect poll: unexpected error connecting to %s",
+                self.config_entry.data[CONF_HOST],
+            )
+            await self.appliance.close()
+        else:
+            if self.appliance.session.connected:
+                self.connected = True
+                self.async_set_updated_data(None)
+            else:
+                await self.appliance.close()
 
     async def _async_update_data(self) -> None:
         return None
