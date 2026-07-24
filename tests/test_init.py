@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from ipaddress import ip_address
 from typing import TYPE_CHECKING
 from unittest.mock import ANY, AsyncMock, Mock
 
@@ -10,8 +11,10 @@ from custom_components.homeconnect_ws import coordinator
 from custom_components.homeconnect_ws.const import DOMAIN
 from home_disconnect import ConnectionFailedError
 from home_disconnect.testutils import MockAppliance
-from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import CONF_DESCRIPTION
+from homeassistant.config_entries import SOURCE_ZEROCONF, ConfigEntryState
+from homeassistant.const import CONF_DESCRIPTION, CONF_HOST
+from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -170,6 +173,91 @@ async def test_washer_reconnect_poll_registered_and_recovers(
     assert coord._poll_unsub is None
 
 
+async def test_nudge_reconnect_schedules_immediate_retry_for_disconnected_washer(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """async_nudge_reconnect() (called from the zeroconf discovery flow) retries now."""
+    description = deepcopy(DEVICE_DESCRIPTION)
+    description["info"]["type"] = "Washer"
+    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
+    appliance.session.connect = AsyncMock(side_effect=ConnectionFailedError)
+    appliance_mock = Mock(return_value=appliance)
+    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+
+    config_data = deepcopy(MOCK_CONFIG_DATA)
+    config_data[CONF_DESCRIPTION] = description
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=config_data,
+        unique_id=MOCK_TLS_DEVICE_ID,
+    )
+    entry.add_to_hass(hass)
+
+    await hass.config_entries.async_setup(entry.entry_id)
+    coord = entry.runtime_data.coordinator
+    assert coord.connected is False
+
+    appliance.session.connect = AsyncMock()
+    appliance.session.connected = True
+    coord.async_nudge_reconnect()
+    await hass.async_block_till_done()
+
+    assert coord.connected is True
+
+
+async def test_nudge_reconnect_is_noop_when_already_connected(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A redundant re-announcement while already connected doesn't trigger another connect."""
+    description = deepcopy(DEVICE_DESCRIPTION)
+    description["info"]["type"] = "Washer"
+    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
+    appliance_mock = Mock(return_value=appliance)
+    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+
+    config_data = deepcopy(MOCK_CONFIG_DATA)
+    config_data[CONF_DESCRIPTION] = description
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=config_data,
+        unique_id=MOCK_TLS_DEVICE_ID,
+    )
+    entry.add_to_hass(hass)
+
+    await hass.config_entries.async_setup(entry.entry_id)
+    coord = entry.runtime_data.coordinator
+    assert coord.connected is True
+
+    connect_calls_before = appliance.session.connect.call_count
+    coord.async_nudge_reconnect()
+    await hass.async_block_till_done()
+
+    assert appliance.session.connect.call_count == connect_calls_before
+
+
+async def test_nudge_reconnect_is_noop_for_non_exempt_appliance(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+) -> None:
+    """A dishwasher's coordinator ignores the nudge - not in the exempt/disconnect-prone set."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG_DATA,
+        unique_id=MOCK_TLS_DEVICE_ID,
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    coord = entry.runtime_data.coordinator
+
+    connect_calls_before = mock_appliance.session.connect.call_count
+    coord.async_nudge_reconnect()
+    await hass.async_block_till_done()
+
+    assert mock_appliance.session.connect.call_count == connect_calls_before
+
+
 async def test_setup_entry_washer_dryer_combo_is_blocking(
     hass: HomeAssistant,
     monkeypatch: pytest.MonkeyPatch,
@@ -195,3 +283,93 @@ async def test_setup_entry_washer_dryer_combo_is_blocking(
     await hass.async_block_till_done()
 
     assert entry.state is ConfigEntryState.SETUP_RETRY
+
+
+def _make_zeroconf_discovery_info(host: str) -> ZeroconfServiceInfo:
+    return ZeroconfServiceInfo(
+        ip_address=ip_address(host),
+        ip_addresses=[ip_address(host)],
+        port=80,
+        hostname="mock-host.local.",
+        type="_homeconnect._tcp.local.",
+        name="MOCK-NAME._homeconnect._tcp.local.",
+        properties={
+            "id": MOCK_TLS_DEVICE_ID,
+            "vib": "Fake_vib",
+            "brand": "Fake_Brand",
+            "type": "Washer",
+        },
+    )
+
+
+async def test_zeroconf_nudges_reconnect_for_loaded_laundry_entry(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Re-announcing at the same IP nudges an immediate reconnect, not just a reload."""
+    description = deepcopy(DEVICE_DESCRIPTION)
+    description["info"]["type"] = "Washer"
+    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
+    appliance.session.connect = AsyncMock(side_effect=ConnectionFailedError)
+    appliance_mock = Mock(return_value=appliance)
+    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+
+    config_data = deepcopy(MOCK_CONFIG_DATA)
+    config_data[CONF_DESCRIPTION] = description
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=config_data,
+        unique_id=MOCK_TLS_DEVICE_ID,
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+
+    coord = entry.runtime_data.coordinator
+    assert coord.connected is False
+
+    # Appliance is reachable again by the time it re-announces itself.
+    appliance.session.connect = AsyncMock()
+    appliance.session.connected = True
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": SOURCE_ZEROCONF},
+        data=_make_zeroconf_discovery_info(config_data[CONF_HOST]),
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert coord.connected is True
+
+
+async def test_zeroconf_does_not_nudge_unloaded_entry(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No coordinator to nudge (and no crash) when the matching entry isn't loaded."""
+    description = deepcopy(DEVICE_DESCRIPTION)
+    description["info"]["type"] = "Washer"
+    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
+    appliance_mock = Mock(return_value=appliance)
+    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+
+    config_data = deepcopy(MOCK_CONFIG_DATA)
+    config_data[CONF_DESCRIPTION] = description
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=config_data,
+        unique_id=MOCK_TLS_DEVICE_ID,
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.config_entries.async_unload(entry.entry_id)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": SOURCE_ZEROCONF},
+        data=_make_zeroconf_discovery_info(config_data[CONF_HOST]),
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"

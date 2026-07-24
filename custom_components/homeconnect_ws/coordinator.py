@@ -22,6 +22,7 @@ from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_AES_IV,
@@ -254,6 +255,20 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
                 self.async_set_updated_data(None)
             else:
                 await self.appliance.close()
+
+    def async_nudge_reconnect(self) -> None:
+        """
+        Retry immediately instead of waiting out the fallback poll's interval.
+
+        Called from the zeroconf discovery flow (see async_step_zeroconf) when
+        this appliance re-announces itself on mDNS - the same discovery that
+        drives initial setup already fires on every re-announcement, so this
+        rides it rather than running a second, redundant listener. A no-op for
+        non-exempt appliance types or while already connected.
+        """
+        if self._escalate_connectivity_logging or self.connected:
+            return
+        self.config_entry.async_create_task(self.hass, self._async_poll_reconnect(dt_util.utcnow()))
 
     async def _async_update_data(self) -> None:
         return None

@@ -26,7 +26,7 @@ from home_disconnect import (
 )
 from homeassistant.components.file_upload import process_uploaded_file
 from homeassistant.components.http.auth import async_sign_path
-from homeassistant.config_entries import SOURCE_IGNORE, ConfigFlow, OptionsFlow
+from homeassistant.config_entries import SOURCE_IGNORE, ConfigEntryState, ConfigFlow, OptionsFlow
 from homeassistant.const import (
     CONF_DESCRIPTION,
     CONF_DEVICE,
@@ -463,8 +463,16 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
             config_entry = self.hass.config_entries.async_entry_for_domain_unique_id(
                 self.handler, appliance_id
             )
-            if config_entry and not config_entry.data.get(CONF_MANUAL_HOST, False):
-                updates = {CONF_HOST: str(discovery_info.ip_address)}
+            if config_entry:
+                if not config_entry.data.get(CONF_MANUAL_HOST, False):
+                    updates = {CONF_HOST: str(discovery_info.ip_address)}
+                if config_entry.state is ConfigEntryState.LOADED:
+                    # Standalone washers/dryers disable home-disconnect's own
+                    # auto-reconnect and rely on this re-announcement (or the
+                    # fallback poll) to notice they're back - nudge it now
+                    # rather than waiting out the poll's interval. A no-op for
+                    # every other appliance type and while already connected.
+                    config_entry.runtime_data.coordinator.async_nudge_reconnect()
             self._abort_if_unique_id_configured(updates=updates)
             self.data[CONF_HOST] = str(discovery_info.ip_address)
             self.data[CONF_NAME] = (
