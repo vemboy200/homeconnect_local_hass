@@ -54,8 +54,8 @@ class HCFan(HCEntity, FanEntity):
     """Fan Entity."""
 
     entity_description: HCFanEntityDescription
-    _speed_entities: dict[str, HcEntity] | None = None
-    _speed_range: range = None
+    _speed_entities: dict[str, HcEntity]
+    _speed_range: tuple[float, float]
     _speed_mapping: list[SpeedMapping]
 
     def __init__(
@@ -70,10 +70,10 @@ class HCFan(HCEntity, FanEntity):
         self._speed_mapping = []
         self._speed_entities = {}
         self._attr_speed_count = 0
-        for entity_name in entity_description.entities:
+        for entity_name in entity_description.entities or []:
             entity = self._runtime_data.appliance.entities[entity_name]
             self._speed_entities[entity_name] = entity
-            for option in entity.enum:
+            for option in entity.enum or {}:
                 if option != 0:
                     self._attr_speed_count += 1
                     self._speed_mapping.append(
@@ -132,9 +132,9 @@ class HCFan(HCEntity, FanEntity):
         *,
         entity_name: str | None = None,
         value: int = 0,
-    ) -> dict[int, int]:
+    ) -> dict[int, str | int | bool]:
         """Build writable fan option uids for the given program."""
-        options: dict[int, int] = {}
+        options: dict[int, str | int | bool] = {}
         # Program.options has no public accessor in the library yet.
         for option in program._options:  # noqa: SLF001
             if option.name not in self._speed_entities:
@@ -161,7 +161,7 @@ class HCFan(HCEntity, FanEntity):
                 new_speed_entity = speed.entity_name
                 new_speed_value = speed.entity_value
 
-        if new_speed_entity is None:
+        if new_speed_entity is None or new_speed_value is None:
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
                 translation_key="speed_invalid",

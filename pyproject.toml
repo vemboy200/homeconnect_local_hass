@@ -1,11 +1,11 @@
 [project]
-version = "1.6.0"
+version = "1.7.0b0"
 name = "homeconnect_ws"
 authors = [{ name = "chris-mc1" }, { name = "vemboy200" }]
 description = "Home Connect Local for Homeassistant"
 readme = "README.md"
 requires-python = ">=3.14.2"
-dependencies = ["home-disconnect==1.5.5"]
+dependencies = ["home-disconnect==1.6.0b0"]
 
 [project.urls]
 Homepage = "https://github.com/vemboy200/homeconnect_local_hass"
@@ -13,12 +13,13 @@ Issues = "https://github.com/vemboy200/homeconnect_local_hass/issues"
 
 [dependency-groups]
 dev = [
-    "colorlog==6.10.1",
-    "homeassistant==2026.5.3",
-    "pytest-homeassistant-custom-component==0.13.332",
+    "colorlog==6.11.0",
+    "homeassistant==2026.7.3",
+    "pytest-homeassistant-custom-component==0.13.347",
     "voluptuous-stubs==0.1.1",
     "ruff==0.16.0",
-    "pre-commit==4.6.0",
+    "pre-commit==4.6.1",
+    "mypy==2.3.0",
 ]
 
 test = [
@@ -38,3 +39,14 @@ exclude_lines = ["if TYPE_CHECKING:"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+
+[tool.mypy]
+python_version = "3.14"
+show_error_codes = true
+explicit_package_bases = true
+mypy_path = "."
+
+[[tool.mypy.overrides]]
+module = "custom_components.homeconnect_ws.*"
+strict = true
+warn_unreachable = true

@@ -49,7 +49,7 @@ class HCSelect(HCEntity, SelectEntity):
         self._rev_options = {}
         if entity_description.options:
             self._attr_options = entity_description.options
-        elif self._entity.enum:
+        elif self._entity is not None and self._entity.enum:
             enum_values = self._settable_enum_values()
             self._attr_options = []
             if self.entity_description.has_state_translation:
@@ -59,25 +59,36 @@ class HCSelect(HCEntity, SelectEntity):
                 for value in enum_values:
                     self._attr_options.append(str(value))
 
-        if self.entity_description.has_state_translation and self._entity.enum:
+        if self.entity_description.has_state_translation and (
+            self._entity is not None and self._entity.enum
+        ):
             for value in self._settable_enum_values():
                 self._rev_options[str(value).lower()] = value
 
     def _settable_enum_values(self) -> list[str]:
         """Return enum values allowed by the appliance min/max range."""
-        if not self._entity.enum:
+        if self._entity is None or not self._entity.enum:
             return []
         values: list[str] = []
+        entity_min = getattr(self._entity, "min", None)
+        entity_max = getattr(self._entity, "max", None)
         for key, enum_value in self._entity.enum.items():
-            if self._entity.min is not None and int(key) < self._entity.min:
+            if entity_min is not None and int(key) < entity_min:
                 continue
-            if self._entity.max is not None and int(key) > self._entity.max:
+            if entity_max is not None and int(key) > entity_max:
                 continue
             values.append(enum_value)
         return values
 
     @property
-    def current_option(self) -> str:
+    def current_option(self) -> str | None:
+        if (
+            self.entity_description.force_option_when_expected_offline is not None
+            and self._runtime_data.coordinator.expected_offline
+        ):
+            return self.entity_description.force_option_when_expected_offline
+        if self._entity is None:
+            return None
         if self.entity_description.has_state_translation:
             value = str(self._entity.value).lower()
             if value in self._attr_options:
@@ -89,6 +100,8 @@ class HCSelect(HCEntity, SelectEntity):
 
     @error_decorator
     async def async_select_option(self, option: str) -> None:
+        if self._entity is None:
+            return
         if self._rev_options:
             option = self._rev_options[option]
         await self._entity.set_value(option)
@@ -105,15 +118,15 @@ class HCProgram(HCSelect):
         runtime_data: HCData,
     ) -> None:
         super().__init__(entity_description, runtime_data)
-        self._programs = entity_description.mapping
+        self._programs = entity_description.mapping or {}
         self._rev_programs = {value: key for key, value in self._programs.items()}
 
     @property
-    def options(self) -> list[str] | None:
+    def options(self) -> list[str]:
         return list(self._programs.values())
 
     @property
-    def current_option(self) -> list[str] | None:
+    def current_option(self) -> str | None:
         if self._runtime_data.appliance.selected_program:
             if self._runtime_data.appliance.selected_program.name in self._programs:
                 return self._programs[self._runtime_data.appliance.selected_program.name]

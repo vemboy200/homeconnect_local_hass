@@ -114,6 +114,7 @@ async def test_power_switch(mock_homeconnect_appliance: MockApplianceType) -> No
         entity="BSH.Common.Setting.PowerState",
         device_class=SwitchDeviceClass.SWITCH,
         value_mapping=("On", "Off"),
+        force_off_when_expected_offline=True,
     )
 
     # No Switch
@@ -134,6 +135,7 @@ async def test_power_switch(mock_homeconnect_appliance: MockApplianceType) -> No
         entity="BSH.Common.Setting.PowerState",
         device_class=SwitchDeviceClass.SWITCH,
         value_mapping=("On", "MainsOff"),
+        force_off_when_expected_offline=True,
     )
 
     # Standby/Off Switch
@@ -146,6 +148,7 @@ async def test_power_switch(mock_homeconnect_appliance: MockApplianceType) -> No
         entity="BSH.Common.Setting.PowerState",
         device_class=SwitchDeviceClass.SWITCH,
         value_mapping=("Standby", "Off"),
+        force_off_when_expected_offline=True,
     )
 
 
@@ -213,6 +216,7 @@ async def test_program(mock_homeconnect_appliance: MockApplianceType) -> None:
             "BSH.Common.Program.Favorite.002": "favorite_002",
             "BSH.Common.Program.Program1": "bsh_common_program_program1",
         },
+        clear_on_expected_offline=True,
     )
 
     appliance = await mock_homeconnect_appliance(description={})

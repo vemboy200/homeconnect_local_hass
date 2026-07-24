@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from custom_components.homeconnect_ws.helpers import merge_dicts
 
@@ -29,6 +29,8 @@ from .laundry_care import LAUNDRY_ENTITY_DESCRIPTIONS
 from .refrigeration import REFRIGERATION_ENTITY_DESCRIPTIONS
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from home_disconnect import HomeAppliance
 
 
@@ -49,7 +51,30 @@ def get_all_entity_description() -> _EntityDescriptionsDefinitionsType:
     return ALL_ENTITY_DESCRIPTIONS
 
 
-def get_available_entities(appliance: HomeAppliance) -> EntityDescriptions:
+def _resolve_description(
+    description: HCEntityDescription
+    | Callable[[HomeAppliance], HCEntityDescription | EntityDescriptions | None],
+    appliance: HomeAppliance,
+) -> HCEntityDescription | None:
+    """
+    Resolve a single per-type description entry to a concrete instance, if any.
+
+    Note: HA's frozen_or_thawed EntityDescription machinery clones these
+    classes into homeassistant.util.frozen_dataclass_compat at runtime, so
+    isinstance() checks against HCEntityDescription (or any subclass) are
+    unreliable here - callable() duck-typing is the only thing that actually
+    distinguishes a description instance from a per-appliance generator
+    function.
+    """
+    if not callable(description):
+        return description
+    dynamic_result = description(appliance)
+    if not dynamic_result:
+        return None
+    return cast("HCEntityDescription", dynamic_result)
+
+
+def get_available_entities(appliance: HomeAppliance) -> _EntityDescriptionsType:
     """Get all available Entity descriptions."""
     available_entities: _EntityDescriptionsType = {
         "button": [],
@@ -69,25 +94,30 @@ def get_available_entities(appliance: HomeAppliance) -> EntityDescriptions:
     }
     appliance_entities = set(appliance.entities)
     for description_type, descriptions in get_all_entity_description().items():
-        # dynamic descriptions
+        # dynamic descriptions: each callable builds a full set of new
+        # entities (across types) for this specific appliance.
         if description_type == "dynamic":
             for descriptions_fn in descriptions:
-                dynamic_descriptions: _EntityDescriptionsType = descriptions_fn(appliance)
+                if not callable(descriptions_fn):
+                    continue
+                dynamic_result = descriptions_fn(appliance)
+                if not isinstance(dynamic_result, dict):
+                    continue
+                dynamic_descriptions = cast("_EntityDescriptionsType", dynamic_result)
                 for key, value in dynamic_descriptions.items():
                     available_entities[key].extend(value)
             continue
         for description in descriptions:
-            if callable(description):
-                if dynamic_description := description(appliance):
-                    available_entities[description_type].append(dynamic_description)
-            else:
-                all_subscribed_entities = set()
-                if description.entity:
-                    all_subscribed_entities.add(description.entity)
-                if description.entities:
-                    all_subscribed_entities.update(description.entities)
-                if appliance_entities.issuperset(all_subscribed_entities):
-                    available_entities[description_type].append(description)
+            resolved_description = _resolve_description(description, appliance)
+            if resolved_description is None:
+                continue
+            all_subscribed_entities: set[str] = set()
+            if resolved_description.entity:
+                all_subscribed_entities.add(resolved_description.entity)
+            if resolved_description.entities:
+                all_subscribed_entities.update(resolved_description.entities)
+            if appliance_entities.issuperset(all_subscribed_entities):
+                available_entities[description_type].append(resolved_description)
     return available_entities
 
 

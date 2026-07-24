@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -11,6 +11,7 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.const import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .coordinator import HomeConnectCoordinator
 from .entity import HCEntity
 from .entity_descriptions.descriptions_definitions import HCBinarySensorEntityDescription
 from .helpers import create_entities
@@ -38,7 +39,9 @@ async def async_setup_entry(
     async_add_entites: AddEntitiesCallback,
 ) -> None:
     """Set up binary_sensor platform."""
-    entities = create_entities({"binary_sensor": HCBinarySensor}, config_entry.runtime_data)
+    entities: set[HCEntity | HCConnectionSensor] = set(
+        create_entities({"binary_sensor": HCBinarySensor}, config_entry.runtime_data)
+    )
     entities.add(HCConnectionSensor(CONNECTION_SENSOR_DESCRIPTIONS, config_entry.runtime_data))
     async_add_entites(entities)
 
@@ -49,17 +52,21 @@ class HCBinarySensor(HCEntity, BinarySensorEntity):
     entity_description: HCBinarySensorEntityDescription
 
     @property
-    def is_on(self) -> bool:
+    def is_on(self) -> bool | None:
+        if self._entity is None:
+            return None
         if self.entity_description.value_on:
             if self._entity.value in self.entity_description.value_on:
                 return True
-            if self._entity.value in self.entity_description.value_off:
+            if self.entity_description.value_off and self._entity.value in (
+                self.entity_description.value_off
+            ):
                 return False
             return None
         return bool(self._entity.value)
 
 
-class HCConnectionSensor(CoordinatorEntity, BinarySensorEntity):
+class HCConnectionSensor(CoordinatorEntity[HomeConnectCoordinator], BinarySensorEntity):
     """Connection sensor Entity."""
 
     _attr_has_entity_name = True
@@ -80,3 +87,10 @@ class HCConnectionSensor(CoordinatorEntity, BinarySensorEntity):
     @property
     def is_on(self) -> bool:
         return self._appliance.session.connected
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        # Reflects the most recent close, regardless of current connectivity -
+        # not just "while currently disconnected" - so it stays checkable
+        # after the appliance reconnects, not only in the moment it's down.
+        return {"clean_disconnect": self._appliance.session.last_close_code == 1000}

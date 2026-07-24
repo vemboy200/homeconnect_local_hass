@@ -124,4 +124,4 @@ async def async_exchange_code_for_token(
         if not token:
             msg = f"No access_token in response: {data}"
             raise HCLegacyOAuthError(msg)
-        return token
+        return str(token)

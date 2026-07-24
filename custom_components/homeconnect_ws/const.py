@@ -2,9 +2,20 @@
 
 from __future__ import annotations
 
-from typing import Final
+from typing import TYPE_CHECKING, Any, Final, TypedDict
 
 from homeassistant.const import Platform
+
+if TYPE_CHECKING:
+    from home_disconnect import DeviceDescription
+
+
+class AppliancePayload(TypedDict):
+    """A single appliance's info + parsed profile, keyed by haId elsewhere."""
+
+    info: dict[str, Any]
+    description: DeviceDescription
+
 
 DOMAIN: Final = "homeconnect_ws"
 PLATFORMS: Final = [
