@@ -84,6 +84,26 @@ def test_get_available_entities(
     ]
 
 
+async def test_get_available_entities_real_descriptions(
+    mock_homeconnect_appliance: MockApplianceType,
+) -> None:
+    """Regression test for get_available_entities against the real descriptions.
+
+    get_available_entities() pre-initializes a dict with one key per entity
+    category; adding a new category to the entity descriptions (e.g. a new
+    "select"-like grouping) without also adding it there raises a KeyError
+    the moment a matching entity is found on a real appliance. The mocked
+    test above never exercises this because it swaps in a synthetic,
+    already-consistent description set.
+    """
+    appliance = await mock_homeconnect_appliance()
+    entities = entity_descriptions.get_available_entities(appliance)
+    assert any(
+        description.key == "select_remote_control_level"
+        for description in entities["remote_control_level"]
+    )
+
+
 POWER_SWITCH = {
     "setting": [
         {

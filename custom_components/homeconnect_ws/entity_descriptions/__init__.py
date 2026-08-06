@@ -58,6 +58,7 @@ def get_available_entities(appliance: HomeAppliance) -> EntityDescriptions:
         "event_sensor": [],
         "number": [],
         "program": [],
+        "remote_control_level": [],
         "select": [],
         "sensor": [],
         "start_button": [],

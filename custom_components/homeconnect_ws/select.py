@@ -27,7 +27,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up select platform."""
     entities = create_entities(
-        {"select": HCSelect, "program": HCProgram},
+        {"select": HCSelect, "program": HCProgram, "remote_control_level": HCRemoteControlLevel},
         config_entry.runtime_data,
     )
     async_add_entites(entities)
@@ -127,3 +127,37 @@ class HCProgram(HCSelect):
             await selected_program.select()
         elif selected_program.execution == Execution.START_ONLY:
             await selected_program.start()
+
+
+class HCRemoteControlLevel(HCSelect):
+    """Remote Control Level select entity.
+
+    Choosing "manualremotestart" or "permanentremotestart" here only tells the
+    appliance you *want* remote start enabled. Home Connect appliances still
+    require a one-time physical confirmation directly on the appliance before
+    BSH.Common.Status.RemoteControlStartAllowed actually becomes true - no
+    client, local or cloud, can set that flag remotely. This mirrors the
+    prompt the official Home Connect app shows right after this same change.
+    """
+
+    @error_decorator
+    async def async_select_option(self, option: str) -> None:
+        await super().async_select_option(option)
+        if option == "monitoring":
+            return
+        device_name = self._runtime_data.device_info.get("name", "your appliance")
+        await self.hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": "Home Connect Local: confirm remote start",
+                "message": (
+                    f"To finish enabling remote start on {device_name}, go to the "
+                    "appliance itself and confirm it there (e.g. press Start once "
+                    "with a program selected). This one-time physical step is "
+                    "required by the appliance's own security model - no app, "
+                    "local or cloud, can do it remotely."
+                ),
+                "notification_id": f"homeconnect_ws_confirm_remote_start_{self.entity_id}",
+            },
+        )

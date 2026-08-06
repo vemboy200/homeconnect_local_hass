@@ -132,6 +132,7 @@ class EntityDescriptions(TypedDict):
     event_sensor: list[HCSensorEntityDescription]
     number: list[HCNumberEntityDescription]
     program: list[HCSelectEntityDescription]
+    remote_control_level: list[HCSelectEntityDescription]
     select: list[HCSelectEntityDescription]
     sensor: list[HCSensorEntityDescription]
     start_button: list[HCButtonEntityDescription]
@@ -150,6 +151,7 @@ _EntityDescriptionsDefinitionsType = dict[
         "event_sensor",
         "number",
         "program",
+        "remote_control_level",
         "select",
         "sensor",
         "start_button",
@@ -174,6 +176,7 @@ _EntityDescriptionsType = dict[
         "event_sensor",
         "number",
         "program",
+        "remote_control_level",
         "select",
         "sensor",
         "start_button",
