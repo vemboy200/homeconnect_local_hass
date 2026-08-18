@@ -19,7 +19,7 @@ dev = [
     "voluptuous-stubs==0.1.1",
     "ruff==0.16.2",
     "pre-commit==4.6.2",
-    "mypy==2.3.0",
+    "mypy==2.3.1",
 ]
 
 test = [
