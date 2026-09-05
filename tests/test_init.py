@@ -5,18 +5,25 @@ from __future__ import annotations
 import asyncio
 from copy import deepcopy
 from ipaddress import ip_address
+from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import ANY, AsyncMock, Mock
 
 from custom_components.homeconnect_ws import coordinator
-from custom_components.homeconnect_ws.const import DOMAIN
-from home_disconnect import ConnectionFailedError
+from custom_components.homeconnect_ws.const import (
+    CONF_APPLIANCE_INFO,
+    CONF_DESCRIPTION_FILENAME,
+    CONF_FEATURE_FILENAME,
+    DOMAIN,
+)
+from home_disconnect import ConnectionFailedError, parse_device_description
 from home_disconnect.testutils import MockAppliance
 from homeassistant.config_entries import SOURCE_ZEROCONF, ConfigEntryState
 from homeassistant.const import CONF_DESCRIPTION, CONF_HOST
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+from homeassistant.helpers.storage import STORAGE_DIR
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -66,6 +73,59 @@ async def test_load_unload_entry(
     assert entry.state is ConfigEntryState.NOT_LOADED
 
     appliance.session.close.assert_awaited_once()
+
+
+async def test_migrate_entry_v1_to_v2(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Test a v1 config entry migrates to v2 storage on setup.
+
+    v2 matches upstream chris-mc1/homeconnect_local_hass's schema exactly
+    (CONF_APPLIANCE_INFO + XML files under storage_dir/{deviceID}/) so a
+    future upstream merge doesn't have to reconcile two different "v2"
+    shapes. CONF_DESCRIPTION is deliberately kept alongside the new keys -
+    coordinator.py still reads it directly, and switching that over is a
+    separate follow-up - so this only checks the migration itself is
+    correct, not that the old key gets dropped.
+    """
+    appliance = MockAppliance(DEVICE_DESCRIPTION, "host", "mock_app", "mock_app_id", "PSK_KEY")
+    appliance_mock = Mock(return_value=appliance)
+    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG_DATA,
+        unique_id=MOCK_TLS_DEVICE_ID,
+        version=1,
+    )
+    entry.add_to_hass(hass)
+
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert entry.version == 2
+
+    device_id = MOCK_APPLIANCE_INFO["deviceID"]
+    assert entry.data[CONF_APPLIANCE_INFO] == MOCK_APPLIANCE_INFO
+    assert entry.data[CONF_DESCRIPTION_FILENAME] == f"{device_id}/DeviceDescription.xml"
+    assert entry.data[CONF_FEATURE_FILENAME] == f"{device_id}/FeatureMapping.xml"
+    # Kept, not dropped - coordinator.py still reads this directly.
+    assert entry.data[CONF_DESCRIPTION] == DEVICE_DESCRIPTION
+
+    # Round-trip fidelity of serialize_device_description()/
+    # parse_device_description() themselves is home-disconnect's own
+    # concern (covered by its own test suite) - this only checks the
+    # migration actually wrote real, parseable XML, not that every field/
+    # entity survives serialization byte-for-byte.
+    storage_dir = Path(hass.config.path(STORAGE_DIR, DOMAIN))
+    description_xml = (storage_dir / entry.data[CONF_DESCRIPTION_FILENAME]).read_text()
+    feature_xml = (storage_dir / entry.data[CONF_FEATURE_FILENAME]).read_text()
+    reloaded = parse_device_description(description_xml, feature_xml)
+    assert reloaded["status"]
+    assert reloaded["setting"]
 
 
 async def test_device_registry_serial_number(

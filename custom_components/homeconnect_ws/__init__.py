@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Never
 
@@ -19,6 +20,7 @@ from homeassistant.helpers.device_registry import (
 from homeassistant.util.hass_dict import HassKey
 
 from .const import (
+    CONF_APPLIANCE_INFO,
     CONF_DEV_OVERRIDE_HOST,
     CONF_DEV_OVERRIDE_PSK,
     CONF_DEV_SETUP_FROM_DUMP,
@@ -29,6 +31,7 @@ from .coordinator import HomeConnectCoordinator
 from .entity_descriptions import get_available_entities
 from .export_view import HCExportView
 from .helpers import error_decorator, get_config_entry_from_call
+from .profile_storage import write_description_files
 
 if TYPE_CHECKING:
     from home_disconnect import HomeAppliance
@@ -232,3 +235,36 @@ async def async_unload_entry(hass: HomeAssistant, entry: HCConfigEntry) -> bool:
     if unload_ok:
         await entry.runtime_data.coordinator.close()
     return unload_ok
+
+
+async def async_migrate_entry(hass: HomeAssistant, config_entry: HCConfigEntry) -> bool:
+    """
+    Migrate a v1 config entry to the v2 storage schema.
+
+    v1 stored the entire parsed description inline in the entry's own data.
+    v2 (matching upstream chris-mc1/homeconnect_local_hass's schema exactly,
+    so a future merge doesn't have to reconcile two different "v2" shapes)
+    writes it out as XML under HA's storage dir instead, keyed by device ID,
+    with just the appliance's info dict (CONF_APPLIANCE_INFO) kept on the
+    entry itself.
+
+    CONF_DESCRIPTION is deliberately kept alongside the new keys rather than
+    removed - coordinator.py still reads it directly at several points, and
+    switching it over to load from the new storage files instead is a
+    separate, larger follow-up. This migration only needs to be correct
+    about writing the v2-shaped data next to it.
+    """
+    if config_entry.version == 1:
+        description = deepcopy(config_entry.data[CONF_DESCRIPTION])
+        new_keys = await write_description_files(hass, description["info"]["deviceID"], description)
+        hass.config_entries.async_update_entry(
+            config_entry,
+            data={
+                **config_entry.data,
+                CONF_APPLIANCE_INFO: description["info"],
+                **new_keys,
+            },
+            version=2,
+        )
+        _LOGGER.debug("Migrated %s to config entry version 2", description["info"].get("vib"))
+    return True
