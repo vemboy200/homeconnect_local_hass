@@ -146,6 +146,8 @@ def process_json_file(config_path: Path) -> dict[str, AppliancePayload]:
 class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
     """HomeConnect Config flow."""
 
+    VERSION = 2
+
     @staticmethod
     def async_get_options_flow(config_entry: HCConfigEntry) -> HCOptionsFlowHandler:
         """Get the options flow for this handler."""

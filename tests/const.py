@@ -44,6 +44,7 @@ MOCK_TLS_DEVICE_ID_2 = "102030405060708090"
 MOCK_TLS_DEVICE_DESCRIPTION = {"info": {}, "MOCK_TLS_DEVICE_DESCRIPTION": None}
 MOCK_TLS_DEVICE_INFO = {
     "haId": MOCK_TLS_DEVICE_ID,
+    "deviceID": MOCK_TLS_DEVICE_ID,
     "type": "Test_TLS",
     "serialNumber": MOCK_TLS_DEVICE_ID,
     "brand": "Test_Brand",
@@ -61,6 +62,7 @@ MOCK_AES_DEVICE_ID = "101112131415161718"
 MOCK_AES_DEVICE_DESCRIPTION = {"info": {}, "MOCK_AES_DEVICE_DESCRIPTION": None}
 MOCK_AES_DEVICE_INFO = {
     "haId": MOCK_AES_DEVICE_ID,
+    "deviceID": MOCK_AES_DEVICE_ID,
     "type": "Test_AES",
     "serialNumber": MOCK_AES_DEVICE_ID,
     "brand": "Test_Brand",
