@@ -38,3 +38,11 @@ CONF_REGION: Final = "region"
 CONF_DEV_SETUP_FROM_DUMP: Final = "setup_from_dump_enabled"
 CONF_DEV_OVERRIDE_HOST: Final = "override_host"
 CONF_DEV_OVERRIDE_PSK: Final = "override_psk"
+
+# Matches upstream chris-mc1/homeconnect_local_hass's v2 config entry schema
+# exactly (same key strings, same storage_dir/{deviceID}/*.xml layout) so a
+# future upstream merge doesn't have to reconcile two different
+# "v2-equivalent" schemas.
+CONF_APPLIANCE_INFO: Final = "appliance_info"
+CONF_DESCRIPTION_FILENAME: Final = "description_filename"
+CONF_FEATURE_FILENAME: Final = "feature_filename"
