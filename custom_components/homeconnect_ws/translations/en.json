@@ -1,6 +1,24 @@
 {
   "config": {
     "step": {
+      "upload": {
+        "title": "Add new Home Connect Appliances",
+        "description": "Upload your Profile file",
+        "data": {
+          "file": "Profile file"
+        }
+      },
+      "device_select": {
+        "title": "Select your Appliance",
+        "description": "Select the Appliance you want to setup"
+      },
+      "host": {
+        "title": "Enter Hostname",
+        "description": "Try manually entering your Appliance Hostname or IP-Address",
+        "data": {
+          "host": "Host / IP-Address"
+        }
+      },
       "user": {
         "title": "Add new Home Connect Appliances",
         "menu_options": {
@@ -21,24 +39,6 @@
         "data": {
           "legacy_redirect_url": "Redirect URL"
         }
-      },
-      "upload": {
-        "title": "Add new Home Connect Appliances",
-        "description": "Upload your Profile file",
-        "data": {
-          "file": "Profile file"
-        }
-      },
-      "device_select": {
-        "title": "Select your Appliance",
-        "description": "Select the Appliance you want to setup"
-      },
-      "host": {
-        "title": "Enter Hostname",
-        "description": "Try manually entering your Appliance Hostname or IP-Address",
-        "data": {
-          "host": "Host / IP-Address"
-        }
       }
     },
     "error": {
@@ -52,44 +52,13 @@
       "profile_file_parser_error": "Profile File is invalid: {error}",
       "appliance_not_in_profile_file": "Profile File dose not contain profile for this Appliance",
       "all_setup": "All Appliances in this Profile File are already setup",
+      "failed_to_write_profile_file": "Profile File could not be stored",
       "oauth_fetch_failed": "Could not fetch appliance profiles from Home Connect: {error}",
       "reauth_entry_not_found": "The config entry being re-authenticated no longer exists"
     }
   },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Export Appliance Profile",
-        "description": "Export this appliance's profile as a downloadable ZIP file.\n\n**Safe**: no encryption key or other sensitive data. Safe to share for a feature request. Delivered as a download link.\n\n**Full**: also includes the appliance's local encryption key, for transferring it to another system. Written to your config directory (`homeconnect_ws_export` folder) instead of a download link, to avoid exposing the key over HTTP.",
-        "data": {
-          "mode": "Export type"
-        }
-      }
-    }
-  },
   "entity": {
     "switch": {
-      "switch_allow_backend_connection": {
-        "name": "Allow Cloud Connection"
-      },
-      "switch_allow_consumer_insights": {
-        "name": "Allow Consumer Insights"
-      },
-      "switch_synchronize_with_time_server": {
-        "name": "Synchronize Time with Server"
-      },
-      "switch_oven_convection_conversion": {
-        "name": "Convection Conversion"
-      },
-      "switch_oven_display_standby_dimmed": {
-        "name": "Dim Display on Standby"
-      },
-      "switch_dishwasher_sanitation": {
-        "name": "Sanitize"
-      },
-      "switch_dishwasher_time_light": {
-        "name": "Time Light"
-      },
       "switch_power_state": {
         "name": "Power"
       },
@@ -113,9 +82,6 @@
       },
       "switch_zeolite_dry": {
         "name": "CrystalDry"
-      },
-      "switch_eco_dry_option": {
-        "name": "EfficientDry"
       },
       "switch_extra_dry": {
         "name": "Extra Dry"
@@ -237,11 +203,68 @@
       "switch_oven_light_during_operation": {
         "name": "Oven Light during Operation"
       },
-      "switch_oven_night_dimout": {
-        "name": "Night dimout"
-      },
       "switch_oven_sabbath_mode": {
         "name": "Sabbath mode"
+      },
+      "switch_refrigerator_sabbath_mode": {
+        "name": "Sabbath mode"
+      },
+      "switch_refrigerator_dispenser_enabled": {
+        "name": "Dispenser"
+      },
+      "switch_refrigerator_dispenser_party_mode": {
+        "name": "Dispenser Party mode"
+      },
+      "switch_refrigerator_door_assistant_freezer": {
+        "name": "Freezer Door Assistant"
+      },
+      "switch_refrigeration_light_internal": {
+        "name": "Internal Light"
+      },
+      "switch_refrigeration_light_theater_mode": {
+        "name": "Internal Light TheaterMode"
+      },
+      "switch_hood_boost": {
+        "name": "Boost"
+      },
+      "switch_hood_silence_mode": {
+        "name": "Silence Mode"
+      },
+      "switch_refrigerator_fresh_mode": {
+        "name": "Fresh Mode"
+      },
+      "switch_extra_rinse": {
+        "name": "Extra Rinse"
+      },
+      "switch_pretreatment": {
+        "name": "Pre-Treatment"
+      },
+      "switch_allow_backend_connection": {
+        "name": "Allow Cloud Connection"
+      },
+      "switch_allow_consumer_insights": {
+        "name": "Allow Consumer Insights"
+      },
+      "switch_synchronize_with_time_server": {
+        "name": "Synchronize Time with Server"
+      },
+      "switch_oven_convection_conversion": {
+        "name": "Convection Conversion"
+      },
+      "switch_oven_display_standby_dimmed": {
+        "name": "Dim Display on Standby"
+      },
+      "switch_dishwasher_sanitation": {
+        "name": "Sanitize"
+      },
+      "switch_dishwasher_time_light": {
+        "name": "Time Light"
+      },
+      "switch_eco_dry_option": {
+        "name": "EfficientDry"
+      },
+      "switch_oven_night_dimout": {
+        "name": "Night dimout"
       },
       "switch_oven_teloscopic_slide_out_refited": {
         "name": "Telescopic slide out"
@@ -258,58 +281,28 @@
       "switch_hob_hood_automatic_light_on": {
         "name": "Hood Automatic Light On"
       },
-      "switch_refrigerator_sabbath_mode": {
-        "name": "Sabbath mode"
-      },
-      "switch_refrigerator_dispenser_enabled": {
-        "name": "Dispenser"
-      },
-      "switch_refrigerator_dispenser_party_mode": {
-        "name": "Dispenser Party mode"
-      },
-      "switch_refrigerator_door_assistant_freezer": {
-        "name": "Freezer Door Assistant"
-      },
       "switch_refrigerator_door_assistant_fridge": {
         "name": "Fridge Door Assistant"
-      },
-      "switch_refrigeration_light_internal": {
-        "name": "Internal Light"
-      },
-      "switch_refrigeration_light_theater_mode": {
-        "name": "Internal Light TheaterMode"
-      },
-      "switch_hood_silence_mode": {
-        "name": "Silence Mode"
-      },
-      "switch_refrigerator_fresh_mode": {
-        "name": "Fresh Mode"
-      },
-      "switch_extra_rinse": {
-        "name": "Extra Rinse"
-      },
-      "switch_pretreatment": {
-        "name": "Pre-Treatment"
       }
     },
     "binary_sensor": {
-      "binary_sensor_local_control_active": {
-        "name": "Local Control Active"
-      },
-      "binary_sensor_remote_control_active": {
-        "name": "Remote Control Active"
-      },
-      "binary_sensor_backend_connected": {
-        "name": "Cloud Connection"
-      },
-      "binary_sensor_oven_meatprobe_plugged": {
-        "name": "Meat Probe Plugged"
-      },
       "connection": {
         "name": "Connection"
       },
       "binary_sensor_door_state": {
         "name": "Door"
+      },
+      "binary_sensor_intensiv_zone_active": {
+        "name": "Intensive Zone Active"
+      },
+      "binary_sensor_half_load_active": {
+        "name": "Half Load Active"
+      },
+      "binary_sensor_hygiene_plus_active": {
+        "name": "Hygiene Plus Active"
+      },
+      "binary_sensor_pretreatment_active": {
+        "name": "Pre-Treatment Active"
       },
       "binary_sensor_eco_dry_active": {
         "name": "EcoDry Active"
@@ -533,6 +526,18 @@
       },
       "binary_sensor_alarm_clock_elapsed": {
         "name": "Alarm Clock Elapsed"
+      },
+      "binary_sensor_local_control_active": {
+        "name": "Local Control Active"
+      },
+      "binary_sensor_remote_control_active": {
+        "name": "Remote Control Active"
+      },
+      "binary_sensor_backend_connected": {
+        "name": "Cloud Connection"
+      },
+      "binary_sensor_oven_meatprobe_plugged": {
+        "name": "Meat Probe Plugged"
       }
     },
     "sensor": {
@@ -575,9 +580,6 @@
           "drying": "Drying"
         }
       },
-      "sensor_machine_care_reminder": {
-        "name": "Machine Care Reminder"
-      },
       "sensor_active_program": {
         "name": "Active Program",
         "state": {
@@ -603,6 +605,10 @@
           "favorite_008": "Favorite 8",
           "favorite_009": "Favorite 9",
           "favorite_010": "Favorite 10",
+          "cooking_common_program_hood_venting": "Venting",
+          "cooking_common_program_hood_automatic": "Automatic",
+          "cooking_common_program_hood_interval": "Interval Ventilation",
+          "cooking_common_program_hood_delayedshutoff": "Delayed shut-off",
           "cooking_hob_program_cookingsensor": "Cooking Sensor",
           "cooking_hob_program_dish_cookingsensor_beansinpressurecooker": "Cooking Sensor: Beans in Pressure Cooker",
           "cooking_hob_program_dish_cookingsensor_beefinpressurecooker": "Cooking Sensor: Beef in Pressure Cooker",
@@ -948,8 +954,6 @@
           "cooking_oven_program_heatingmode_defrost": "Defrost",
           "cooking_oven_program_heatingmode_desiccation": "Desiccation",
           "cooking_oven_program_heatingmode_proofdough": "Proof Dough",
-          "cooking_oven_program_heatingmode_proof": "Proof",
-          "cooking_oven_program_heatingmode_convectionbake": "Convection Bake",
           "cooking_oven_program_heatingmode_steamassist": "Steam Assist",
           "cooking_oven_program_heatingmode_intensiveheat": "Intensive Heat",
           "cooking_oven_program_heatingmode_fullsurfacegrill": "Full Surface Grill",
@@ -1350,10 +1354,6 @@
           "cooking_oven_program_subsequentmode_keepwarm": "Subsequent Mode: Keep Warm",
           "cooking_oven_program_subsequentmode_leavetorest": "Subsequent Mode: Leave to Rest",
           "cooking_oven_program_subsequentmode_startbaking": "Subsequent Mode: Start Baking",
-          "cooking_common_program_hood_automatic": "Automatic",
-          "cooking_common_program_hood_delayedshutoff": "Delayed shut-off",
-          "cooking_common_program_hood_venting": "Venting",
-          "cooking_common_program_hood_interval": "Interval Ventilation",
           "laundrycare_washer_program_automatic30_auto30_auto30": "Wash: Automatic soft/30",
           "laundrycare_washer_program_auto60": "Wash: Automatic 60",
           "laundrycare_washer_program_automatic4060_auto40_auto40": "Wash: Automatic 40-60",
@@ -1382,39 +1382,21 @@
           "laundrycare_washer_program_wool_wool_wool": "Wash: Wool",
           "laundrycare_washer_program_sportfitness": "Wash: Sportswear",
           "laundrycare_common_program_juststart": "Just Start",
-          "laundrycare_dryer_program_bedlinens_bedlinens_bedlinens": "Dry: Bed linens",
           "laundrycare_dryer_program_blankets": "Dry: Down Wear",
           "laundrycare_dryer_program_businessshirts": "Dry: Shirts",
-          "laundrycare_dryer_program_coldrefresh_coldrefresh_coldrefresh": "Cold refresh",
-          "laundrycare_dryer_program_connecteddry": "Smart Dry",
           "laundrycare_dryer_program_cotton": "Dry: Cottons",
-          "laundrycare_dryer_program_cotton_cotton_cotton": "Dry: Cottons",
-          "laundrycare_dryer_program_cottoneco_cottoneco_cottoneco": "Dry: Cottons Eco",
-          "laundrycare_dryer_program_delicates_delicates_delicates": "Dry: Delicates",
           "laundrycare_dryer_program_dessous": "Dry: Lingerie",
           "laundrycare_dryer_program_hygiene": "Dry: Hygiene",
-          "laundrycare_dryer_program_hygiene_hygiene_hygiene": "Dry: Hygiene",
           "laundrycare_dryer_program_inbasket": "Dry: Wool in Basket",
-          "laundrycare_dryer_program_maintenancecare1_maintenancecare1_quickcare": "Maintenance: Quick care",
-          "laundrycare_dryer_program_maintenancecare2_maintenancecare2_depthcare": "Maintenance: Deep care",
           "laundrycare_dryer_program_mix": "Dry: Mixed Fabrics",
-          "laundrycare_dryer_program_mix_mix_mix": "Dry: Mix",
           "laundrycare_dryer_program_outdoor": "Dry: Outdoor",
-          "laundrycare_dryer_program_outdoor_outdoor_sportswear": "Dry: Sportswear",
           "laundrycare_dryer_program_pillow": "Dry: Duvet",
-          "laundrycare_dryer_program_shirtblouses_shirtblouses_shirtblouses": "Dry: Shirt/blouses",
           "laundrycare_dryer_program_super40": "Dry: Rapid 40min",
-          "laundrycare_dryer_program_super40_super40_super40": "Dry: Super 40",
           "laundrycare_dryer_program_synthetic": "Dry: Easy-Care",
-          "laundrycare_dryer_program_synthetic_synthetic_synthetic": "Dry: Synthetic",
           "laundrycare_dryer_program_timecold": "Dry: Time Program Cold",
-          "laundrycare_dryer_program_timecold_timecold_timecold": "Dry: Time Program Cold",
           "laundrycare_dryer_program_timewarm": "Dry: Time Program Warm",
-          "laundrycare_dryer_program_timewarm_timewarm_timewarm": "Dry: Time Program Warm",
           "laundrycare_dryer_program_towels": "Dry: Towels",
-          "laundrycare_dryer_program_towels_towels_towels": "Dry: Towels",
           "laundrycare_dryer_program_shirtsblouses_sportfitness": "Dry: Sportswear",
-          "laundrycare_dryer_program_woolfinish_woolfinish_woolfinish": "Dry: Wool finish",
           "laundrycare_washerdryer_program_towels_towels": "Wash & Dry: Towels",
           "laundrycare_washerdryer_program_cotton_cotton": "Wash & Dry: Cotton",
           "laundrycare_washerdryer_program_mix_mix": "Wash & Dry: Mix",
@@ -1422,16 +1404,6 @@
           "laundrycare_washerdryer_program_sportfitness_sportfitness": "Wash & Dry: Sportswear",
           "laundrycare_washerdryer_program_washanddry_60": "Wash & Dry: 60'",
           "laundrycare_washerdryer_program_downduvet_down": "Wash & Dry: Down",
-          "laundrycare_washerdryer_program_labeleu19_labeleu19_eco4060": "Wash & Dry: Eco 40-60",
-          "laundrycare_washerdryer_program_cotton_cotton_cotton": "Wash & Dry: Cotton",
-          "laundrycare_washerdryer_program_mix_hhmix_hhmix": "Wash & Dry: Quick Mix",
-          "laundrycare_washerdryer_program_easycare_hhsynthetics_hhsynthetics": "Wash & Dry: Easy-Care",
-          "laundrycare_washerdryer_program_delicatessilk_delicatessilk_delicatessilk": "Wash & Dry: Delicates/Silk",
-          "laundrycare_washerdryer_program_wool_wool_wool": "Wash & Dry: Wool",
-          "laundrycare_washerdryer_program_spin_spin_spindrain": "Spin/Drain",
-          "laundrycare_washerdryer_program_rinse_rinse_rinse": "Rinse",
-          "laundrycare_washerdryer_program_sportfitness_sportfitness_sportfitness": "Wash & Dry: Sportswear",
-          "laundrycare_washerdryer_program_automatic4060_auto40_auto40": "Wash & Dry: Automatic 40°C",
           "laundrycare_washer_program_cotton_colour": "Cotton Colours",
           "laundrycare_washer_program_cotton_eco4060": "Cotton Eco 40–60",
           "laundrycare_washer_program_delicatessilk": "Delicates/Silk",
@@ -1504,6 +1476,36 @@
           "laundrycare_common_program_memory6": "Memory 6",
           "laundrycare_common_program_memory7": "Memory 7",
           "laundrycare_common_program_memory8": "Memory 8",
+          "cooking_oven_program_heatingmode_proof": "Proof",
+          "cooking_oven_program_heatingmode_convectionbake": "Convection Bake",
+          "laundrycare_dryer_program_bedlinens_bedlinens_bedlinens": "Dry: Bed linens",
+          "laundrycare_dryer_program_coldrefresh_coldrefresh_coldrefresh": "Cold refresh",
+          "laundrycare_dryer_program_connecteddry": "Smart Dry",
+          "laundrycare_dryer_program_cotton_cotton_cotton": "Dry: Cottons",
+          "laundrycare_dryer_program_cottoneco_cottoneco_cottoneco": "Dry: Cottons Eco",
+          "laundrycare_dryer_program_delicates_delicates_delicates": "Dry: Delicates",
+          "laundrycare_dryer_program_hygiene_hygiene_hygiene": "Dry: Hygiene",
+          "laundrycare_dryer_program_maintenancecare1_maintenancecare1_quickcare": "Maintenance: Quick care",
+          "laundrycare_dryer_program_maintenancecare2_maintenancecare2_depthcare": "Maintenance: Deep care",
+          "laundrycare_dryer_program_mix_mix_mix": "Dry: Mix",
+          "laundrycare_dryer_program_outdoor_outdoor_sportswear": "Dry: Sportswear",
+          "laundrycare_dryer_program_shirtblouses_shirtblouses_shirtblouses": "Dry: Shirt/blouses",
+          "laundrycare_dryer_program_super40_super40_super40": "Dry: Super 40",
+          "laundrycare_dryer_program_synthetic_synthetic_synthetic": "Dry: Synthetic",
+          "laundrycare_dryer_program_timecold_timecold_timecold": "Dry: Time Program Cold",
+          "laundrycare_dryer_program_timewarm_timewarm_timewarm": "Dry: Time Program Warm",
+          "laundrycare_dryer_program_towels_towels_towels": "Dry: Towels",
+          "laundrycare_dryer_program_woolfinish_woolfinish_woolfinish": "Dry: Wool finish",
+          "laundrycare_washerdryer_program_labeleu19_labeleu19_eco4060": "Wash & Dry: Eco 40-60",
+          "laundrycare_washerdryer_program_cotton_cotton_cotton": "Wash & Dry: Cotton",
+          "laundrycare_washerdryer_program_mix_hhmix_hhmix": "Wash & Dry: Quick Mix",
+          "laundrycare_washerdryer_program_easycare_hhsynthetics_hhsynthetics": "Wash & Dry: Easy-Care",
+          "laundrycare_washerdryer_program_delicatessilk_delicatessilk_delicatessilk": "Wash & Dry: Delicates/Silk",
+          "laundrycare_washerdryer_program_wool_wool_wool": "Wash & Dry: Wool",
+          "laundrycare_washerdryer_program_spin_spin_spindrain": "Spin/Drain",
+          "laundrycare_washerdryer_program_rinse_rinse_rinse": "Rinse",
+          "laundrycare_washerdryer_program_sportfitness_sportfitness_sportfitness": "Wash & Dry: Sportswear",
+          "laundrycare_washerdryer_program_automatic4060_auto40_auto40": "Wash & Dry: Automatic 40°C",
           "cooking_hob_program_dish_fryingsensor_creamsauce": "Frying Sensor: Cream Sauce",
           "cooking_hob_program_dish_fryingsensor_dumplings": "Frying Sensor: Dumplings",
           "cooking_hob_program_dish_fryingsensor_fondue": "Frying Sensor: Fondue",
@@ -2000,31 +2002,12 @@
           "poor": "Poor",
           "filled": "Filled"
         }
+      },
+      "sensor_machine_care_reminder": {
+        "name": "Machine Care Reminder"
       }
     },
     "select": {
-      "select_time_format": {
-        "name": "Time Format",
-        "state": {
-          "24hours": "24 Hours",
-          "12hours": "12 Hours"
-        }
-      },
-      "select_oven_clock_display": {
-        "name": "Clock Display",
-        "state": {
-          "clock01": "Digital",
-          "clock02": "Analog"
-        }
-      },
-      "select_dishwasher_auto_power_off": {
-        "name": "Auto Power Off",
-        "state": {
-          "off": "Off",
-          "oneminute": "After 1 Minute",
-          "120minutes": "After 2 Hours"
-        }
-      },
       "select_drying_assistant_all_programs": {
         "name": "Drying Assistant All Programs",
         "state": {
@@ -2189,6 +2172,10 @@
           "favorite_008": "Favorite 8",
           "favorite_009": "Favorite 9",
           "favorite_010": "Favorite 10",
+          "cooking_common_program_hood_venting": "Venting",
+          "cooking_common_program_hood_automatic": "Automatic",
+          "cooking_common_program_hood_interval": "Interval Ventilation",
+          "cooking_common_program_hood_delayedshutoff": "Delayed shut-off",
           "cooking_hob_program_cookingsensor": "Cooking Sensor",
           "cooking_hob_program_dish_cookingsensor_beansinpressurecooker": "Cooking Sensor: Beans in Pressure Cooker",
           "cooking_hob_program_dish_cookingsensor_beefinpressurecooker": "Cooking Sensor: Beef in Pressure Cooker",
@@ -2534,8 +2521,6 @@
           "cooking_oven_program_heatingmode_defrost": "Defrost",
           "cooking_oven_program_heatingmode_desiccation": "Desiccation",
           "cooking_oven_program_heatingmode_proofdough": "Proof Dough",
-          "cooking_oven_program_heatingmode_proof": "Proof",
-          "cooking_oven_program_heatingmode_convectionbake": "Convection Bake",
           "cooking_oven_program_heatingmode_steamassist": "Steam Assist",
           "cooking_oven_program_heatingmode_intensiveheat": "Intensive Heat",
           "cooking_oven_program_heatingmode_fullsurfacegrill": "Full Surface Grill",
@@ -2936,10 +2921,6 @@
           "cooking_oven_program_subsequentmode_keepwarm": "Subsequent Mode: Keep Warm",
           "cooking_oven_program_subsequentmode_leavetorest": "Subsequent Mode: Leave to Rest",
           "cooking_oven_program_subsequentmode_startbaking": "Subsequent Mode: Start Baking",
-          "cooking_common_program_hood_automatic": "Automatic",
-          "cooking_common_program_hood_delayedshutoff": "Delayed shut-off",
-          "cooking_common_program_hood_venting": "Venting",
-          "cooking_common_program_hood_interval": "Interval Ventilation",
           "laundrycare_washer_program_automatic30_auto30_auto30": "Wash: Automatic soft/30",
           "laundrycare_washer_program_auto60": "Wash: Automatic 60",
           "laundrycare_washer_program_automatic4060_auto40_auto40": "Wash: Automatic 40-60",
@@ -2968,39 +2949,21 @@
           "laundrycare_washer_program_wool_wool_wool": "Wash: Wool",
           "laundrycare_washer_program_sportfitness": "Wash: Sportswear",
           "laundrycare_common_program_juststart": "Just Start",
-          "laundrycare_dryer_program_bedlinens_bedlinens_bedlinens": "Dry: Bed linens",
           "laundrycare_dryer_program_blankets": "Dry: Down Wear",
           "laundrycare_dryer_program_businessshirts": "Dry: Shirts",
-          "laundrycare_dryer_program_coldrefresh_coldrefresh_coldrefresh": "Cold refresh",
-          "laundrycare_dryer_program_connecteddry": "Smart Dry",
           "laundrycare_dryer_program_cotton": "Dry: Cottons",
-          "laundrycare_dryer_program_cotton_cotton_cotton": "Dry: Cottons",
-          "laundrycare_dryer_program_cottoneco_cottoneco_cottoneco": "Dry: Cottons Eco",
-          "laundrycare_dryer_program_delicates_delicates_delicates": "Dry: Delicates",
           "laundrycare_dryer_program_dessous": "Dry: Lingerie",
           "laundrycare_dryer_program_hygiene": "Dry: Hygiene",
-          "laundrycare_dryer_program_hygiene_hygiene_hygiene": "Dry: Hygiene",
           "laundrycare_dryer_program_inbasket": "Dry: Wool in Basket",
-          "laundrycare_dryer_program_maintenancecare1_maintenancecare1_quickcare": "Maintenance: Quick care",
-          "laundrycare_dryer_program_maintenancecare2_maintenancecare2_depthcare": "Maintenance: Deep care",
           "laundrycare_dryer_program_mix": "Dry: Mixed Fabrics",
-          "laundrycare_dryer_program_mix_mix_mix": "Dry: Mix",
           "laundrycare_dryer_program_outdoor": "Dry: Outdoor",
-          "laundrycare_dryer_program_outdoor_outdoor_sportswear": "Dry: Sportswear",
           "laundrycare_dryer_program_pillow": "Dry: Duvet",
-          "laundrycare_dryer_program_shirtblouses_shirtblouses_shirtblouses": "Dry: Shirt/blouses",
           "laundrycare_dryer_program_super40": "Dry: Rapid 40min",
-          "laundrycare_dryer_program_super40_super40_super40": "Dry: Super 40",
           "laundrycare_dryer_program_synthetic": "Dry: Easy-Care",
-          "laundrycare_dryer_program_synthetic_synthetic_synthetic": "Dry: Synthetic",
           "laundrycare_dryer_program_timecold": "Dry: Time Program Cold",
-          "laundrycare_dryer_program_timecold_timecold_timecold": "Dry: Time Program Cold",
           "laundrycare_dryer_program_timewarm": "Dry: Time Program Warm",
-          "laundrycare_dryer_program_timewarm_timewarm_timewarm": "Dry: Time Program Warm",
           "laundrycare_dryer_program_towels": "Dry: Towels",
-          "laundrycare_dryer_program_towels_towels_towels": "Dry: Towels",
           "laundrycare_dryer_program_shirtsblouses_sportfitness": "Dry: Sportswear",
-          "laundrycare_dryer_program_woolfinish_woolfinish_woolfinish": "Dry: Wool finish",
           "laundrycare_washerdryer_program_towels_towels": "Wash & Dry: Towels",
           "laundrycare_washerdryer_program_cotton_cotton": "Wash & Dry: Cotton",
           "laundrycare_washerdryer_program_mix_mix": "Wash & Dry: Mix",
@@ -3008,16 +2971,6 @@
           "laundrycare_washerdryer_program_sportfitness_sportfitness": "Wash & Dry: Sportswear",
           "laundrycare_washerdryer_program_washanddry_60": "Wash & Dry: 60'",
           "laundrycare_washerdryer_program_downduvet_down": "Wash & Dry: Down",
-          "laundrycare_washerdryer_program_labeleu19_labeleu19_eco4060": "Wash & Dry: Eco 40-60",
-          "laundrycare_washerdryer_program_cotton_cotton_cotton": "Wash & Dry: Cotton",
-          "laundrycare_washerdryer_program_mix_hhmix_hhmix": "Wash & Dry: Quick Mix",
-          "laundrycare_washerdryer_program_easycare_hhsynthetics_hhsynthetics": "Wash & Dry: Easy-Care",
-          "laundrycare_washerdryer_program_delicatessilk_delicatessilk_delicatessilk": "Wash & Dry: Delicates/Silk",
-          "laundrycare_washerdryer_program_wool_wool_wool": "Wash & Dry: Wool",
-          "laundrycare_washerdryer_program_spin_spin_spindrain": "Spin/Drain",
-          "laundrycare_washerdryer_program_rinse_rinse_rinse": "Rinse",
-          "laundrycare_washerdryer_program_sportfitness_sportfitness_sportfitness": "Wash & Dry: Sportswear",
-          "laundrycare_washerdryer_program_automatic4060_auto40_auto40": "Wash & Dry: Automatic 40°C",
           "laundrycare_washer_program_cotton_colour": "Cotton Colours",
           "laundrycare_washer_program_cotton_eco4060": "Cotton Eco 40–60",
           "laundrycare_washer_program_delicatessilk": "Delicates/Silk",
@@ -3090,6 +3043,36 @@
           "laundrycare_common_program_memory6": "Memory 6",
           "laundrycare_common_program_memory7": "Memory 7",
           "laundrycare_common_program_memory8": "Memory 8",
+          "cooking_oven_program_heatingmode_proof": "Proof",
+          "cooking_oven_program_heatingmode_convectionbake": "Convection Bake",
+          "laundrycare_dryer_program_bedlinens_bedlinens_bedlinens": "Dry: Bed linens",
+          "laundrycare_dryer_program_coldrefresh_coldrefresh_coldrefresh": "Cold refresh",
+          "laundrycare_dryer_program_connecteddry": "Smart Dry",
+          "laundrycare_dryer_program_cotton_cotton_cotton": "Dry: Cottons",
+          "laundrycare_dryer_program_cottoneco_cottoneco_cottoneco": "Dry: Cottons Eco",
+          "laundrycare_dryer_program_delicates_delicates_delicates": "Dry: Delicates",
+          "laundrycare_dryer_program_hygiene_hygiene_hygiene": "Dry: Hygiene",
+          "laundrycare_dryer_program_maintenancecare1_maintenancecare1_quickcare": "Maintenance: Quick care",
+          "laundrycare_dryer_program_maintenancecare2_maintenancecare2_depthcare": "Maintenance: Deep care",
+          "laundrycare_dryer_program_mix_mix_mix": "Dry: Mix",
+          "laundrycare_dryer_program_outdoor_outdoor_sportswear": "Dry: Sportswear",
+          "laundrycare_dryer_program_shirtblouses_shirtblouses_shirtblouses": "Dry: Shirt/blouses",
+          "laundrycare_dryer_program_super40_super40_super40": "Dry: Super 40",
+          "laundrycare_dryer_program_synthetic_synthetic_synthetic": "Dry: Synthetic",
+          "laundrycare_dryer_program_timecold_timecold_timecold": "Dry: Time Program Cold",
+          "laundrycare_dryer_program_timewarm_timewarm_timewarm": "Dry: Time Program Warm",
+          "laundrycare_dryer_program_towels_towels_towels": "Dry: Towels",
+          "laundrycare_dryer_program_woolfinish_woolfinish_woolfinish": "Dry: Wool finish",
+          "laundrycare_washerdryer_program_labeleu19_labeleu19_eco4060": "Wash & Dry: Eco 40-60",
+          "laundrycare_washerdryer_program_cotton_cotton_cotton": "Wash & Dry: Cotton",
+          "laundrycare_washerdryer_program_mix_hhmix_hhmix": "Wash & Dry: Quick Mix",
+          "laundrycare_washerdryer_program_easycare_hhsynthetics_hhsynthetics": "Wash & Dry: Easy-Care",
+          "laundrycare_washerdryer_program_delicatessilk_delicatessilk_delicatessilk": "Wash & Dry: Delicates/Silk",
+          "laundrycare_washerdryer_program_wool_wool_wool": "Wash & Dry: Wool",
+          "laundrycare_washerdryer_program_spin_spin_spindrain": "Spin/Drain",
+          "laundrycare_washerdryer_program_rinse_rinse_rinse": "Rinse",
+          "laundrycare_washerdryer_program_sportfitness_sportfitness_sportfitness": "Wash & Dry: Sportswear",
+          "laundrycare_washerdryer_program_automatic4060_auto40_auto40": "Wash & Dry: Automatic 40°C",
           "cooking_hob_program_dish_fryingsensor_creamsauce": "Frying Sensor: Cream Sauce",
           "cooking_hob_program_dish_fryingsensor_dumplings": "Frying Sensor: Dumplings",
           "cooking_hob_program_dish_fryingsensor_fondue": "Frying Sensor: Fondue",
@@ -3181,6 +3164,7 @@
         "name": "Default Program",
         "state": {
           "lastprogram": "Last Program",
+          "ecoasdefault": "Eco 50",
           "auto45asdefault": "Auto"
         }
       },
@@ -3701,30 +3685,14 @@
           "highforce": "High"
         }
       },
-      "select_refrigerator_door_assistant_fridge_trigger": {
-        "name": "Fridge Door Assistant trigger",
-        "state": {
-          "push": "Push",
-          "pull": "Pull",
-          "pushpull": "Push/Pull"
-        }
-      },
-      "select_refrigerator_door_assistant_fridge_force": {
-        "name": "Fridge Door Assistant force",
-        "state": {
-          "lowforce": "Low",
-          "middleforce": "Medium",
-          "highforce": "High"
-        }
-      },
       "select_chiller_common_preset": {
         "name": "Chiller preset",
         "state": {
-          "meatfish": "29°F \uD83D\uDCA7 (Meat/Fish)",
-          "fruit": "32°F \uD83D\uDCA7 (Fruit)",
-          "vegetables": "32°F \uD83D\uDCA7\uD83D\uDCA7 (Vegetables)",
-          "beverages": "34°F \uD83D\uDCA7 (Beverages)",
-          "snacks": "40°F \uD83D\uDCA7 (Snacks/Misc.)",
+          "meatfish": "29°F 💧 (Meat/Fish)",
+          "fruit": "32°F 💧 (Fruit)",
+          "vegetables": "32°F 💧💧 (Vegetables)",
+          "beverages": "34°F 💧 (Beverages)",
+          "snacks": "40°F 💧 (Snacks/Misc.)",
           "custom": "Custom"
         }
       },
@@ -3740,6 +3708,82 @@
         "state": {
           "low": "Low",
           "high": "High"
+        }
+      },
+      "select_hood_interval_stage": {
+        "name": "Interval stage",
+        "state": {
+          "fanoff": "Off",
+          "fanstage01": "1",
+          "fanstage02": "2",
+          "fanstage03": "3",
+          "fanstage04": "4"
+        }
+      },
+      "select_hob_ventilation": {
+        "name": "Ventilation"
+      },
+      "select_hob_delaye_shutoff_stage": {
+        "name": "Delayed ShutOff Stage",
+        "state": {
+          "fanoff": "Off",
+          "fanstage01": "1",
+          "fanstage02": "2",
+          "fanstage03": "3",
+          "fanstage04": "4"
+        }
+      },
+      "select_temperature_unit": {
+        "name": "Temperature unit",
+        "state": {
+          "celsius": "Celsius",
+          "fahrenheit": "Fahrenheit"
+        }
+      },
+      "select_hood_carbon_filter_type": {
+        "name": "Carbon filter type",
+        "state": {
+          "none": "None",
+          "basiccarbonfilter": "Basic carbon filter",
+          "regenerativecarbonfilter": "Regenerative carbon filter"
+        }
+      },
+      "select_time_format": {
+        "name": "Time Format",
+        "state": {
+          "24hours": "24 Hours",
+          "12hours": "12 Hours"
+        }
+      },
+      "select_oven_clock_display": {
+        "name": "Clock Display",
+        "state": {
+          "clock01": "Digital",
+          "clock02": "Analog"
+        }
+      },
+      "select_dishwasher_auto_power_off": {
+        "name": "Auto Power Off",
+        "state": {
+          "off": "Off",
+          "oneminute": "After 1 Minute",
+          "120minutes": "After 2 Hours"
+        }
+      },
+      "select_refrigerator_door_assistant_fridge_trigger": {
+        "name": "Fridge Door Assistant trigger",
+        "state": {
+          "push": "Push",
+          "pull": "Pull",
+          "pushpull": "Push/Pull"
+        }
+      },
+      "select_refrigerator_door_assistant_fridge_force": {
+        "name": "Fridge Door Assistant force",
+        "state": {
+          "lowforce": "Low",
+          "middleforce": "Medium",
+          "highforce": "High"
         }
       },
       "select_hob_automatic_keylock": {
@@ -3774,7 +3818,7 @@
           "off": "Off",
           "automaticmode": "Automatic",
           "manualmode": "Manual",
-		  "donothing": "Unchanged"
+          "donothing": "Unchanged"
         }
       },
       "select_hob_power_management": {
@@ -3784,51 +3828,13 @@
         "name": "Buzzer Beep Level",
         "state": {
           "alloff": "All off",
-		  "acknowledgeoff": "Button tones off",
-		  "warningmaloff": "Warnings off",
-		  "allactive": "All active"
+          "acknowledgeoff": "Button tones off",
+          "warningmaloff": "Warnings off",
+          "allactive": "All active"
         }
       },
       "select_hob_end_timer_signal_duration": {
         "name": "End Timer Signal Duration"
-      },
-      "select_hob_ventilation": {
-        "name": "Ventilation"
-      },
-      "select_hob_delaye_shutoff_stage": {
-        "name": "Delayed ShutOff Stage",
-        "state": {
-          "fanoff": "Off",
-          "fanstage01": "1",
-          "fanstage02": "2",
-          "fanstage03": "3",
-          "fanstage04": "4"
-        }
-      },
-      "select_temperature_unit": {
-        "name": "Temperature unit",
-        "state": {
-          "celsius": "Celsius",
-          "fahrenheit": "Fahrenheit"
-        }
-      },
-      "select_hood_interval_stage": {
-        "name": "Interval stage",
-        "state": {
-          "fanoff": "Off",
-          "fanstage01": "1",
-          "fanstage02": "2",
-          "fanstage03": "3",
-          "fanstage04": "4"
-        }
-      },
-      "select_hood_carbon_filter_type": {
-        "name": "Carbon filter type",
-        "state": {
-          "none": "None",
-          "basiccarbonfilter": "Basic carbon filter",
-          "regenerativecarbonfilter": "Regenerative carbon filter"
-        }
       },
       "select_hood_color_temperature_mode": {
         "name": "Color temperature mode",
@@ -3878,9 +3884,6 @@
       "number_fill_quantity": {
         "name": "Fill quantity"
       },
-      "number_refrigerator_sabbath_mode_duration": {
-        "name": "Sabbath Mode Duration"
-      },
       "number_laundry_brightness": {
         "name": "Brightness"
       },
@@ -3917,12 +3920,6 @@
       "number_oven_display_brightness": {
         "name": "Display brightness"
       },
-      "number_oven_sound_volume": {
-        "name": "Volume"
-      },
-      "number_hob_automatic_timer": {
-        "name": "Automatic Timer"
-      },
       "number_hood_interval_off": {
         "name": "Interval time off"
       },
@@ -3931,12 +3928,6 @@
       },
       "number_hood_delayed_shutoff_time": {
         "name": "Delayed Shutoff Time"
-      },
-      "number_refrigerator_door_assistant_freezer_timeout": {
-        "name": "Freezer door assistant timeout"
-      },
-      "number_refrigerator_door_assistant_fridge_timeout": {
-        "name": "Fridge door assistant timeout"
       },
       "number_hood_sensor_sensitivity": {
         "name": "Auto Sensor Sensitivity"
@@ -3949,6 +3940,21 @@
       },
       "number_setting_alarm_clock": {
         "name": "Alarm Clock"
+      },
+      "number_refrigerator_sabbath_mode_duration": {
+        "name": "Sabbath Mode Duration"
+      },
+      "number_oven_sound_volume": {
+        "name": "Volume"
+      },
+      "number_hob_automatic_timer": {
+        "name": "Automatic Timer"
+      },
+      "number_refrigerator_door_assistant_freezer_timeout": {
+        "name": "Freezer door assistant timeout"
+      },
+      "number_refrigerator_door_assistant_fridge_timeout": {
+        "name": "Fridge door assistant timeout"
       }
     },
     "light": {
@@ -4054,14 +4060,14 @@
     "access_error": {
       "message": "Entity is not Accessible"
     },
-    "remote_start_not_allowed": {
-      "message": "Please enable remote start on {device_name} by physically going there and pressing the remote start button."
-    },
     "code_respons": {
       "message": "Error response from Appliance: {message}"
     },
     "not_connected": {
       "message": "Client is not Connected"
+    },
+    "remote_start_not_allowed": {
+      "message": "Please enable remote start on {device_name} by physically going there and pressing the remote start button."
     },
     "read_only": {
       "message": "This is currently in read-only mode and can't be changed right now"
@@ -4071,6 +4077,17 @@
     },
     "command_timeout": {
       "message": "The appliance did not answer the command in time"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Export Appliance Profile",
+        "description": "Export this appliance's profile as a downloadable ZIP file.\n\n**Safe**: no encryption key or other sensitive data. Safe to share for a feature request. Delivered as a download link.\n\n**Full**: also includes the appliance's local encryption key, for transferring it to another system. Written to your config directory (`homeconnect_ws_export` folder) instead of a download link, to avoid exposing the key over HTTP.",
+        "data": {
+          "mode": "Export type"
+        }
+      }
     }
   }
 }

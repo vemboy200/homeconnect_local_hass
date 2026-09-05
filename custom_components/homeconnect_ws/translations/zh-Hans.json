@@ -176,26 +176,8 @@
       "switch_oven_light_during_operation": {
         "name": "运行时炉灯"
       },
-      "switch_oven_night_dimout": {
-        "name": "夜间调暗"
-      },
       "switch_oven_sabbath_mode": {
         "name": "安息日模式"
-      },
-      "switch_oven_teloscopic_slide_out_refited": {
-        "name": "伸缩式滑出"
-      },
-      "switch_oven_display_brand_logo": {
-        "name": "显示品牌标志"
-      },
-      "switch_hob_energy_consumption_indication": {
-        "name": "能耗指示"
-      },
-      "switch_hob_hood_automatic_light_off": {
-        "name": "油烟机自动关灯"
-      },
-      "switch_hob_hood_automatic_light_on": {
-        "name": "引擎盖自动照明"
       },
       "switch_refrigerator_sabbath_mode": {
         "name": "安息日模式"
@@ -212,6 +194,9 @@
       "switch_refrigeration_light_theater_mode": {
         "name": "剧场模式照明"
       },
+      "switch_hood_boost": {
+        "name": "增压"
+      },
       "switch_hood_silence_mode": {
         "name": "静音模式"
       },
@@ -220,6 +205,24 @@
       },
       "switch_extra_rinse": {
         "name": "额外漂洗"
+      },
+      "switch_oven_night_dimout": {
+        "name": "夜间调暗"
+      },
+      "switch_oven_teloscopic_slide_out_refited": {
+        "name": "伸缩式滑出"
+      },
+      "switch_oven_display_brand_logo": {
+        "name": "显示品牌标志"
+      },
+      "switch_hob_energy_consumption_indication": {
+        "name": "能耗指示"
+      },
+      "switch_hob_hood_automatic_light_off": {
+        "name": "油烟机自动关灯"
+      },
+      "switch_hob_hood_automatic_light_on": {
+        "name": "引擎盖自动照明"
       }
     },
     "binary_sensor": {
@@ -453,7 +456,9 @@
           "actionrequired": "需要操作",
           "finished": "已完成",
           "error": "错误",
-          "aborting": "中止中"
+          "aborting": "中止中",
+          "running": "运行中",
+          "paused": "已暂停"
         }
       },
       "sensor_program_phase": {
@@ -476,8 +481,6 @@
           "dishcare_dishwasher_program_prerinse": "预冲洗",
           "dishcare_dishwasher_program_quick65": "快洗 65",
           "dishcare_dishwasher_program_machinecare": "机器保养",
-          "dishcare_dishwasher_program_nightwash": "夜间洗涤",
-          "dishcare_dishwasher_program_glas40": "玻璃 40",
           "favorite_001": "收藏 1",
           "favorite_002": "收藏 2",
           "favorite_003": "收藏 3",
@@ -488,26 +491,83 @@
           "favorite_008": "收藏 8",
           "favorite_009": "收藏 9",
           "favorite_010": "收藏 10",
-          "laundrycare_washer_program_cotton": "棉织物",
+          "laundrycare_common_program_memory1": "记忆 1",
           "laundrycare_dryer_program_blankets": "毛毯",
+          "laundrycare_dryer_program_businessshirts_cupboarddry": "商务衬衫 收纳干",
           "laundrycare_dryer_program_cotton": "棉织物",
-          "laundrycare_dryer_program_hygiene": "除菌",
+          "laundrycare_dryer_program_delicates": "精细织物",
+          "laundrycare_dryer_program_downfeathers": "羽绒",
+          "laundrycare_dryer_program_hygiene_withdrylaundry": "卫生干衣",
+          "laundrycare_dryer_program_inbasket_woolbasket": "羊毛篮",
+          "laundrycare_dryer_program_maintenance_depthcare": "深度保养",
+          "laundrycare_dryer_program_maintenance_quickcare": "快速保养",
           "laundrycare_dryer_program_mix": "混合",
           "laundrycare_dryer_program_outdoor": "户外",
-          "laundrycare_dryer_program_pillow": "枕头",
           "laundrycare_dryer_program_super40": "超快 40",
           "laundrycare_dryer_program_synthetic": "化纤",
           "laundrycare_dryer_program_timecold": "定时冷风",
           "laundrycare_dryer_program_timewarm": "定时暖风",
-          "laundrycare_dryer_program_towels": "毛巾",
+          "laundrycare_dryer_program_timewarmfix_minload": "定时暖风（少量）",
+          "laundrycare_washer_program_cotton": "棉织物",
           "laundrycare_washer_program_delicatessilk": "精细/丝绸",
-          "laundrycare_washer_program_mix": "混合",
-          "laundrycare_washer_program_rinse": "漂洗",
-          "laundrycare_washer_program_sensitive": "敏感",
-          "laundrycare_washer_program_wool": "羊毛",
+          "laundrycare_washer_program_downduvet_down": "羽绒被",
           "laundrycare_washer_program_easycare_antistainlight_butteroil": "易护理-去渍 黄油油渍",
           "laundrycare_washer_program_easycare_antistainlight_cosmetics": "易护理-去渍 化妆品",
-          "laundrycare_common_program_memory1": "记忆 1"
+          "laundrycare_washer_program_easycare_antistainlight_orange": "易护理-去渍 橙汁",
+          "laundrycare_washer_program_easycare_antistainlight_redwine": "易护理-去渍 红酒",
+          "laundrycare_washer_program_hygienicsteam_drumclean": "蒸汽除菌-筒清洁",
+          "laundrycare_washer_program_hygienicsteam_hygienicwash": "蒸汽除菌-卫生洗",
+          "laundrycare_washer_program_mix": "混合",
+          "laundrycare_washer_program_mytime": "我的时间",
+          "laundrycare_washer_program_rinse_rinsespin": "漂洗+脱水",
+          "laundrycare_washer_program_sensitive": "敏感",
+          "laundrycare_washer_program_sensofresh": "免洗清新",
+          "laundrycare_washer_program_shirtsblouses": "衬衫",
+          "laundrycare_washer_program_super153045_super15": "超快 15",
+          "laundrycare_washer_program_wool": "羊毛",
+          "dishcare_dishwasher_program_babycare": "婴儿护理",
+          "dishcare_dishwasher_program_glas40": "玻璃 40",
+          "dishcare_dishwasher_program_magicdaily": "每日快洗",
+          "dishcare_dishwasher_program_maximumcleaning": "强力清洗",
+          "dishcare_dishwasher_program_nightwash": "夜间洗涤",
+          "dishcare_dishwasher_program_quickd": "快洗干",
+          "dishcare_dishwasher_program_steamfresh": "蒸汽清新",
+          "laundrycare_dryer_program_wool": "羊毛",
+          "laundrycare_dryer_program_shirts": "衬衫",
+          "laundrycare_dryer_program_towels": "毛巾",
+          "laundrycare_dryer_program_pillow": "枕头",
+          "laundrycare_dryer_program_down_feather": "羽绒",
+          "laundrycare_dryer_program_time_program_cold": "冷风定时",
+          "laundrycare_dryer_program_time_program_warm": "暖风定时",
+          "laundrycare_dryer_program_super_40": "快干40",
+          "laundrycare_dryer_program_hygiene": "除菌",
+          "laundrycare_dryer_program_jeans": "牛仔裤",
+          "laundrycare_dryer_program_sportswear": "运动服",
+          "laundrycare_dryer_program_business_shirts": "商务衬衫",
+          "laundrycare_washer_program_cotton_eco": "棉织物节能",
+          "laundrycare_washer_program_easy_care": "易护理",
+          "laundrycare_washer_program_delicates_silk": "精细/丝绸",
+          "laundrycare_washer_program_sensorsensitive": "敏感",
+          "laundrycare_washer_program_dark_wash": "深色洗涤",
+          "laundrycare_washer_program_super_15_30": "快洗15/30",
+          "laundrycare_washer_program_sportswear": "运动服",
+          "laundrycare_washer_program_spincare_1400": "单脱水1400",
+          "laundrycare_washer_program_rinse": "漂洗",
+          "laundrycare_washer_program_drain_spin": "排水脱水",
+          "laundrycare_washer_program_shirts": "衬衫",
+          "laundrycare_washer_program_outdoor": "户外",
+          "laundrycare_washer_program_automatic": "自动",
+          "laundrycare_washer_program_down_feather": "羽绒",
+          "laundrycare_washer_program_drum_clean": "筒清洁",
+          "laundrycare_program_memory1": "收藏1",
+          "laundrycare_program_memory2": "收藏2",
+          "laundrycare_program_memory3": "收藏3",
+          "laundrycare_program_favorite": "收藏",
+          "laundrycare_program_my_time": "我的时间",
+          "laundrycare_program_auto": "自动",
+          "laundrycare_program_eco": "节能",
+          "laundrycare_program_express": "快速",
+          "laundrycare_program_intensive": "加强"
         }
       },
       "sensor_rinse_aid": {
@@ -538,9 +598,9 @@
       "sensor_drip_tray": {
         "name": "接水盘",
         "state": {
-          "ok": "正常",
+          "full": "满",
           "not_inserted": "未安装",
-          "full": "满"
+          "ok": "正常"
         }
       },
       "sensor_start_in": {
@@ -733,9 +793,9 @@
       "sensor_oven_water_tank": {
         "name": "水箱{group_name}",
         "state": {
-          "ok": "正常",
+          "unplugged": "未连接",
           "empty": "空",
-          "unplugged": "未连接"
+          "ok": "正常"
         }
       },
       "sensor_oven_current_temperature": {
@@ -779,8 +839,6 @@
       "sensor_hob_zone_power_level": {
         "name": "{group_name}区域功率等级",
         "state": {
-          "off": "Off",
-          "keepwarm": "KeepWarm",
           "10": "10",
           "15": "15",
           "20": "20",
@@ -798,6 +856,8 @@
           "80": "80",
           "85": "85",
           "90": "90",
+          "off": "Off",
+          "keepwarm": "KeepWarm",
           "boost1": "Boost 1",
           "boost2": "Boost 2"
         }
@@ -1073,8 +1133,6 @@
           "dishcare_dishwasher_program_prerinse": "预冲洗",
           "dishcare_dishwasher_program_quick65": "快洗 65",
           "dishcare_dishwasher_program_machinecare": "机器保养",
-          "dishcare_dishwasher_program_nightwash": "夜间洗涤",
-          "dishcare_dishwasher_program_glas40": "玻璃 40",
           "favorite_001": "收藏 1",
           "favorite_002": "收藏 2",
           "favorite_003": "收藏 3",
@@ -1085,26 +1143,83 @@
           "favorite_008": "收藏 8",
           "favorite_009": "收藏 9",
           "favorite_010": "收藏 10",
-          "laundrycare_washer_program_cotton": "棉织物",
+          "laundrycare_common_program_memory1": "记忆 1",
           "laundrycare_dryer_program_blankets": "毛毯",
+          "laundrycare_dryer_program_businessshirts_cupboarddry": "商务衬衫 收纳干",
           "laundrycare_dryer_program_cotton": "棉织物",
-          "laundrycare_dryer_program_hygiene": "除菌",
+          "laundrycare_dryer_program_delicates": "精细织物",
+          "laundrycare_dryer_program_downfeathers": "羽绒",
+          "laundrycare_dryer_program_hygiene_withdrylaundry": "卫生干衣",
+          "laundrycare_dryer_program_inbasket_woolbasket": "羊毛篮",
+          "laundrycare_dryer_program_maintenance_depthcare": "深度保养",
+          "laundrycare_dryer_program_maintenance_quickcare": "快速保养",
           "laundrycare_dryer_program_mix": "混合",
           "laundrycare_dryer_program_outdoor": "户外",
-          "laundrycare_dryer_program_pillow": "枕头",
           "laundrycare_dryer_program_super40": "超快 40",
           "laundrycare_dryer_program_synthetic": "化纤",
           "laundrycare_dryer_program_timecold": "定时冷风",
           "laundrycare_dryer_program_timewarm": "定时暖风",
-          "laundrycare_dryer_program_towels": "毛巾",
+          "laundrycare_dryer_program_timewarmfix_minload": "定时暖风（少量）",
+          "laundrycare_washer_program_cotton": "棉织物",
           "laundrycare_washer_program_delicatessilk": "精细/丝绸",
-          "laundrycare_washer_program_mix": "混合",
-          "laundrycare_washer_program_rinse": "漂洗",
-          "laundrycare_washer_program_sensitive": "敏感",
-          "laundrycare_washer_program_wool": "羊毛",
+          "laundrycare_washer_program_downduvet_down": "羽绒被",
           "laundrycare_washer_program_easycare_antistainlight_butteroil": "易护理-去渍 黄油油渍",
           "laundrycare_washer_program_easycare_antistainlight_cosmetics": "易护理-去渍 化妆品",
-          "laundrycare_common_program_memory1": "记忆 1"
+          "laundrycare_washer_program_easycare_antistainlight_orange": "易护理-去渍 橙汁",
+          "laundrycare_washer_program_easycare_antistainlight_redwine": "易护理-去渍 红酒",
+          "laundrycare_washer_program_hygienicsteam_drumclean": "蒸汽除菌-筒清洁",
+          "laundrycare_washer_program_hygienicsteam_hygienicwash": "蒸汽除菌-卫生洗",
+          "laundrycare_washer_program_mix": "混合",
+          "laundrycare_washer_program_mytime": "我的时间",
+          "laundrycare_washer_program_rinse_rinsespin": "漂洗+脱水",
+          "laundrycare_washer_program_sensitive": "敏感",
+          "laundrycare_washer_program_sensofresh": "免洗清新",
+          "laundrycare_washer_program_shirtsblouses": "衬衫",
+          "laundrycare_washer_program_super153045_super15": "超快 15",
+          "laundrycare_washer_program_wool": "羊毛",
+          "dishcare_dishwasher_program_babycare": "婴儿护理",
+          "dishcare_dishwasher_program_glas40": "玻璃 40",
+          "dishcare_dishwasher_program_magicdaily": "每日快洗",
+          "dishcare_dishwasher_program_maximumcleaning": "强力清洗",
+          "dishcare_dishwasher_program_nightwash": "夜间洗涤",
+          "dishcare_dishwasher_program_quickd": "快洗干",
+          "dishcare_dishwasher_program_steamfresh": "蒸汽清新",
+          "laundrycare_dryer_program_wool": "羊毛",
+          "laundrycare_dryer_program_shirts": "衬衫",
+          "laundrycare_dryer_program_towels": "毛巾",
+          "laundrycare_dryer_program_pillow": "枕头",
+          "laundrycare_dryer_program_down_feather": "羽绒",
+          "laundrycare_dryer_program_time_program_cold": "冷风定时",
+          "laundrycare_dryer_program_time_program_warm": "暖风定时",
+          "laundrycare_dryer_program_super_40": "快干40",
+          "laundrycare_dryer_program_hygiene": "除菌",
+          "laundrycare_dryer_program_jeans": "牛仔裤",
+          "laundrycare_dryer_program_sportswear": "运动服",
+          "laundrycare_dryer_program_business_shirts": "商务衬衫",
+          "laundrycare_washer_program_cotton_eco": "棉织物节能",
+          "laundrycare_washer_program_easy_care": "易护理",
+          "laundrycare_washer_program_delicates_silk": "精细/丝绸",
+          "laundrycare_washer_program_sensorsensitive": "敏感",
+          "laundrycare_washer_program_dark_wash": "深色洗涤",
+          "laundrycare_washer_program_super_15_30": "快洗15/30",
+          "laundrycare_washer_program_sportswear": "运动服",
+          "laundrycare_washer_program_spincare_1400": "单脱水1400",
+          "laundrycare_washer_program_rinse": "漂洗",
+          "laundrycare_washer_program_drain_spin": "排水脱水",
+          "laundrycare_washer_program_shirts": "衬衫",
+          "laundrycare_washer_program_outdoor": "户外",
+          "laundrycare_washer_program_automatic": "自动",
+          "laundrycare_washer_program_down_feather": "羽绒",
+          "laundrycare_washer_program_drum_clean": "筒清洁",
+          "laundrycare_program_memory1": "收藏1",
+          "laundrycare_program_memory2": "收藏2",
+          "laundrycare_program_memory3": "收藏3",
+          "laundrycare_program_favorite": "收藏",
+          "laundrycare_program_my_time": "我的时间",
+          "laundrycare_program_auto": "自动",
+          "laundrycare_program_eco": "节能",
+          "laundrycare_program_express": "快速",
+          "laundrycare_program_intensive": "加强"
         }
       },
       "select_sensitivity_turbidity": {
@@ -1118,7 +1233,8 @@
       "select_eco_as_default": {
         "name": "默认程序",
         "state": {
-          "lastprogram": "上次程序"
+          "lastprogram": "上次程序",
+          "ecoasdefault": "节能 50"
         }
       },
       "select_power_state": {
@@ -1334,7 +1450,11 @@
         }
       },
       "select_laundry_power_rating": {
-        "name": "供电功率"
+        "name": "供电功率",
+        "state": {
+          "10a": "10A",
+          "16a": "16A"
+        }
       },
       "select_laundry_wrinkle_guard": {
         "name": "防皱保护",
@@ -1607,6 +1727,7 @@
         "name": "冷却风扇运行时间",
         "state": {
           "short": "短",
+          "medium": "中",
           "long": "长",
           "verylong": "极长"
         }
@@ -1660,6 +1781,15 @@
           "high": "高"
         }
       },
+      "select_hood_interval_stage": {
+        "name": "间歇档位",
+        "state": {
+          "fanoff": "关闭",
+          "fanstage01": "1档",
+          "fanstage02": "2档",
+          "fanstage03": "3档"
+        }
+      },
       "select_hob_delaye_shutoff_stage": {
         "name": "延时关机档位",
         "state": {
@@ -1667,6 +1797,21 @@
           "fanstage01": "1档",
           "fanstage02": "2档",
           "fanstage03": "3档"
+        }
+      },
+      "select_temperature_unit": {
+        "name": "温度单位",
+        "state": {
+          "celsius": "摄氏度",
+          "fahrenheit": "华氏度"
+        }
+      },
+      "select_hood_carbon_filter_type": {
+        "name": "活性炭滤网类型",
+        "state": {
+          "none": "无",
+          "fahrenheit": "基础活性炭滤网",
+          "regenerativecarbonfilter": "再生活性炭滤网"
         }
       },
       "select_hob_automatic_keylock": {
@@ -1701,7 +1846,7 @@
           "off": "关闭",
           "automaticmode": "自动的",
           "manualmode": "手动的",
-		  "donothing": "未变"
+          "donothing": "未变"
         }
       },
       "select_hob_power_management": {
@@ -1711,36 +1856,13 @@
         "name": "蜂鸣器提示音量级",
         "state": {
           "alloff": "全部关闭",
-		  "acknowledgeoff": "按键音已关闭",
-		  "warningmaloff": "关闭警告",
-		  "allactive": "全部启用"
+          "acknowledgeoff": "按键音已关闭",
+          "warningmaloff": "关闭警告",
+          "allactive": "全部启用"
         }
       },
       "select_hob_end_timer_signal_duration": {
         "name": "结束计时器信号持续时间"
-      },
-      "select_temperature_unit": {
-        "name": "温度单位",
-        "state": {
-          "celsius": "摄氏度",
-          "fahrenheit": "华氏度"
-        }
-      },
-      "select_hood_interval_stage": {
-        "name": "间歇档位",
-        "state": {
-          "fanoff": "关闭",
-          "fanstage01": "1档",
-          "fanstage02": "2档",
-          "fanstage03": "3档"
-        }
-      },
-      "select_hood_carbon_filter_type": {
-        "name": "活性炭滤网类型",
-        "state": {
-          "none": "无",
-          "regenerativecarbonfilter": "再生活性炭滤网"
-        }
       },
       "select_hood_color_temperature_mode": {
         "name": "色温模式",
@@ -1823,12 +1945,6 @@
       "number_oven_display_brightness": {
         "name": "显示屏亮度"
       },
-      "number_oven_sound_volume": {
-        "name": "体积"
-      },
-      "number_hob_automatic_timer": {
-        "name": "自动计时器"
-      },
       "number_hood_interval_off": {
         "name": "间歇关闭时间"
       },
@@ -1846,6 +1962,12 @@
       },
       "number_setting_alarm_clock": {
         "name": "闹钟"
+      },
+      "number_oven_sound_volume": {
+        "name": "体积"
+      },
+      "number_hob_automatic_timer": {
+        "name": "自动计时器"
       }
     },
     "light": {

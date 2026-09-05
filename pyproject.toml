@@ -20,8 +20,9 @@ dev = [
     "voluptuous-stubs==0.1.1",
     "pre-commit==4.6.2",
     "mypy==2.3.1",
+    "prek==0.5.1",
 ]
-lint = ["ruff==0.16.4"]
+lint = ["ruff==0.16.5"]
 test = [
     "pytest-homeassistant-custom-component==0.13.356",
     "pytest>=9.0.0",
