@@ -117,9 +117,14 @@ rules:
       quality_scale.yaml: some numeric-range icon logic isn't expressible
       with icons.json's state/range selectors alone.
   reconfiguration-flow:
-    status: exempt
+    status: done
     comment: |
-      No need for reconfiguration flow.
+      Two independent options, since they address unrelated problems: change
+      connection (switch between automatic mDNS discovery and a fixed
+      IP-Address - needed if mDNS isn't reachable on a given network, or to
+      pin/un-pin an Appliance's address) and update profile file (re-upload
+      a profile to pick up new Options/Settings a firmware update added, or
+      a new encryption key after the Appliance was unpaired and re-paired).
   repair-issues:
     status: exempt
     comment: |

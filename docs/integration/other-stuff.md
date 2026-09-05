@@ -1,3 +1,10 @@
+## Reconfiguring an Appliance
+
+Once an appliance is set up, you can reconfigure it from Settings → Devices & Services → Home Connect Local → the appliance's device page → gear/settings icon → Reconfigure. Two independent options are available:
+
+- **Change Connection**: tries automatic (mDNS) discovery first, the same as initial setup, and only asks for a fixed IP-Address if that fails. Use this if mDNS isn't reachable on your network (pins a fixed IP-Address), or to move back to automatic discovery after a network change.
+- **Update Profile File**: refresh this appliance's profile, either by uploading a new profile file or by signing in with Home Connect again - same two options as initial setup. Use this after a firmware update added new Options/Settings not present in your original profile, or after unpairing and re-pairing the appliance with Home Connect (which changes its encryption key).
+
 ## Exporting an Appliance Profile
 
 Once an appliance is set up, you can export its profile from Settings → Devices & Services → Home Connect Local → the appliance's device page → gear/settings icon:

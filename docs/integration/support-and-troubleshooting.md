@@ -55,13 +55,13 @@ This integration has built in measures (measures not fully tested yet) to preven
 
 Confirmed errors of a websocket shutdown seen so far (there may be others):
 - A plain HTTP 404 on the WebSocket upgrade (`aiohttp.WSServerHandshakeError`) where the appliance's HTTP layer responds normally but rejects the upgrade itself. The cause is understood (unexpected Home Assistant shutdowns leaving half-dead sessions, as described above), and this integration already has a fix/mitigation for it.
-- A TLS handshake reset, which this integration classifies as an authentication failure (`home_disconnect.errors.AuthenticationError`), is a confirmed cause of a shutdown on a washer/dryer combo. The actual cause of this one is still unknown, all that's confirmed is that a power cycle resolves it, not why it happens in the first place. Note that this same exception can also mean a wrong or outdated encryption key, not a websocket shutdown, so before you try the methods below, try deleting the config entry and putiing in a new entry since it would force a new encryption key.
+- A TLS handshake reset, which this integration classifies as an authentication failure (`home_disconnect.errors.AuthenticationError`), is a confirmed cause of a shutdown on a washer/dryer combo. The actual cause of this one is still unknown, all that's confirmed is that a power cycle resolves it, not why it happens in the first place. Note that this same exception can also mean a wrong or outdated encryption key, not a websocket shutdown, so before you try the methods below, try getting a fresh profile file and using the [Update Profile File](other-stuff.md#reconfiguring-an-appliance) reconfigure option, which refreshes the encryption key without needing to remove and re-add the entry.
 
 There are three ways to resolve a websocket shutdown:
 
 1. Disable the cloud: Disabling the cloud (follow the protip section on how to do it), then waiting 24 hours, can allow the device to reopen its local websocket. Note that since you're doing this during a local websocket shutdown, the smart features of the device will be inoperable until the device reopens its websocket. The device will still stay connected to your Wi-Fi.
 2. Power cycle the appliance: Cutting the power from your appliance for 1-5 minutes, then reapplying it, can help resolve the issue.
-3. Re-pair the appliance (not recommended): Resetting the device's network settings and re-pairing it to the Home Connect App resolves the issue. However, doing that is not only time consuming, but you also have to get a new profile file, remove the entry, and re-add it with the new file.
+3. Re-pair the appliance (not recommended): Resetting the device's network settings and re-pairing it to the Home Connect App resolves the issue. However, doing that is time consuming, and you'll need to get a new profile file and apply it via the [Update Profile File](other-stuff.md#reconfiguring-an-appliance) reconfigure option, since re-pairing changes the appliance's encryption key.
 
 ### Reporting Issues and Bugs
 

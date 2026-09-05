@@ -39,15 +39,31 @@
         "data": {
           "host": "Host / IP-Address"
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Appliance",
+        "menu_options": {
+          "reconfigure_connection": "Change Connection",
+          "reconfigure_profile": "Update Profile File"
+        }
+      },
+      "reconfigure_profile": {
+        "title": "Update Profile File",
+        "menu_options": {
+          "legacy_oauth_region": "Sign in with Home Connect",
+          "upload": "Upload Profile File"
+        }
       }
     },
     "error": {
       "cannot_connect": "Connection to Appliance failed",
+      "cannot_connect_automatic": "Automatic (mDNS) connection failed - enter your Appliance's IP-Address or hostname manually",
       "already_configured": "This Appliance is already configured"
     },
     "abort": {
       "auth_failed": "Authentication failed",
       "reauth_successful": "Re-authentication successful",
+      "reconfigure_successful": "Reconfiguration successful",
       "invalid_profile_file": "Profile File is invalid",
       "profile_file_parser_error": "Profile File is invalid: {error}",
       "appliance_not_in_profile_file": "Profile File dose not contain profile for this Appliance",
