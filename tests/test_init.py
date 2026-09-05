@@ -16,7 +16,7 @@ from custom_components.homeconnect_ws.const import (
     CONF_FEATURE_FILENAME,
     DOMAIN,
 )
-from home_disconnect import ConnectionFailedError, parse_device_description
+from home_disconnect import ConnectionFailedError, serialize_device_description
 from home_disconnect.testutils import MockAppliance
 from homeassistant.config_entries import SOURCE_ZEROCONF, ConfigEntryState
 from homeassistant.const import CONF_DESCRIPTION, CONF_HOST
@@ -75,20 +75,17 @@ async def test_load_unload_entry(
     appliance.session.close.assert_awaited_once()
 
 
-async def test_migrate_entry_v1_to_v2(
+async def test_migrate_entry_v1_bumps_version_only(
     hass: HomeAssistant,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    Test a v1 config entry migrates to v2 storage on setup.
+    Test an old v1 entry (from before this fork declared VERSION = 2) just gets bumped.
 
-    v2 matches upstream chris-mc1/homeconnect_local_hass's schema exactly
-    (CONF_APPLIANCE_INFO + XML files under storage_dir/{deviceID}/) so a
-    future upstream merge doesn't have to reconcile two different "v2"
-    shapes. CONF_DESCRIPTION is deliberately kept alongside the new keys -
-    coordinator.py still reads it directly, and switching that over is a
-    separate follow-up - so this only checks the migration itself is
-    correct, not that the old key gets dropped.
+    This fork only ever speaks the CONF_DESCRIPTION shape - a v1 entry
+    already has that, so there's nothing to convert, just the version
+    number itself needs to catch up so async_migrate_entry stops being
+    called every startup.
     """
     appliance = MockAppliance(DEVICE_DESCRIPTION, "host", "mock_app", "mock_app_id", "PSK_KEY")
     appliance_mock = Mock(return_value=appliance)
@@ -107,25 +104,62 @@ async def test_migrate_entry_v1_to_v2(
 
     assert entry.state is ConfigEntryState.LOADED
     assert entry.version == 2
+    assert entry.data == MOCK_CONFIG_DATA
+
+
+async def test_setup_converts_v2_entry_to_v1_shape(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Test a v2-shaped entry (upstream chris-mc1/homeconnect_local_hass) converts down.
+
+    This fork doesn't want to understand two schemas - a v2 entry (no
+    CONF_DESCRIPTION, just CONF_APPLIANCE_INFO + XML files under HA's
+    storage dir) gets converted back to CONF_DESCRIPTION shape on setup,
+    and the now-unneeded v2 files get cleaned up. Detected by data shape
+    (missing CONF_DESCRIPTION), not entry.version, since HA hard-blocks
+    setup entirely for an entry whose version is higher than this
+    integration declares - async_migrate_entry never even runs for this
+    case (confirmed live: see homeconnect_local_ws_sim_fork memory).
+    """
+    appliance = MockAppliance(DEVICE_DESCRIPTION, "host", "mock_app", "mock_app_id", "PSK_KEY")
+    appliance_mock = Mock(return_value=appliance)
+    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
 
     device_id = MOCK_APPLIANCE_INFO["deviceID"]
-    assert entry.data[CONF_APPLIANCE_INFO] == MOCK_APPLIANCE_INFO
-    assert entry.data[CONF_DESCRIPTION_FILENAME] == f"{device_id}/DeviceDescription.xml"
-    assert entry.data[CONF_FEATURE_FILENAME] == f"{device_id}/FeatureMapping.xml"
-    # Kept, not dropped - coordinator.py still reads this directly.
-    assert entry.data[CONF_DESCRIPTION] == DEVICE_DESCRIPTION
-
-    # Round-trip fidelity of serialize_device_description()/
-    # parse_device_description() themselves is home-disconnect's own
-    # concern (covered by its own test suite) - this only checks the
-    # migration actually wrote real, parseable XML, not that every field/
-    # entity survives serialization byte-for-byte.
     storage_dir = Path(hass.config.path(STORAGE_DIR, DOMAIN))
-    description_xml = (storage_dir / entry.data[CONF_DESCRIPTION_FILENAME]).read_text()
-    feature_xml = (storage_dir / entry.data[CONF_FEATURE_FILENAME]).read_text()
-    reloaded = parse_device_description(description_xml, feature_xml)
-    assert reloaded["status"]
-    assert reloaded["setting"]
+    description_xml, feature_xml = serialize_device_description(DEVICE_DESCRIPTION)
+    description_filename = f"{device_id}/DeviceDescription.xml"
+    feature_filename = f"{device_id}/FeatureMapping.xml"
+    (storage_dir / description_filename).parent.mkdir(parents=True, exist_ok=True)
+    (storage_dir / description_filename).write_text(description_xml)
+    (storage_dir / feature_filename).write_text(feature_xml)
+
+    v2_data = {k: v for k, v in MOCK_CONFIG_DATA.items() if k != CONF_DESCRIPTION} | {
+        CONF_APPLIANCE_INFO: MOCK_APPLIANCE_INFO,
+        CONF_DESCRIPTION_FILENAME: description_filename,
+        CONF_FEATURE_FILENAME: feature_filename,
+    }
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=v2_data,
+        unique_id=MOCK_TLS_DEVICE_ID,
+        version=2,
+    )
+    entry.add_to_hass(hass)
+
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert CONF_APPLIANCE_INFO not in entry.data
+    assert CONF_DESCRIPTION_FILENAME not in entry.data
+    assert CONF_FEATURE_FILENAME not in entry.data
+    assert entry.data[CONF_DESCRIPTION]["info"]["deviceID"] == device_id
+    # The v2 files are cleaned up once converted, not left behind.
+    assert not (storage_dir / description_filename).exists()
+    assert not (storage_dir / feature_filename).exists()
 
 
 async def test_device_registry_serial_number(

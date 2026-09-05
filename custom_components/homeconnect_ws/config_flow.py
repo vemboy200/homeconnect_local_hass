@@ -50,7 +50,6 @@ from homeassistant.helpers.selector import (
 from . import HC_KEY, HCConfig
 from .const import (
     CONF_AES_IV,
-    CONF_APPLIANCE_INFO,
     CONF_FILE,
     CONF_MANUAL_HOST,
     CONF_PSK,
@@ -66,7 +65,6 @@ from .hc_legacy_oauth import build_authorize_url as legacy_build_authorize_url
 from .hc_legacy_oauth import extract_code_from_redirect as legacy_extract_code_from_redirect
 from .hc_legacy_oauth import generate_code_verifier as legacy_generate_code_verifier
 from .hc_legacy_oauth import generate_state as legacy_generate_state
-from .profile_storage import write_description_files
 
 CONF_LEGACY_REDIRECT_URL = "legacy_redirect_url"
 
@@ -430,14 +428,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
                 self.reauth_entry,
                 data_updates=data,
             )
-        description = data[CONF_DESCRIPTION]
-        new_keys = await write_description_files(
-            self.hass, description["info"]["deviceID"], description
-        )
-        return self.async_create_entry(
-            title=data[CONF_NAME],
-            data={**data, CONF_APPLIANCE_INFO: description["info"], **new_keys},
-        )
+        return self.async_create_entry(title=data[CONF_NAME], data=data)
 
     async def async_step_reauth(self, user_input: dict[str, Any]) -> ConfigFlowResult:
         """Reauth flow initialized."""

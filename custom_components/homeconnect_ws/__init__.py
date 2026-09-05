@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Never
 
@@ -21,9 +20,11 @@ from homeassistant.util.hass_dict import HassKey
 
 from .const import (
     CONF_APPLIANCE_INFO,
+    CONF_DESCRIPTION_FILENAME,
     CONF_DEV_OVERRIDE_HOST,
     CONF_DEV_OVERRIDE_PSK,
     CONF_DEV_SETUP_FROM_DUMP,
+    CONF_FEATURE_FILENAME,
     DOMAIN,
     PLATFORMS,
 )
@@ -31,7 +32,7 @@ from .coordinator import HomeConnectCoordinator
 from .entity_descriptions import get_available_entities
 from .export_view import HCExportView
 from .helpers import error_decorator, get_config_entry_from_call
-from .profile_storage import write_description_files
+from .profile_storage import load_description_files, remove_description_files
 
 if TYPE_CHECKING:
     from home_disconnect import HomeAppliance
@@ -182,6 +183,28 @@ async def async_setup_entry(
     config_entry: HCConfigEntry,
 ) -> bool:
     """Set up this integration using config entry."""
+    if CONF_DESCRIPTION not in config_entry.data:
+        # A v2-shaped entry (upstream chris-mc1/homeconnect_local_hass, or a
+        # previous run of this fork's now-removed v1->v2 migration) - this
+        # fork only ever speaks the older, simpler CONF_DESCRIPTION shape,
+        # so convert it down once rather than teaching the rest of the
+        # integration to understand two schemas. Triggered by data shape,
+        # not entry.version: HA hard-blocks setup entirely (before any of
+        # our code runs) if entry.version is higher than this integration's
+        # declared VERSION, so this can't be done as a migration step - it
+        # has to happen here, every time, cheaply short-circuited by the
+        # CONF_DESCRIPTION check above once an entry has been converted.
+        description = await load_description_files(hass, config_entry)
+        new_data = {
+            k: v
+            for k, v in config_entry.data.items()
+            if k not in (CONF_APPLIANCE_INFO, CONF_DESCRIPTION_FILENAME, CONF_FEATURE_FILENAME)
+        }
+        new_data[CONF_DESCRIPTION] = description
+        await remove_description_files(hass, config_entry)
+        hass.config_entries.async_update_entry(config_entry, data=new_data)
+        _LOGGER.debug("Converted %s from v2 to v1 storage", description["info"].get("vib"))
+
     _LOGGER.debug("Setting up %s", config_entry.data[CONF_DESCRIPTION]["info"].get("model"))
     coordinator = HomeConnectCoordinator(hass, config_entry)
     appliance = coordinator.appliance
@@ -239,32 +262,16 @@ async def async_unload_entry(hass: HomeAssistant, entry: HCConfigEntry) -> bool:
 
 async def async_migrate_entry(hass: HomeAssistant, config_entry: HCConfigEntry) -> bool:
     """
-    Migrate a v1 config entry to the v2 storage schema.
+    Bump an old entry's version number, without changing its data shape.
 
-    v1 stored the entire parsed description inline in the entry's own data.
-    v2 (matching upstream chris-mc1/homeconnect_local_hass's schema exactly,
-    so a future merge doesn't have to reconcile two different "v2" shapes)
-    writes it out as XML under HA's storage dir instead, keyed by device ID,
-    with just the appliance's info dict (CONF_APPLIANCE_INFO) kept on the
-    entry itself.
-
-    CONF_DESCRIPTION is deliberately kept alongside the new keys rather than
-    removed - coordinator.py still reads it directly at several points, and
-    switching it over to load from the new storage files instead is a
-    separate, larger follow-up. This migration only needs to be correct
-    about writing the v2-shaped data next to it.
+    This only ever fires for entry.version < VERSION (HA hard-blocks setup
+    entirely, before calling any of our code, when entry.version is higher
+    than declared - see async_setup_entry for how a *newer*-shaped v2 entry
+    actually gets handled). A v1 entry from before this fork declared
+    VERSION = 2 is already CONF_DESCRIPTION-shaped, which is the only shape
+    this fork ever wants - there's nothing to convert, just the number
+    itself needs to catch up so this stops being called every startup.
     """
     if config_entry.version == 1:
-        description = deepcopy(config_entry.data[CONF_DESCRIPTION])
-        new_keys = await write_description_files(hass, description["info"]["deviceID"], description)
-        hass.config_entries.async_update_entry(
-            config_entry,
-            data={
-                **config_entry.data,
-                CONF_APPLIANCE_INFO: description["info"],
-                **new_keys,
-            },
-            version=2,
-        )
-        _LOGGER.debug("Migrated %s to config entry version 2", description["info"].get("vib"))
+        hass.config_entries.async_update_entry(config_entry, version=2)
     return True
