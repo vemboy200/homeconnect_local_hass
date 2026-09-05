@@ -75,17 +75,19 @@ async def test_load_unload_entry(
     appliance.session.close.assert_awaited_once()
 
 
-async def test_migrate_entry_v1_bumps_version_only(
+async def test_migrate_entry_v1_is_a_noop(
     hass: HomeAssistant,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    Test an old v1 entry (from before this fork declared VERSION = 2) just gets bumped.
+    Test an old v1 entry passes through async_migrate_entry completely unchanged.
 
-    This fork only ever speaks the CONF_DESCRIPTION shape - a v1 entry
-    already has that, so there's nothing to convert, just the version
-    number itself needs to catch up so async_migrate_entry stops being
-    called every startup.
+    This fork deliberately keeps every entry it touches stamped at version
+    1 forever (see async_setup_entry) for full round-trip compatibility
+    with older releases of this fork - VERSION = 2 exists purely so HA
+    accepts a newer-shaped entry from upstream instead of hard-blocking
+    it, not because this fork's own entries are meant to ever become
+    version 2.
     """
     appliance = MockAppliance(DEVICE_DESCRIPTION, "host", "mock_app", "mock_app_id", "PSK_KEY")
     appliance_mock = Mock(return_value=appliance)
@@ -103,7 +105,39 @@ async def test_migrate_entry_v1_bumps_version_only(
     await hass.async_block_till_done()
 
     assert entry.state is ConfigEntryState.LOADED
-    assert entry.version == 2
+    assert entry.version == 1
+    assert entry.data == MOCK_CONFIG_DATA
+
+
+async def test_setup_stamps_a_freshly_created_v2_entry_back_to_v1(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Test a brand new entry (already CONF_DESCRIPTION-shaped, but version 2) gets restamped.
+
+    HA's own flow machinery auto-stamps a freshly created entry at
+    whatever VERSION the config flow declares (2) - this fork corrects
+    that back down to 1 on first setup, same as it does for a v2-shaped
+    entry from upstream, just without any data to convert.
+    """
+    appliance = MockAppliance(DEVICE_DESCRIPTION, "host", "mock_app", "mock_app_id", "PSK_KEY")
+    appliance_mock = Mock(return_value=appliance)
+    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG_DATA,
+        unique_id=MOCK_TLS_DEVICE_ID,
+        version=2,
+    )
+    entry.add_to_hass(hass)
+
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert entry.version == 1
     assert entry.data == MOCK_CONFIG_DATA
 
 
@@ -116,12 +150,13 @@ async def test_setup_converts_v2_entry_to_v1_shape(
 
     This fork doesn't want to understand two schemas - a v2 entry (no
     CONF_DESCRIPTION, just CONF_APPLIANCE_INFO + XML files under HA's
-    storage dir) gets converted back to CONF_DESCRIPTION shape on setup,
-    and the now-unneeded v2 files get cleaned up. Detected by data shape
-    (missing CONF_DESCRIPTION), not entry.version, since HA hard-blocks
-    setup entirely for an entry whose version is higher than this
-    integration declares - async_migrate_entry never even runs for this
-    case (confirmed live: see homeconnect_local_ws_sim_fork memory).
+    storage dir) gets converted back to CONF_DESCRIPTION shape *and*
+    restamped to version 1 on setup, and the now-unneeded v2 files get
+    cleaned up. Detected by data shape (missing CONF_DESCRIPTION), not
+    entry.version, since HA hard-blocks setup entirely for an entry whose
+    version is higher than this integration declares - async_migrate_entry
+    never even runs for this case (confirmed live: see
+    homeconnect_local_ws_sim_fork memory).
     """
     appliance = MockAppliance(DEVICE_DESCRIPTION, "host", "mock_app", "mock_app_id", "PSK_KEY")
     appliance_mock = Mock(return_value=appliance)
@@ -153,6 +188,7 @@ async def test_setup_converts_v2_entry_to_v1_shape(
     await hass.async_block_till_done()
 
     assert entry.state is ConfigEntryState.LOADED
+    assert entry.version == 1
     assert CONF_APPLIANCE_INFO not in entry.data
     assert CONF_DESCRIPTION_FILENAME not in entry.data
     assert CONF_FEATURE_FILENAME not in entry.data
