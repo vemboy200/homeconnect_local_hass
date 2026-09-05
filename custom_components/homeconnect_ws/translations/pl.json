@@ -279,6 +279,9 @@
       "switch_hood_silence_mode": {
         "name": "Tryb cichy"
       },
+      "switch_hood_boost_mode": {
+        "name": "Tryb intensywny"
+      },
       "switch_refrigerator_fresh_mode": {
         "name": "Tryb świeżości"
       },
@@ -3892,6 +3895,9 @@
       },
       "number_hood_delayed_shutoff_time": {
         "name": "Czas opóźnionego wyłączenia"
+      },
+      "number_hood_boost_time": {
+        "name": "Czas trwania trybu intensywnego"
       },
       "number_refrigerator_door_assistant_freezer_timeout": {
         "name": "Czas asystenta drzwi zamrażarki"

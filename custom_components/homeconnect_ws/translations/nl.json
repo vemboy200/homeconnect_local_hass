@@ -170,6 +170,9 @@
       "switch_hood_silence_mode": {
         "name": "Stille modus"
       },
+	  "switch_hood_boost_mode": {
+        "name": "Boost modus"
+      },
       "switch_refrigerator_fresh_mode": {
         "name": "Opfris modus"
       }
@@ -2102,6 +2105,9 @@
       },
       "number_hood_delayed_shutoff_time": {
         "name": "Vertraagd uitschakelen"
+      },
+	  "number_hood_boost_time": {
+        "name": "Boost looptijd"
       },
       "number_hood_sensor_sensitivity": {
         "name": "Sensorgevoeligheid"

@@ -128,6 +128,7 @@ Some entites are excluded from this integration on purpose, even though the Home
 
 - Hood fan speed control
   - Set the fan speed/stage
+  - Boost mode
 - Ambient and work lighting
   - Control the hood's ambient and work lights
 - Automatic shutoff delay

@@ -187,6 +187,9 @@
       },
       "switch_hob_hood_automatic_light_on": {
         "name": "Accensione automatica luce cappa"
+      },
+	  "switch_hood_boost_mode": {
+        "name": "Modalità Boost"
       }
     },
     "binary_sensor": {
@@ -1506,6 +1509,9 @@
       },
       "number_hob_automatic_timer": {
         "name": "Timer automatico"
+      },
+	  "number_hood_boost_time": {
+        "name": "Durata Boost"
       },
       "number_start_in": {
         "name": "Avvio tra"

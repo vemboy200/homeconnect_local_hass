@@ -215,6 +215,9 @@
       "switch_hood_silence_mode": {
         "name": "静音模式"
       },
+	  "switch_hood_boost_mode": {
+        "name": "加速模式"
+      },
       "switch_refrigerator_fresh_mode": {
         "name": "生鲜模式"
       },
@@ -1837,6 +1840,9 @@
       },
       "number_hood_delayed_shutoff_time": {
         "name": "延时关机时间"
+      },
+	  "number_hood_boost_time": {
+        "name": "Boost 运行时间"
       },
       "number_hood_sensor_sensitivity": {
         "name": "自动传感器灵敏度"

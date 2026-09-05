@@ -92,6 +92,9 @@
 			"switch_hob_hood_automatic_light_on": {
 				"default": "mdi:lightbulb-auto"
 			},
+			"switch_hood_boost_mode": {
+				"default": "mdi:fan-clock"
+			},
             "switch_dishwasher_sanitation": {
                 "default": "mdi:bacteria-outline"
             },
@@ -557,7 +560,10 @@
             },
             "number_oven_sound_volume": {
                 "default": "mdi:volume-high"
-            }
+            },
+			"number_hood_boost_time": {
+				"default": "mdi:fan-clock"
+			}
         }
     },
     "services": {

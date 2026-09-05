@@ -282,6 +282,9 @@
       "switch_hood_silence_mode": {
         "name": "Silence Mode"
       },
+      "switch_hood_boost_mode": {
+        "name": "Boost Mode"
+      },
       "switch_refrigerator_fresh_mode": {
         "name": "Fresh Mode"
       },
@@ -3931,6 +3934,9 @@
       },
       "number_hood_delayed_shutoff_time": {
         "name": "Delayed Shutoff Time"
+      },
+      "number_hood_boost_time": {
+        "name": "Boost Time on"
       },
       "number_refrigerator_door_assistant_freezer_timeout": {
         "name": "Freezer door assistant timeout"

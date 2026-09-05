@@ -170,6 +170,9 @@
       "switch_hood_silence_mode": {
         "name": "Тихий режим"
       },
+	  "switch_hood_boost_mode": {
+        "name": "Режим Буст"
+      },
       "switch_refrigerator_fresh_mode": {
         "name": "Режим свежести"
       }
@@ -1760,6 +1763,9 @@
       },
       "number_hood_delayed_shutoff_time": {
         "name": "Время отложенного выключения"
+      },
+	  "number_hood_boost_time": {
+        "name": "Время работы Boost"
       },
       "number_hood_sensor_sensitivity": {
         "name": "Чувствительность авто-сенсора"

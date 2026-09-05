@@ -582,6 +582,13 @@ COOKING_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity="Cooking.Hood.Setting.SensorSensitivity",
             mode=NumberMode.AUTO,
         ),
+        HCNumberEntityDescription(
+            key="number_hood_boost_time",
+            entity="Cooking.Hood.Setting.BoostTime",
+            native_unit_of_measurement=UnitOfTime.SECONDS,
+            entity_category=EntityCategory.CONFIG,
+            mode=NumberMode.AUTO,
+        ),
     ],
     "select": [
         HCSelectEntityDescription(
@@ -787,6 +794,11 @@ COOKING_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
         HCSwitchEntityDescription(
             key="switch_hood_silence_mode",
             entity="Cooking.Hood.Setting.NoiseReduction",
+            device_class=SwitchDeviceClass.SWITCH,
+        ),
+        HCSwitchEntityDescription(
+            key="switch_hood_boost_mode",
+            entity="Cooking.Common.Option.Hood.Boost",
             device_class=SwitchDeviceClass.SWITCH,
         ),
     ],
