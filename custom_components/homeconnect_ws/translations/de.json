@@ -1974,7 +1974,7 @@
         "name": "Geschätzte Verbleibende Programmlaufzeit"
       },
       "sensor_oven_water_tank": {
-        "name": "Wassertank",
+        "name": "Wassertank{group_name}",
         "state": {
           "ok": "OK",
           "empty": "Leer",
@@ -4309,6 +4309,9 @@
       },
       "number_setting_alarm_clock": {
         "name": "Alarm"
+      },
+      "number_setting_alarm_clock_groupe": {
+        "name": "Alarm{group_name}"
       },
       "number_setpoint_chiller_common": {
         "name": "Frischezone-Temperatur"
