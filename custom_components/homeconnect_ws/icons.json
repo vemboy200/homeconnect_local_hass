@@ -557,7 +557,10 @@
             },
             "number_oven_sound_volume": {
                 "default": "mdi:volume-high"
-            }
+            },
+			"number_hood_boost_time": {
+				"default": "mdi:fan-clock"
+			}
         }
     },
     "services": {

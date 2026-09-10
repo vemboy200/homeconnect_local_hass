@@ -1924,6 +1924,9 @@
       "number_hood_delayed_shutoff_time": {
         "name": "Forsinket avstengingstid"
       },
+	  "number_hood_boost_time": {
+        "name": "Boost varighet"
+      },
       "number_hood_sensor_sensitivity": {
         "name": "Auto sensorsensitivitet"
       },

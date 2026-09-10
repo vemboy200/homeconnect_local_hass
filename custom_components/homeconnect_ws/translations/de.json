@@ -4325,6 +4325,9 @@
       "number_hood_delayed_shutoff_time": {
         "name": "Verzögerte Abschaltzeit"
       },
+      "number_hood_boost_time": {
+        "name": "Boost Laufzeit"
+      },
       "number_hood_sensor_sensitivity": {
         "name": "Automatische Sensorempfindlichkeit"
       },
