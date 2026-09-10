@@ -96,6 +96,8 @@ Some entites are excluded from this integration on purpose, even though the Home
   - Controls/reports the telescopic rack rail
 - Brand logo display
   - Toggle whether the brand logo shows on the display
+- Cavity light
+  - Turn the oven's interior light on and off
 
 ## Hob
 

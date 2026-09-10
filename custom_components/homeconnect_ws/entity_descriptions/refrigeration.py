@@ -297,6 +297,12 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         ),
         HCSensorEntityDescription(
+            key="sensor_water_filter_saturation",
+            entity="Refrigeration.Common.Status.Dispenser.WaterFilterSaturation",
+            native_unit_of_measurement=PERCENTAGE,
+            state_class=SensorStateClass.MEASUREMENT,
+        ),
+        HCSensorEntityDescription(
             key="sensor_temperature_memory_freezer",
             entity="Refrigeration.Common.Status.Freezer.MemoryTemperature",
             device_class=SensorDeviceClass.TEMPERATURE,

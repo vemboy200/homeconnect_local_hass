@@ -441,6 +441,7 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity="BSH.Common.Option.ProgramProgress",
             native_unit_of_measurement=PERCENTAGE,
             clear_on_expected_offline=True,
+            unavailable_when_no_active_program=True,
         ),
         HCSensorEntityDescription(
             key="sensor_water_forecast",

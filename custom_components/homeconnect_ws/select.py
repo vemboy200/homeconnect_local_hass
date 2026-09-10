@@ -218,6 +218,13 @@ class HCProgram(HCSelect):
             # start()'s START_ONLY path (see issue #14) actually needs the
             # opposite - some options there have no safe appliance-side
             # default at all - so this doesn't touch that branch.
+            #
+            # Only this branch and _select_with_full_option_set's SELECT_ONLY
+            # branch actually write to SelectedProgram itself - the START_ONLY
+            # branch below writes ActiveProgram instead, so SelectedProgram
+            # being permanently read-only-by-design on those appliances (see
+            # generate_start_button) must not block it.
+            ensure_writable(self._entity)
             await selected_program.select(override_options=True)
         elif selected_program.execution == Execution.START_ONLY:
             await selected_program.start()
@@ -226,6 +233,7 @@ class HCProgram(HCSelect):
         """Write program and options together, for appliances that demand both."""
         options = build_full_option_set(self._runtime_data.appliance, program)
         if program.execution == Execution.SELECT_ONLY:
+            ensure_writable(self._entity)
             await program.select(options, override_options=True)
         else:
             # SELECT_AND_START and START_ONLY both go to /ro/activeProgram: an

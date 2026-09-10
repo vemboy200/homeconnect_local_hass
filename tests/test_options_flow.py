@@ -10,7 +10,6 @@ from unittest.mock import AsyncMock, patch
 
 from homeassistant.const import CONF_MODE
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.setup import async_setup_component
 
 from . import setup_config_entry
 from .const import MOCK_CONFIG_DATA
@@ -20,43 +19,46 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
 
-async def test_options_flow_shows_export_menu(
+async def test_options_flow_init_does_not_write_without_confirmation(
     hass: HomeAssistant,
     mock_appliance: MockAppliance,
     patch_entity_description: None,
 ) -> None:
-    """The options flow shows a mode selector on init."""
+    """
+    Opening "Configure" alone must not write the key-bearing ZIP to disk.
+
+    Confirmed live: before this confirmation step existed, opening the
+    options flow for any reason - even just to see what's there - silently
+    wrote the Full profile (including the real encryption key) to disk with
+    no explicit action taken.
+    """
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
     entry = hass.config_entries.async_entries("homeconnect_ws")[0]
 
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    with patch(
+        "homeassistant.core.ServiceRegistry.async_call", new_callable=AsyncMock
+    ) as mock_call:
+        result = await hass.config_entries.options.async_init(entry.entry_id)
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "init"
+    mock_call.assert_not_awaited()
 
 
-async def test_options_flow_export_safe_creates_signed_link_notification(
+async def test_options_flow_writes_full_profile_zip_after_confirmation(
     hass: HomeAssistant,
     mock_appliance: MockAppliance,
     patch_entity_description: None,
 ) -> None:
-    """Safe export closes the flow and notifies with a signed download link."""
-    assert await async_setup_component(hass, "http", {})
-    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    """Submitting the confirmation form writes the Full profile ZIP and notifies."""
+    assert await setup_config_entry(hass, {**MOCK_CONFIG_DATA, CONF_MODE: "AES"})
     entry = hass.config_entries.async_entries("homeconnect_ws")[0]
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
-
-    with (
-        patch(
-            "custom_components.homeconnect_ws.config_flow.get_url",
-            return_value="http://homeassistant.local:8123",
-        ),
-        patch("homeassistant.core.ServiceRegistry.async_call", new_callable=AsyncMock) as mock_call,
-    ):
-        result = await hass.config_entries.options.async_configure(
-            result["flow_id"], {"mode": "safe"}
-        )
+    with patch(
+        "homeassistant.core.ServiceRegistry.async_call", new_callable=AsyncMock
+    ) as mock_call:
+        result = await hass.config_entries.options.async_configure(result["flow_id"], {})
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     mock_call.assert_awaited_once()
@@ -64,32 +66,6 @@ async def test_options_flow_export_safe_creates_signed_link_notification(
     assert call_args.args[0] == "persistent_notification"
     assert call_args.args[1] == "create"
     message = call_args.args[2]["message"]
-    assert f"/api/homeconnect_ws/export/{entry.entry_id}" in message
-    assert "authSig=" in message
-    assert "fake_brand_Fake_vib_profile_safe.zip" in message
-
-
-async def test_options_flow_export_full_writes_file(
-    hass: HomeAssistant,
-    mock_appliance: MockAppliance,
-    patch_entity_description: None,
-) -> None:
-    """Full export writes a ZIP with the key to the config directory, no HTTP link."""
-    assert await setup_config_entry(hass, {**MOCK_CONFIG_DATA, CONF_MODE: "AES"})
-    entry = hass.config_entries.async_entries("homeconnect_ws")[0]
-
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-
-    with patch(
-        "homeassistant.core.ServiceRegistry.async_call", new_callable=AsyncMock
-    ) as mock_call:
-        result = await hass.config_entries.options.async_configure(
-            result["flow_id"], {"mode": "full"}
-        )
-
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    mock_call.assert_awaited_once()
-    message = mock_call.call_args.args[2]["message"]
     assert "fake_brand_Fake_vib_profile_full.zip" in message
     assert "homeconnect_ws_export" in message
     assert "/api/" not in message
@@ -99,3 +75,25 @@ async def test_options_flow_export_full_writes_file(
     )
     with zipfile.ZipFile(BytesIO(written.read_bytes())) as zip_file:  # noqa: ASYNC240
         assert any(name.endswith(".json") for name in zip_file.namelist())
+
+
+async def test_options_flow_notifies_on_write_failure(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """An OSError while writing the export file is reported in the notification, not raised."""
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    entry = hass.config_entries.async_entries("homeconnect_ws")[0]
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    with (
+        patch("pathlib.Path.mkdir", side_effect=OSError("disk full")),
+        patch("homeassistant.core.ServiceRegistry.async_call", new_callable=AsyncMock) as mock_call,
+    ):
+        result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    message = mock_call.call_args.args[2]["message"]
+    assert "Could not write export file" in message
+    assert "disk full" in message

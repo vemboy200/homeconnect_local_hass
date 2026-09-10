@@ -282,6 +282,7 @@ DISHCARE_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity="Dishcare.Dishwasher.Status.ProgramPhase",
             device_class=SensorDeviceClass.ENUM,
             has_state_translation=True,
+            force_value_when_no_active_program="none",
         ),
         HCSensorEntityDescription(
             key="sensor_machine_care_reminder",

@@ -31,21 +31,21 @@ body:
       placeholder: "drag-and-drop the diagnostics file here"
       description: >-
         [Download the Integration Diagnostics](https://www.home-assistant.io/docs/configuration/troubleshooting/#download-diagnostics) and drag-and-drop that file into the textbox below.
-        Diagnostics contain the current Appliance state, so it is best to download Diagnostics while the Appliance is in a specific state or before and after perform an action through the HomeConnect App.
+        This one file now covers everything: the current Appliance state, plus the Device Description/Feature Mapping profile schema (no encryption key or other sensitive data - safe to attach as-is), so in most cases you don't need anything else below.
+        It's best to download Diagnostics while the Appliance is in a specific state or before and after performing an action through the HomeConnect App.
     validations:
       required: true
 
   - type: textarea
     attributes:
-      label: Device Description / Feature Mapping files
+      label: Device Description / Feature Mapping files (only if Diagnostics wasn't possible)
       placeholder: "drag-and-drop the *_DeviceDescription.xml and *_FeatureMapping.xml files here"
       description: >-
-        See [Requesting a New Feature](https://github.com/vemboy200/homeconnect_local_hass/blob/beta/docs/integration/support-and-troubleshooting.md#requesting-a-new-feature) in the docs for how to get these.
-        Use the **Export Safe Profile** option from the appliance's device page (Settings → Devices & Services → Home Connect Local → gear/settings icon) to get a ZIP with these two files already renamed and safe to attach as-is.
-        Alternatively, use the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader), rename the two files to remove the MAC address segment from the filename, and attach them here.
-        **Do not attach the `.json` file** from the Profile Downloader — it contains your appliance's local encryption key. Export Safe Profile never includes it.
+        Only needed if you couldn't get the Diagnostics file above - e.g. the appliance won't complete setup at all, so there's no config entry to download Diagnostics from.
+        Use the [Home Connect Profile Downloader](https://github.com/bruestel/homeconnect-profile-downloader), rename the two files to remove the MAC address segment from the filename, and attach them here.
+        **Do not attach the `.json` file** from the Profile Downloader — it contains your appliance's local encryption key.
     validations:
-      required: true
+      required: false
 
   - type: textarea
     attributes:

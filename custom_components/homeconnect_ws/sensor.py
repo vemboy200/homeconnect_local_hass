@@ -16,6 +16,7 @@ from .helpers import create_entities
 _LOGGER = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from home_disconnect import HomeAppliance
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -23,6 +24,33 @@ if TYPE_CHECKING:
     from .entity_descriptions.descriptions_definitions import HCSensorEntityDescription
 
 PARALLEL_UPDATES = 0
+
+# Mirrors entity_descriptions.common.POWER_OFF_STATE_NAMES - kept local rather
+# than shared since this is the only place outside fan.py that needs it, and
+# importing across the entity_descriptions/helpers boundary here risks a
+# circular import (entity_descriptions already imports from helpers).
+_POWER_OFF_STATE_NAMES = ("Off", "MainsOff")
+_POWER_STATE_ENTITY = "BSH.Common.Setting.PowerState"
+_ACTIVE_PROGRAM_ENTITY = "BSH.Common.Root.ActiveProgram"
+_NO_ACTIVE_PROGRAM_TRIGGER_ENTITIES = (_ACTIVE_PROGRAM_ENTITY, _POWER_STATE_ENTITY)
+
+
+def _no_active_program_and_off(appliance: HomeAppliance) -> bool:
+    """
+    Whether nothing is running and the appliance has powered itself off.
+
+    Distinct from clear_on_expected_offline/coordinator.expected_offline,
+    which only covers laundry appliances that cut their own WiFi on power-off
+    (see EXPECTED_OFFLINE_APPLIANCE_TYPES) - this instead covers appliances
+    that stay connected and reachable but stop pushing updates for
+    Option-based status (phase, progress) once idle, so those values freeze
+    at whatever they last showed while a program was still running.
+    """
+    if appliance.active_program is not None:
+        return False
+    power_state = appliance.entities.get(_POWER_STATE_ENTITY)
+    return power_state is not None and power_state.value in _POWER_OFF_STATE_NAMES
+
 
 # HCWiFI is the only should_poll entity in this platform, so this interval only
 # affects it. WiFi signal strength is only available via an active /ni/info request
@@ -79,6 +107,22 @@ class HCSensor(HCEntity, SensorEntity):
             else:
                 self._attr_options = [str(value) for value in self._entity.enum.values()]
 
+        if (
+            entity_description.force_value_when_no_active_program is not None
+            or entity_description.unavailable_when_no_active_program
+        ):
+            # This sensor's own backing entity (e.g. program_phase) is
+            # exactly the one that stops getting fresh NOTIFYs once idle -
+            # that's the bug being worked around. Without also listening to
+            # ActiveProgram/PowerState, nothing would ever call
+            # async_write_ha_state() again to make HA re-evaluate
+            # native_value/available against the new idle state. Same
+            # pattern as fan.py's _HOOD_FAN_STATE_ENTITIES.
+            for name in _NO_ACTIVE_PROGRAM_TRIGGER_ENTITIES:
+                trigger_entity = runtime_data.appliance.entities.get(name)
+                if trigger_entity is not None and trigger_entity not in self._entities:
+                    self._entities.append(trigger_entity)
+
     @property
     def native_value(self) -> int | float | str | None:
         if self.entity_description.clear_on_expected_offline and (
@@ -96,11 +140,28 @@ class HCSensor(HCEntity, SensorEntity):
             )
         ):
             return self.entity_description.force_option_when_expected_offline
+        if (
+            self.entity_description.force_value_when_no_active_program is not None
+            and _no_active_program_and_off(self._runtime_data.appliance)
+            and (
+                self._attr_options is None
+                or self.entity_description.force_value_when_no_active_program in self._attr_options
+            )
+        ):
+            return self.entity_description.force_value_when_no_active_program
         if self._entity is None or self._entity.value is None:
             return None
         if self._entity.enum and self.entity_description.has_state_translation:
             return str(self._entity.value).lower()
         return cast("int | float | str", self._entity.value)
+
+    @property
+    def available(self) -> bool:
+        if self.entity_description.unavailable_when_no_active_program and (
+            _no_active_program_and_off(self._runtime_data.appliance)
+        ):
+            return False
+        return super().available
 
 
 class HCEventSensor(HCEntity, SensorEntity):

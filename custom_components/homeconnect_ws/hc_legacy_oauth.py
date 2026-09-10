@@ -21,11 +21,19 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 from urllib.parse import parse_qs, urlencode, urlparse
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
+
+
+class LegacyOAuthToken(NamedTuple):
+    """An access token from the code exchange, and how long it's good for."""
+
+    access_token: str
+    expires_in: int | None
+
 
 CLIENT_ID = "9B75AC9EC512F36C84256AC47D813E2C1DD0D6520DF774B020E1E6E2EB29B1F3"
 REDIRECT_URI = "hcauth://auth/prod"
@@ -103,7 +111,7 @@ def extract_code_from_redirect(redirect_url: str, expected_state: str) -> str:
 
 async def async_exchange_code_for_token(
     session: ClientSession, region: str, code: str, code_verifier: str
-) -> str:
+) -> LegacyOAuthToken:
     """Exchange an authorization code for an access token."""
     async with session.post(
         f"{REGION_API_BASE[region]}/security/oauth/token",
@@ -124,4 +132,8 @@ async def async_exchange_code_for_token(
         if not token:
             msg = f"No access_token in response: {data}"
             raise HCLegacyOAuthError(msg)
-        return str(token)
+        expires_in = data.get("expires_in")
+        return LegacyOAuthToken(
+            access_token=str(token),
+            expires_in=int(expires_in) if expires_in is not None else None,
+        )

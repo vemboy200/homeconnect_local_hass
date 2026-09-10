@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+import pytest
 from custom_components.homeconnect_ws import HCData
 from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitions import (
     HCSelectEntityDescription,
@@ -19,6 +20,7 @@ from homeassistant.components.select import (
 )
 from homeassistant.components.select import DOMAIN as SELECT_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_FRIENDLY_NAME, STATE_UNKNOWN
+from homeassistant.exceptions import ServiceValidationError
 
 from . import setup_config_entry
 from .const import MOCK_CONFIG_DATA
@@ -250,6 +252,65 @@ async def test_start_only_program_available_with_read_only_selected_program(
             },
         )
     )
+
+
+async def test_selected_program_available_and_readonly_when_read_locked(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """
+    Test the program select stays available with its value while SelectedProgram is read-locked.
+
+    Confirmed live on fork issue #59 via a Bosch WGB244A0BY's own debug log:
+    SelectedProgram's access flips READ_WRITE -> READ the instant a delayed
+    start is armed, and back once the wash actually starts running - the
+    select should keep showing the chosen program through that whole window
+    instead of going unavailable, matching the same treatment already given
+    to a locked Option.
+    """
+    entity_id = "select.fake_brand_homeappliance_selectedprogram"
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.SelectedProgram"].update(
+        {"value": 500, "access": "readwrite"}
+    )
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == "test_program_program1"
+    assert state.attributes["readonly"] is False
+
+    await mock_appliance.entities["Test.SelectedProgram"].update({"access": "read"})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == "test_program_program1"
+    assert state.attributes["readonly"] is True
+
+
+async def test_select_program_raises_when_selected_program_read_locked(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """Test picking a program raises a clear error instead of a silent/opaque failure."""
+    entity_id = "select.fake_brand_homeappliance_selectedprogram"
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.SelectedProgram"].update({"value": 500, "access": "read"})
+    await hass.async_block_till_done()
+
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            SELECT_DOMAIN,
+            SERVICE_SELECT_OPTION,
+            {
+                ATTR_ENTITY_ID: entity_id,
+                ATTR_OPTION: "test_program_program2",
+            },
+            blocking=True,
+        )
+
+    mock_appliance.session.send_sync.assert_not_awaited()
 
 
 async def test_select_program(

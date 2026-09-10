@@ -84,7 +84,7 @@ def generate_oven_status(appliance: HomeAppliance) -> EntityDescriptions:
             descriptions["event_sensor"].append(
                 HCSensorEntityDescription(
                     key=f"sensor_oven_water_tank_{group[0]}",
-                    translation_key="sensor_oven_water_tank",
+                    translation_key="sensor_oven_water_tank_group",
                     translation_placeholders={"group_name": group_name},
                     entities=entities,
                     device_class=SensorDeviceClass.ENUM,
@@ -99,7 +99,7 @@ def generate_oven_status(appliance: HomeAppliance) -> EntityDescriptions:
             descriptions["sensor"].append(
                 HCSensorEntityDescription(
                     key=f"sensor_oven_current_temperature_{group[0]}",
-                    translation_key="sensor_oven_current_temperature",
+                    translation_key="sensor_oven_current_temperature_group",
                     translation_placeholders={"group_name": group_name},
                     entity=entity,
                     device_class=SensorDeviceClass.TEMPERATURE,
@@ -171,6 +171,8 @@ def generate_oven_settings(appliance: HomeAppliance) -> EntityDescriptions:
     descriptions = EntityDescriptions(number=[])
     for group in groups:
         group_name = f" {int(group[0])}"
+        if len(groups) == 1:
+            group_name = ""
 
         # AlarmClock
         entity = f"Cooking.Oven.Setting.Cavity.{group[0]}.AlarmClock"
@@ -178,7 +180,7 @@ def generate_oven_settings(appliance: HomeAppliance) -> EntityDescriptions:
             descriptions["number"].append(
                 HCNumberEntityDescription(
                     key=f"number_oven_setting_{group[0]}_alarm_clock",
-                    translation_key="number_setting_alarm_clock",
+                    translation_key="number_setting_alarm_clock_groupe",
                     translation_placeholders={"group_name": group_name},
                     entity=entity,
                     device_class=NumberDeviceClass.DURATION,
@@ -226,6 +228,8 @@ def generate_hob_zones(appliance: HomeAppliance) -> EntityDescriptions:
     descriptions = EntityDescriptions(sensor=[])
     for group in groups:
         group_name = f" {int(group[0])}"
+        if len(groups) == 1:
+            group_name = ""
 
         # State
         entity = f"Cooking.Hob.Status.Zone.{group[0]}.State"
@@ -446,6 +450,24 @@ def generate_hood_ambient_light(appliance: HomeAppliance) -> HCLightEntityDescri
             entity="BSH.Common.Setting.AmbientLightEnabled",
         )
     return None
+
+
+def generate_oven_cavity_light(appliance: HomeAppliance) -> HCLightEntityDescription | None:
+    """Get oven cavity light description."""
+    if "Cooking.Oven.Setting.Light.Cavity.001.Power" not in appliance.entities:
+        return None
+
+    if "Cooking.Oven.Setting.Light.Cavity.001.Brightness" in appliance.entities:
+        return HCLightEntityDescription(
+            key="light_oven_cavity",
+            entity="Cooking.Oven.Setting.Light.Cavity.001.Power",
+            brightness_entity="Cooking.Oven.Setting.Light.Cavity.001.Brightness",
+        )
+
+    return HCLightEntityDescription(
+        key="light_oven_cavity",
+        entity="Cooking.Oven.Setting.Light.Cavity.001.Power",
+    )
 
 
 COOKING_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
@@ -711,6 +733,18 @@ COOKING_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             has_state_translation=True,
             entity_category=EntityCategory.CONFIG,
         ),
+        HCSelectEntityDescription(
+            key="select_hood_light_startup",
+            entity="Cooking.Hood.Setting.WorkingLightStartupSetting",
+            has_state_translation=True,
+            entity_category=EntityCategory.CONFIG,
+        ),
+        HCSelectEntityDescription(
+            key="select_hood_light_shutdown",
+            entity="Cooking.Hood.Setting.WorkingLightShutdownSetting",
+            has_state_translation=True,
+            entity_category=EntityCategory.CONFIG,
+        ),
     ],
     "switch": [
         HCSwitchEntityDescription(
@@ -802,7 +836,7 @@ COOKING_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             device_class=SwitchDeviceClass.SWITCH,
         ),
     ],
-    "light": [generate_hood_light, generate_hood_ambient_light],
+    "light": [generate_hood_light, generate_hood_ambient_light, generate_oven_cavity_light],
     "fan": [generate_hood_fan],
     "button": [
         HCButtonEntityDescription(

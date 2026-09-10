@@ -1777,7 +1777,7 @@
         "name": "Szacowany całkowity czas programu"
       },
       "sensor_oven_water_tank": {
-        "name": "Zbiornik wody{group_name}",
+        "name": "Zbiornik wody",
         "state": {
           "ok": "ok",
           "empty": "pusty",

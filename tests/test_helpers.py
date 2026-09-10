@@ -11,8 +11,8 @@ from custom_components.homeconnect_ws.helpers import (
     ensure_writable,
     get_entities_from_regex,
     get_groups_from_regex,
-    is_locked_option,
-    is_option,
+    is_lockable,
+    is_locked,
 )
 from homeassistant.exceptions import ServiceValidationError
 
@@ -43,11 +43,11 @@ async def test_get_groups_from_regex(mock_homeconnect_appliance: MockApplianceTy
     assert result == {("001",), ("002",)}
 
 
-async def test_is_locked_option_true_when_option_read_only(
+async def test_is_locked_true_when_option_read_only(
     mock_homeconnect_appliance: MockApplianceType,
 ) -> None:
     """
-    Test an Option locked to read-only is reported as a locked option.
+    Test an Option locked to read-only is reported as locked.
 
     Confirmed live on fork issue #59: Home Connect appliances lock some
     Options (e.g. iDos1) to read-only while a program runs, rather than
@@ -58,10 +58,10 @@ async def test_is_locked_option_true_when_option_read_only(
     option = appliance.entities["Test.Option1"]
     await option.update({"access": "read"})
 
-    assert is_locked_option(option) is True
+    assert is_locked(option) is True
 
 
-async def test_is_locked_option_false_when_option_writable(
+async def test_is_locked_false_when_option_writable(
     mock_homeconnect_appliance: MockApplianceType,
 ) -> None:
     """Test a normally writable Option is not treated as locked."""
@@ -69,10 +69,10 @@ async def test_is_locked_option_false_when_option_writable(
     option = appliance.entities["Test.Option1"]
     await option.update({"access": "readwrite"})
 
-    assert is_locked_option(option) is False
+    assert is_locked(option) is False
 
 
-async def test_is_locked_option_false_when_option_inapplicable(
+async def test_is_locked_false_when_option_inapplicable(
     mock_homeconnect_appliance: MockApplianceType,
 ) -> None:
     """
@@ -85,40 +85,69 @@ async def test_is_locked_option_false_when_option_inapplicable(
     option = appliance.entities["Test.Option1"]
     await option.update({"access": "none"})
 
-    assert is_locked_option(option) is False
+    assert is_locked(option) is False
 
 
-async def test_is_locked_option_false_for_non_option_entity(
+async def test_is_locked_false_for_non_lockable_entity(
     mock_homeconnect_appliance: MockApplianceType,
 ) -> None:
-    """Test a Setting (not an Option) is never treated as a locked option."""
+    """Test a Setting (neither an Option nor SelectedProgram) is never treated as locked."""
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     setting = appliance.entities["Test.Switch"]
     await setting.update({"access": "read"})
 
-    assert is_locked_option(setting) is False
+    assert is_locked(setting) is False
 
 
-async def test_is_option_true_for_any_access(
+async def test_is_locked_true_when_selected_program_read_only(
     mock_homeconnect_appliance: MockApplianceType,
 ) -> None:
-    """Test is_option is true for an Option regardless of its current access."""
+    """
+    Test SelectedProgram locked to read-only is reported as locked, same as an Option.
+
+    Confirmed live on fork issue #59 via a Bosch WGB244A0BY's own debug log:
+    SelectedProgram's access flips READ_WRITE -> READ the moment a delayed
+    start is armed, and back to READ_WRITE once the wash actually starts -
+    the program select should stay visible with its current value through
+    that whole window, not go unavailable.
+    """
+    appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
+    selected_program = appliance.entities["Test.SelectedProgram"]
+    await selected_program.update({"access": "read"})
+
+    assert is_locked(selected_program) is True
+
+
+async def test_is_lockable_true_for_any_access(
+    mock_homeconnect_appliance: MockApplianceType,
+) -> None:
+    """Test is_lockable is true for an Option regardless of its current access."""
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     option = appliance.entities["Test.Option1"]
 
     for access in ("none", "read", "readwrite"):
         await option.update({"access": access})
-        assert is_option(option) is True
+        assert is_lockable(option) is True
 
 
-async def test_is_option_false_for_non_option_entity(
+async def test_is_lockable_true_for_selected_program(
     mock_homeconnect_appliance: MockApplianceType,
 ) -> None:
-    """Test a Setting (not an Option) is never treated as an Option."""
+    """Test is_lockable is also true for SelectedProgram, not just Option."""
+    appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
+    selected_program = appliance.entities["Test.SelectedProgram"]
+
+    assert is_lockable(selected_program) is True
+
+
+async def test_is_lockable_false_for_non_lockable_entity(
+    mock_homeconnect_appliance: MockApplianceType,
+) -> None:
+    """Test a Setting (neither an Option nor SelectedProgram) is never treated as lockable."""
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     setting = appliance.entities["Test.Switch"]
 
-    assert is_option(setting) is False
+    assert is_lockable(setting) is False
 
 
 async def test_ensure_writable_raises_for_locked_option(

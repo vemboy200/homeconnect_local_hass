@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from home_disconnect.entities import Access, Option
+from home_disconnect.entities import Access, Option, SelectedProgram
 from home_disconnect.errors import AccessError, CodeResponsError, NotConnectedError
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.service import async_extract_config_entry_ids
@@ -115,28 +115,35 @@ def entity_is_available(
     return available
 
 
-def is_option(entity: HcEntity | None) -> bool:
-    """Whether entity is a program Option at all, regardless of its current access."""
-    return isinstance(entity, Option)
+_LOCKABLE_ENTITY_TYPES = (Option, SelectedProgram)
 
 
-def is_locked_option(entity: HcEntity | None) -> bool:
+def is_lockable(entity: HcEntity | None) -> bool:
+    """Whether entity is a type HC locks read-only rather than hides, regardless of access."""
+    return isinstance(entity, _LOCKABLE_ENTITY_TYPES)
+
+
+def is_locked(entity: HcEntity | None) -> bool:
     """
-    Whether entity is a program Option currently locked read-only, not just inapplicable.
+    Whether entity is currently locked read-only, not just inapplicable.
 
-    Options are the class of HC entities whose write access depends on which
-    program is active - Home Connect itself shows these as visible-but-disabled
-    on the appliance's own panel/app rather than hiding them, confirmed live on
-    fork issue #59. Access.READ specifically means "still readable, just not
-    writable right now" - Access.NONE means "not applicable at all", which
-    should stay genuinely unavailable rather than shown as read-only.
+    Options (e.g. an iDos dosing switch while a program runs) and
+    SelectedProgram (e.g. while a delayed start is armed - confirmed live on
+    fork issue #59 via a Bosch WGB244A0BY's own debug log, access flips
+    READ_WRITE -> READ the moment the delay is armed and back once the wash
+    actually starts) are the two HC entity types whose write access depends
+    on appliance state this way - Home Connect itself shows these as
+    visible-but-disabled on the appliance's own panel/app rather than hiding
+    them. Access.READ specifically means "still readable, just not writable
+    right now" - Access.NONE means "not applicable at all", which should stay
+    genuinely unavailable rather than shown as read-only.
     """
-    return isinstance(entity, Option) and entity.access == Access.READ
+    return isinstance(entity, _LOCKABLE_ENTITY_TYPES) and entity.access == Access.READ
 
 
 def ensure_writable(entity: HcEntity | None) -> None:
-    """Raise a clear error instead of silently attempting a write a locked Option will reject."""
-    if is_locked_option(entity):
+    """Raise a clear error instead of silently attempting a write a locked entity will reject."""
+    if is_locked(entity):
         raise ServiceValidationError(
             translation_domain=DOMAIN,
             translation_key="read_only",

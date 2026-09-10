@@ -10,7 +10,7 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .coordinator import HomeConnectCoordinator
-from .helpers import entity_is_available, is_locked_option, is_option
+from .helpers import entity_is_available, is_lockable, is_locked
 
 if TYPE_CHECKING:
     from home_disconnect.entities import Entity as HcEntity
@@ -77,21 +77,22 @@ class HCEntity(CoordinatorEntity[HomeConnectCoordinator], Entity):
             or self._runtime_data.coordinator.expected_offline
         )
         available_access = self.entity_description.available_access
-        if available_access is not None and is_locked_option(self._entity):
-            # Home Connect itself shows a locked Option as visible-but-disabled
-            # rather than hiding it (confirmed live on fork issue #59) - Access.READ
-            # means "still readable", so widen the check instead of going
-            # unavailable and hiding the current value along with the control.
+        if available_access is not None and is_locked(self._entity):
+            # Home Connect itself shows a locked entity (an Option or
+            # SelectedProgram) as visible-but-disabled rather than hiding it
+            # (confirmed live on fork issue #59) - Access.READ means "still
+            # readable", so widen the check instead of going unavailable and
+            # hiding the current value along with the control.
             available_access = (*available_access, Access.READ)
         return connected_or_expected_offline and entity_is_available(self._entity, available_access)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         extra_state_attributes: dict[str, Any] = {}
-        if is_option(self._entity):
+        if is_lockable(self._entity):
             # Always present (not just when locked) so a template/custom card
             # can rely on it existing rather than treating "missing" as false.
-            extra_state_attributes["readonly"] = is_locked_option(self._entity)
+            extra_state_attributes["readonly"] = is_locked(self._entity)
         for description in self._extra_attributes:
             entity = self._runtime_data.appliance.entities[description["entity"]]
             if "value_fn" in description:
