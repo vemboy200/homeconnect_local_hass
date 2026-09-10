@@ -187,9 +187,6 @@
       },
       "switch_hob_hood_automatic_light_on": {
         "name": "Accensione automatica luce cappa"
-      },
-	  "switch_hood_boost_mode": {
-        "name": "Modalità Boost"
       }
     },
     "binary_sensor": {

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import math
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any, Final, NamedTuple, override
 
 from home_disconnect.entities import Access
+from home_disconnect.message import Action
+from home_disconnect.message import Message as HC_Message
 from homeassistant.components.fan import FanEntity, FanEntityFeature
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.util.percentage import percentage_to_ranged_value, ranged_value_to_percentage
@@ -30,8 +33,17 @@ if TYPE_CHECKING:
     from . import HCConfigEntry, HCData
     from .entity_descriptions.descriptions_definitions import HCFanEntityDescription
 
+_LOGGER = logging.getLogger(__name__)
+
 PARALLEL_UPDATES = 0
 
+PRESET_NONE = "None"
+PRESET_BOOST = "Boost"
+
+PRESET_MODES: Final = [
+    PRESET_NONE,
+    PRESET_BOOST,
+]
 
 class SpeedMapping(NamedTuple):
     """Mapping of entity name / value and speed."""
@@ -53,6 +65,10 @@ async def async_setup_entry(
 
 _POWER_STATE_ENTITY = "BSH.Common.Setting.PowerState"
 _OPERATION_STATE_ENTITY = "BSH.Common.Status.OperationState"
+_VENTING_PROGRAM_ENTITY = "Cooking.Common.Program.Hood.Venting" # D80B / 55307
+_VENTING_LEVEL_ENTITY = "Cooking.Common.Option.Hood.VentingLevel" # D80C / 55308
+_VENTING_INTENSIVE_LEVEL_ENTITY = "Cooking.Common.Option.Hood.IntensiveLevel" # D809 / 55305
+_VENTING_BOOST_ENTITY = "Cooking.Common.Option.Hood.Boost" # D801 / 55297
 _INACTIVE_OPERATION_STATES = frozenset({"inactive", "ready"})
 
 _HOOD_FAN_STATE_ENTITIES = (
@@ -75,8 +91,11 @@ class HCFan(HCEntity, FanEntity):
         runtime_data: HCData,
     ) -> None:
         super().__init__(entity_description, runtime_data)
+
+        ventingBoost = self._runtime_data.appliance.options.get(_VENTING_BOOST_ENTITY)
+
         self._attr_supported_features = (
-            FanEntityFeature.SET_SPEED | FanEntityFeature.TURN_OFF | FanEntityFeature.TURN_ON
+            FanEntityFeature.SET_SPEED | FanEntityFeature.TURN_OFF | FanEntityFeature.TURN_ON | FanEntityFeature.PRESET_MODE
         )
         self._speed_mapping = []
         self._speed_entities = {}
@@ -94,6 +113,10 @@ class HCFan(HCEntity, FanEntity):
                             speed=self._attr_speed_count,
                         )
                     )
+
+            if ventingBoost is not None:
+                self._attr_preset_modes = PRESET_MODES
+                self._attr_preset_mode = PRESET_NONE
 
         self._speed_range = (1, self._attr_speed_count)
 
@@ -274,3 +297,65 @@ class HCFan(HCEntity, FanEntity):
 
         await power_state.set_value(off_value)
         self.async_write_ha_state()
+
+    @override
+    async def async_set_preset_mode(self, preset_mode: str) -> None:
+        """Set new preset mode."""
+        if (self._attr_preset_modes is None
+            or preset_mode not in self._attr_preset_modes):
+            _LOGGER.warning(
+                "Preset mode %s is not valid for fan.",
+                preset_mode,
+            )
+            return
+        
+        self._attr_preset_mode = preset_mode
+        if preset_mode == PRESET_NONE:
+            await self.stop_boost()
+        elif preset_mode == PRESET_BOOST:
+            await self.start_boost()
+
+    async def start_boost(self) -> None:
+        """Set new preset mode."""
+        appliance = self._runtime_data.appliance
+        ventingBoost = appliance.options[_VENTING_BOOST_ENTITY]
+        ventingProgram = appliance.programs[_VENTING_PROGRAM_ENTITY]
+        ventingLevel = appliance.options[_VENTING_LEVEL_ENTITY]
+        ventingIntensiveLevel = appliance.options.get(_VENTING_INTENSIVE_LEVEL_ENTITY)
+
+        options: list[dict[str, Any]] = [
+            {"uid": ventingLevel.uid, "value": 0},
+            {"uid": ventingBoost.uid, "value": True}
+            ]
+        # Make intensive level optional (not sure if such a case can happen)
+        if ventingIntensiveLevel is not None:
+            options.append({"uid": ventingIntensiveLevel.uid, "value": 0})
+
+        message_data: list[dict[str, Any]] = []
+        message_data.append({
+            "program": ventingProgram.uid,
+            "options": options
+            })
+        message = HC_Message(
+            resource="/ro/activeProgram",
+            action=Action.POST,
+            data=message_data,
+        )
+        await self._runtime_data.appliance.session.send_sync(message)
+
+    async def stop_boost(self) -> None:
+        """Set new preset mode."""
+        appliance = self._runtime_data.appliance
+        ventingProgram = appliance.programs[_VENTING_PROGRAM_ENTITY]
+
+        message_data: list[dict[str, Any]] = []
+        message_data.append({
+            "program": ventingProgram.uid,
+            "options": []
+            })
+        message = HC_Message(
+            resource="/ro/activeProgram",
+            action=Action.POST,
+            data=message_data,
+        )
+        await self._runtime_data.appliance.session.send_sync(message)

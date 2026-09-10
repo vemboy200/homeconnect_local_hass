@@ -215,9 +215,6 @@
       "switch_hood_silence_mode": {
         "name": "Tyst läge"
       },
-	  "switch_hood_boost_mode": {
-        "name": "Boost läge"
-      },
       "switch_refrigerator_fresh_mode": {
         "name": "Fresh‑läge"
       },
