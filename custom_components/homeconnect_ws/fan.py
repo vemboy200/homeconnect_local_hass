@@ -45,6 +45,7 @@ PRESET_MODES: Final = [
     PRESET_BOOST,
 ]
 
+
 class SpeedMapping(NamedTuple):
     """Mapping of entity name / value and speed."""
 
@@ -306,7 +307,7 @@ class HCFan(HCEntity, FanEntity):
     @override
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set new preset mode."""
-        if (self._attr_preset_modes is None or preset_mode not in self._attr_preset_modes):
+        if self._attr_preset_modes is None or preset_mode not in self._attr_preset_modes:
             _LOGGER.warning(
                 "Preset mode %s is not valid for fan.",
                 preset_mode,
@@ -329,7 +330,7 @@ class HCFan(HCEntity, FanEntity):
 
         options: list[dict[str, Any]] = [
             {"uid": venting_level.uid, "value": 0},
-            {"uid": venting_boost.uid, "value": True}
+            {"uid": venting_boost.uid, "value": True},
         ]
         # Make intensive level optional (not sure if such a case can happen)
         if venting_intensive_level is not None:
