@@ -93,13 +93,8 @@ class HCFan(HCEntity, FanEntity):
     ) -> None:
         super().__init__(entity_description, runtime_data)
 
-        venting_boost = self._runtime_data.appliance.options.get(_VENTING_BOOST_ENTITY)
-
         self._attr_supported_features = (
-            FanEntityFeature.SET_SPEED
-            | FanEntityFeature.PRESET_MODE
-            | FanEntityFeature.TURN_OFF
-            | FanEntityFeature.TURN_ON
+            FanEntityFeature.SET_SPEED | FanEntityFeature.TURN_OFF | FanEntityFeature.TURN_ON
         )
         self._speed_mapping = []
         self._speed_entities = {}
@@ -118,9 +113,11 @@ class HCFan(HCEntity, FanEntity):
                         )
                     )
 
-            if venting_boost is not None:
-                self._attr_preset_modes = PRESET_MODES
-                self._attr_preset_mode = PRESET_NONE
+        venting_boost = self._runtime_data.appliance.options.get(_VENTING_BOOST_ENTITY)
+        if venting_boost is not None:
+            self._attr_supported_features |= FanEntityFeature.PRESET_MODE
+            self._attr_preset_modes = PRESET_MODES
+            self._attr_preset_mode = PRESET_NONE
 
         self._speed_range = (1, self._attr_speed_count)
 
