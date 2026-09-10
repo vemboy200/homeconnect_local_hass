@@ -97,9 +97,9 @@ class HCFan(HCEntity, FanEntity):
 
         self._attr_supported_features = (
             FanEntityFeature.SET_SPEED
+            | FanEntityFeature.PRESET_MODE
             | FanEntityFeature.TURN_OFF
             | FanEntityFeature.TURN_ON
-            | FanEntityFeature.PRESET_MODE
         )
         self._speed_mapping = []
         self._speed_entities = {}
