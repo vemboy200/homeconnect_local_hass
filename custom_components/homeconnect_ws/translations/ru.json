@@ -1772,6 +1772,9 @@
       "number_hood_delayed_shutoff_time": {
         "name": "Время отложенного выключения"
       },
+	  "number_hood_boost_time": {
+        "name": "Время работы Boost"
+      },
       "number_hood_sensor_sensitivity": {
         "name": "Чувствительность авто-сенсора"
       },

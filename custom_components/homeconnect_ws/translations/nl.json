@@ -2114,6 +2114,9 @@
       "number_hood_delayed_shutoff_time": {
         "name": "Vertraagd uitschakelen"
       },
+	  "number_hood_boost_time": {
+        "name": "Boost looptijd"
+      },
       "number_hood_sensor_sensitivity": {
         "name": "Sensorgevoeligheid"
       },

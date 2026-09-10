@@ -1907,6 +1907,9 @@
       "number_hood_delayed_shutoff_time": {
         "name": "Fördröjd avstängning"
       },
+	  "number_hood_boost_time": {
+        "name": "Boost löptid"
+      },
       "number_hood_sensor_sensitivity": {
         "name": "Autosensor – känslighet"
       },

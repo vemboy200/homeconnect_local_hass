@@ -299,6 +299,9 @@
       },
       "switch_refrigerator_door_assistant_fridge": {
         "name": "Fridge Door Assistant"
+      },
+      "switch_hood_boost_mode": {
+        "name": "Boost Mode"
       }
     },
     "binary_sensor": {
@@ -3975,6 +3978,9 @@
       },
       "number_hood_delayed_shutoff_time": {
         "name": "Delayed Shutoff Time"
+      },
+      "number_hood_boost_time": {
+        "name": "Boost Time on"
       },
       "number_hood_sensor_sensitivity": {
         "name": "Auto Sensor Sensitivity"

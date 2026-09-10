@@ -1518,6 +1518,9 @@
       "number_hob_automatic_timer": {
         "name": "Timer automatico"
       },
+	  "number_hood_boost_time": {
+        "name": "Durata Boost"
+      },
       "number_start_in": {
         "name": "Avvio tra"
       }

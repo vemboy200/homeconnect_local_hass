@@ -604,6 +604,13 @@ COOKING_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity="Cooking.Hood.Setting.SensorSensitivity",
             mode=NumberMode.AUTO,
         ),
+        HCNumberEntityDescription(
+            key="number_hood_boost_time",
+            entity="Cooking.Hood.Setting.BoostTime",
+            native_unit_of_measurement=UnitOfTime.SECONDS,
+            entity_category=EntityCategory.CONFIG,
+            mode=NumberMode.AUTO,
+        ),
     ],
     "select": [
         HCSelectEntityDescription(
