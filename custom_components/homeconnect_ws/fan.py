@@ -235,6 +235,7 @@ class HCFan(HCEntity, FanEntity):
         preset_mode: str | None = None,
         **kwargs: Any,
     ) -> None:
+        self._attr_preset_mode = PRESET_NONE
         if percentage is None:
             program = self._venting_program()
             # Same 400 BadRequest as the start button / program select: an
