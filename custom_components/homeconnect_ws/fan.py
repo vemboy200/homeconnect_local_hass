@@ -295,6 +295,7 @@ class HCFan(HCEntity, FanEntity):
                 translation_key="no_power_off",
             )
 
+        self._attr_preset_mode = PRESET_NONE
         await power_state.set_value(off_value)
         self.async_write_ha_state()
 
