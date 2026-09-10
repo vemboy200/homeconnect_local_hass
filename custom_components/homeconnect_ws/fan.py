@@ -10,7 +10,9 @@ from home_disconnect.entities import Access
 from home_disconnect.message import Action
 from home_disconnect.message import Message as HC_Message
 from homeassistant.components.fan import FanEntity, FanEntityFeature
+from homeassistant.core import callback
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers.event import async_call_later
 from homeassistant.util.percentage import percentage_to_ranged_value, ranged_value_to_percentage
 
 from .const import DOMAIN
@@ -25,9 +27,11 @@ from .helpers import (
 )
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from home_disconnect.entities import Entity as HcEntity
     from home_disconnect.entities import Program
-    from homeassistant.core import HomeAssistant
+    from homeassistant.core import CALLBACK_TYPE, HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
     from . import HCConfigEntry, HCData
@@ -44,6 +48,13 @@ PRESET_MODES: Final = [
     PRESET_NONE,
     PRESET_BOOST,
 ]
+
+# The appliance doesn't confirm a boost start/stop right away, and reverts
+# boost on its own once its own timer elapses with no "still pending" signal
+# in between (see PR #55's discussion) - so preset_mode below always reads
+# the appliance's own live Boost value, and this is just how long a
+# just-requested change is shown immediately rather than waiting on that.
+_OPTIMISTIC_PRESET_DURATION = 8
 
 
 class SpeedMapping(NamedTuple):
@@ -75,6 +86,7 @@ _INACTIVE_OPERATION_STATES = frozenset({"inactive", "ready"})
 _HOOD_FAN_STATE_ENTITIES = (
     "BSH.Common.Root.ActiveProgram",
     _OPERATION_STATE_ENTITY,
+    _VENTING_BOOST_ENTITY,
 )
 
 
@@ -85,6 +97,9 @@ class HCFan(HCEntity, FanEntity):
     _speed_entities: dict[str, HcEntity]
     _speed_range: tuple[float, float]
     _speed_mapping: list[SpeedMapping]
+    _venting_boost_entity: HcEntity | None
+    _optimistic_preset_mode: str | None
+    _optimistic_preset_clear: CALLBACK_TYPE | None
 
     def __init__(
         self,
@@ -113,11 +128,12 @@ class HCFan(HCEntity, FanEntity):
                         )
                     )
 
-        venting_boost = self._runtime_data.appliance.options.get(_VENTING_BOOST_ENTITY)
-        if venting_boost is not None:
+        self._optimistic_preset_mode = None
+        self._optimistic_preset_clear = None
+        self._venting_boost_entity = self._runtime_data.appliance.options.get(_VENTING_BOOST_ENTITY)
+        if self._venting_boost_entity is not None:
             self._attr_supported_features |= FanEntityFeature.PRESET_MODE
             self._attr_preset_modes = PRESET_MODES
-            self._attr_preset_mode = PRESET_NONE
 
         self._speed_range = (1, self._attr_speed_count)
 
@@ -129,6 +145,39 @@ class HCFan(HCEntity, FanEntity):
                 if entity is not None and entity not in self._entities:
                     self._entities.append(entity)
         await super().async_added_to_hass()
+
+    async def async_will_remove_from_hass(self) -> None:
+        if self._optimistic_preset_clear is not None:
+            self._optimistic_preset_clear()
+        await super().async_will_remove_from_hass()
+
+    @property
+    def preset_mode(self) -> str | None:
+        # Optimistic first: bridges the gap until the appliance confirms a
+        # just-requested boost start/stop, or until it reverts boost on its
+        # own - see _OPTIMISTIC_PRESET_DURATION above.
+        if self._optimistic_preset_mode is not None:
+            return self._optimistic_preset_mode
+        if self._venting_boost_entity is None:
+            return None
+        return PRESET_BOOST if self._venting_boost_entity.value_raw else PRESET_NONE
+
+    @callback
+    def _set_optimistic_preset(self, preset_mode: str) -> None:
+        """Show `preset_mode` immediately, then defer back to the live value above."""
+        if self._optimistic_preset_clear is not None:
+            self._optimistic_preset_clear()
+        self._optimistic_preset_mode = preset_mode
+        self._optimistic_preset_clear = async_call_later(
+            self.hass, _OPTIMISTIC_PRESET_DURATION, self._clear_optimistic_preset
+        )
+        self.async_write_ha_state()
+
+    @callback
+    def _clear_optimistic_preset(self, _now: datetime) -> None:
+        self._optimistic_preset_mode = None
+        self._optimistic_preset_clear = None
+        self.async_write_ha_state()
 
     @property
     def available(self) -> bool:
@@ -236,7 +285,8 @@ class HCFan(HCEntity, FanEntity):
         preset_mode: str | None = None,
         **kwargs: Any,
     ) -> None:
-        self._attr_preset_mode = PRESET_NONE
+        if self._venting_boost_entity is not None:
+            self._set_optimistic_preset(PRESET_NONE)
         if percentage is None:
             program = self._venting_program()
             # Same 400 BadRequest as the start button / program select: an
@@ -297,7 +347,8 @@ class HCFan(HCEntity, FanEntity):
                 translation_key="no_power_off",
             )
 
-        self._attr_preset_mode = PRESET_NONE
+        if self._venting_boost_entity is not None:
+            self._set_optimistic_preset(PRESET_NONE)
         await power_state.set_value(off_value)
         self.async_write_ha_state()
 
@@ -311,11 +362,11 @@ class HCFan(HCEntity, FanEntity):
             )
             return
 
-        self._attr_preset_mode = preset_mode
         if preset_mode == PRESET_NONE:
             await self.stop_boost()
         elif preset_mode == PRESET_BOOST:
             await self.start_boost()
+        self._set_optimistic_preset(preset_mode)
 
     async def start_boost(self) -> None:
         """Set new preset mode."""
