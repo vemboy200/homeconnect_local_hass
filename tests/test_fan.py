@@ -49,9 +49,11 @@ async def test_setup(
     assert (
         state.attributes[ATTR_SUPPORTED_FEATURES]
         == FanEntityFeature.SET_SPEED | FanEntityFeature.TURN_OFF | FanEntityFeature.TURN_ON
-        or
-        state.attributes[ATTR_SUPPORTED_FEATURES]
-        == FanEntityFeature.SET_SPEED | FanEntityFeature.PRESET_MODE | FanEntityFeature.TURN_OFF | FanEntityFeature.TURN_ON
+        or state.attributes[ATTR_SUPPORTED_FEATURES]
+        == FanEntityFeature.SET_SPEED
+        | FanEntityFeature.PRESET_MODE
+        | FanEntityFeature.TURN_OFF
+        | FanEntityFeature.TURN_ON
     )
     assert state.attributes[ATTR_PERCENTAGE_STEP] == 25
 
