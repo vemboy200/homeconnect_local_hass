@@ -1,0 +1,27 @@
+name: Auto Assign
+
+on:
+  issues:
+    types: [opened]
+  # pull_request_target (not pull_request): needs write access to add an
+  # assignee even on a PR opened from a contributor's fork, and this
+  # workflow never checks out or runs any of the PR's own code.
+  pull_request_target:
+    types: [opened]
+
+jobs:
+  assign:
+    runs-on: ubuntu-slim
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              assignees: ["vemboy200"],
+            });
