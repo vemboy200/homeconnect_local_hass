@@ -4265,6 +4265,9 @@
       },
       "button_water_filter_reset": {
         "name": "Wasserfilter zurücksetzen"
+      },
+      "button_refrigerator_open_door": {
+        "name": "Tür öffnen"
       }
     },
     "number": {
