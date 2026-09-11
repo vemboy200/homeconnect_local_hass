@@ -161,9 +161,6 @@
       "switch_refrigerator_door_assistant_freezer": {
         "name": "Помощник двери морозилки"
       },
-      "switch_refrigeration_light_internal": {
-        "name": "Внутренняя подсветка"
-      },
       "switch_refrigeration_light_theater_mode": {
         "name": "Режим театральной подсветки"
       },
