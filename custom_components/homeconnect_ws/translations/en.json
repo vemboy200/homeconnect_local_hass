@@ -1853,6 +1853,12 @@
       "sensor_wifi_signal_strength": {
         "name": "WiFi Signal strength"
       },
+      "sensor_ipv4_address": {
+        "name": "IPv4 address"
+      },
+      "sensor_ipv6_address": {
+        "name": "IPv6 address"
+      },
       "sensor_grease_filter_saturation": {
         "name": "Grease Filter Saturation"
       },

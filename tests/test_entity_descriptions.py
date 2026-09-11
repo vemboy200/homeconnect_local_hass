@@ -587,6 +587,8 @@ TRANSLATION_DOMAINS = {
     "switch": "switch",
     "update": "update",
     "wifi": "sensor",
+    "ipv4": "sensor",
+    "ipv6": "sensor",
 }
 
 

@@ -7,15 +7,17 @@ import logging
 import time
 from copy import deepcopy
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
+from aiohttp.client_exceptions import ClientConnectionResetError
 from home_disconnect import (
     AllreadyConnectedError,
     ConnectionFailedError,
     ConnectionState,
     HCHandshakeError,
     HomeAppliance,
+    NotConnectedError,
 )
 from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE_ID, CONF_HOST
 from homeassistant.exceptions import ConfigEntryError
@@ -93,6 +95,15 @@ LAUNDRY_RECONNECT_POLL_INTERVAL = timedelta(seconds=20)
 # escalated as a fault.
 EXPECTED_OFFLINE_APPLIANCE_TYPES = frozenset({"Washer", "Dryer", "WasherDryer"})
 
+# HCWiFI, and the ipv4/ipv6 address sensors, are all should_poll entities on
+# the same SCAN_INTERVAL (see sensor.py) and would otherwise each fire their
+# own /ni/info request every time that timer elapses - three round trips to
+# the appliance for what's the same data every time. A poll landing within
+# this window of the last one just reuses that result instead of issuing a
+# new request; small relative to the hourly interval, so it only collapses
+# near-simultaneous callers, not a legitimate next cycle's fetch.
+NETWORK_INFO_COALESCE_WINDOW = timedelta(seconds=5)
+
 
 class HomeConnectCoordinator(DataUpdateCoordinator[None]):
     """My custom coordinator."""
@@ -110,6 +121,9 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
     # shared session, tearing down the first attempt's in-progress connection
     # too. Serializes them so at most one is ever actually in flight.
     _connect_lock: asyncio.Lock
+    _network_info_lock: asyncio.Lock
+    _network_info: list[dict[str, Any]] | None = None
+    _network_info_fetched_at: float | None = None
 
     def __init__(
         self,
@@ -152,6 +166,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
         )
         self.disconnect_time = time.time()
         self._connect_lock = asyncio.Lock()
+        self._network_info_lock = asyncio.Lock()
 
     @property
     def expected_offline(self) -> bool:
@@ -375,6 +390,43 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
             self._async_poll_reconnect(dt_util.utcnow()),
             "homeconnect_ws nudge reconnect",
         )
+
+    async def async_get_network_info(self) -> list[dict[str, Any]] | None:
+        """
+        Get the appliance's /ni/info data, shared across the WiFi/ipv4/ipv6 sensors.
+
+        See NETWORK_INFO_COALESCE_WINDOW for why this caches at all rather than
+        just forwarding to appliance.get_network_config() every call.
+        """
+        async with self._network_info_lock:
+            now = time.time()
+            if (
+                self._network_info_fetched_at is not None
+                and now - self._network_info_fetched_at
+                < NETWORK_INFO_COALESCE_WINDOW.total_seconds()
+            ):
+                return self._network_info
+            if not self.appliance.session.connected:
+                # Entities can be added (and their immediate poll-on-add fired)
+                # before the appliance's first handshake completes - test-
+                # before-setup is exempt for this integration precisely
+                # because setup doesn't block on a successful connection.
+                # Polling here anyway crashed with a TypeError deep in
+                # home_disconnect's message-ID counter, which only gets
+                # initialized once the handshake actually finishes. Same
+                # guard covers a poll that happens to land during a later
+                # disconnect/reconnect window, not just the initial add.
+                self.logger.debug("Network info update skipped: not connected")
+                return self._network_info
+            try:
+                self._network_info = await self.appliance.get_network_config()
+            except ClientConnectionResetError:
+                self.logger.debug("Network info update failed: Connection reset")
+            except NotConnectedError:
+                self.logger.debug("Network info update failed: Not connected")
+            else:
+                self._network_info_fetched_at = now
+            return self._network_info
 
     async def _async_update_data(self) -> None:
         return None

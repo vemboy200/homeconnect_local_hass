@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from custom_components.homeconnect_ws import HCData
 from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitions import (
     HCSensorEntityDescription,
 )
-from custom_components.homeconnect_ws.sensor import HCActiveProgram, HCSensor, HCWiFI
+from custom_components.homeconnect_ws.sensor import (
+    HCActiveProgram,
+    HCIPv4Address,
+    HCIPv6Address,
+    HCSensor,
+    HCWiFI,
+)
 from homeassistant.components.sensor import ATTR_OPTIONS
 from homeassistant.const import ATTR_FRIENDLY_NAME
 from homeassistant.helpers.entity import Entity as HAEntity
@@ -200,24 +206,24 @@ async def test_update_active_program(
     assert state.state == "Named Favorite"
 
 
-async def test_wifi_update_skips_when_not_connected() -> None:
+async def test_wifi_update_handles_no_network_info() -> None:
     """
-    WiFi polling must not attempt a request before the appliance has connected.
+    WiFi update must not crash when the coordinator has nothing to give it yet.
 
-    Entities can be added (and HCWiFI's immediate poll-on-add fired) before the
-    appliance's first handshake completes, since setup doesn't block on a
-    successful connection. Polling anyway used to crash deep in
-    home_disconnect's message-ID counter, which is only initialized once the
-    handshake finishes.
+    The not-connected/not-yet-fetched case itself is handled by
+    HomeConnectCoordinator.async_get_network_info (see test_coordinator.py) -
+    this only checks that HCWiFI copes with that method returning None, e.g.
+    before the appliance's first handshake completes.
     """
     appliance = MagicMock()
     appliance.info = {"deviceID": "test_device_id"}
-    appliance.session.connected = False
+    coordinator = MagicMock()
+    coordinator.async_get_network_info = AsyncMock(return_value=None)
     runtime_data = HCData(
         appliance=appliance,
         device_info=MagicMock(),
         available_entity_descriptions=MagicMock(),
-        coordinator=MagicMock(),
+        coordinator=coordinator,
     )
     entity_description = HCSensorEntityDescription(key="sensor_wifi_signal_strength")
     entity = HCWiFI(entity_description, runtime_data)
@@ -225,7 +231,63 @@ async def test_wifi_update_skips_when_not_connected() -> None:
     await entity.async_update()
 
     assert entity.native_value is None
-    appliance.get_network_config.assert_not_called()
+
+
+async def test_ipv4_address_update() -> None:
+    """The ipv4 sensor reads ipV4.ipAddress and exposes the rest as attributes."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    coordinator = MagicMock()
+    coordinator.async_get_network_info = AsyncMock(
+        return_value=[
+            {
+                "ipV4": {
+                    "ipAddress": "192.168.1.50",
+                    "prefixSize": 24,
+                    "gateway": "192.168.1.1",
+                    "dnsServer": "192.168.1.1",
+                }
+            }
+        ]
+    )
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=coordinator,
+    )
+    entity_description = HCSensorEntityDescription(key="sensor_ipv4_address")
+    entity = HCIPv4Address(entity_description, runtime_data)
+
+    await entity.async_update()
+
+    assert entity.native_value == "192.168.1.50"
+    assert entity.extra_state_attributes == {
+        "prefix_size": 24,
+        "gateway": "192.168.1.1",
+        "dns_server": "192.168.1.1",
+    }
+
+
+async def test_ipv6_address_update_missing_interface() -> None:
+    """An appliance with no IPv6 address just clears the sensor, not an error."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    coordinator = MagicMock()
+    coordinator.async_get_network_info = AsyncMock(return_value=[{"ipV4": {"ipAddress": "x"}}])
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=coordinator,
+    )
+    entity_description = HCSensorEntityDescription(key="sensor_ipv6_address")
+    entity = HCIPv6Address(entity_description, runtime_data)
+
+    await entity.async_update()
+
+    assert entity.native_value is None
+    assert entity.extra_state_attributes == {}
 
 
 async def test_native_value_cleared_when_expected_offline() -> None:
