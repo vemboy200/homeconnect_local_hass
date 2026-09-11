@@ -504,6 +504,12 @@
       "binary_sensor_alarm_clock_elapsed": {
         "name": "Alarm abgelaufen"
       },
+      "binary_sensor_favorite_001": {
+        "name": "Favoritentaste kurz gedrückt"
+      },
+      "binary_sensor_favorite_002": {
+        "name": "Favoritentaste lang gedrückt"
+      },
       "binary_sensor_local_control_active": {
         "name": "Lokale Bedienung aktiv"
       },
@@ -4256,6 +4262,9 @@
       },
       "button_water_filter_reset": {
         "name": "Wasserfilter zurücksetzen"
+      },
+      "button_refrigerator_open_door": {
+        "name": "Tür öffnen"
       }
     },
     "number": {
