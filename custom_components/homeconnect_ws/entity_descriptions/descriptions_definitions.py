@@ -171,6 +171,8 @@ class EntityDescriptions(TypedDict, total=False):
     start_button: list[HCButtonEntityDescription]
     switch: list[HCSwitchEntityDescription]
     wifi: list[HCSensorEntityDescription]
+    ipv4: list[HCSensorEntityDescription]
+    ipv6: list[HCSensorEntityDescription]
     light: list[HCLightEntityDescription]
     fan: list[HCFanEntityDescription]
     update: list[HCUpdateEntityDescription]
@@ -189,6 +191,8 @@ _EntityDescriptionsDefinitionsType = dict[
         "start_button",
         "switch",
         "wifi",
+        "ipv4",
+        "ipv6",
         "light",
         "fan",
         "update",
@@ -213,6 +217,8 @@ _EntityDescriptionsType = dict[
         "start_button",
         "switch",
         "wifi",
+        "ipv4",
+        "ipv6",
         "light",
         "fan",
         "update",

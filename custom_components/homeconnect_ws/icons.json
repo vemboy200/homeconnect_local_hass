@@ -358,6 +358,12 @@
             "sensor_wifi_signal_strength": {
                 "default": "mdi:wifi"
             },
+            "sensor_ipv4_address": {
+                "default": "mdi:ip-network"
+            },
+            "sensor_ipv6_address": {
+                "default": "mdi:ip-network"
+            },
             "sensor_grease_filter_saturation": {
                 "default": "mdi:air-filter"
             },

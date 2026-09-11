@@ -13,7 +13,7 @@ from home_disconnect.entities import Access
 from home_disconnect.message import Action
 from home_disconnect.message import Message as HC_Message
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_DESCRIPTION, CONF_HOST, EVENT_HOMEASSISTANT_STOP
+from homeassistant.const import CONF_DESCRIPTION, EVENT_HOMEASSISTANT_STOP
 from homeassistant.exceptions import ConfigEntryError, ServiceValidationError
 from homeassistant.helpers.device_registry import (
     CONNECTION_NETWORK_MAC,
@@ -332,7 +332,7 @@ async def async_setup_entry(
         hw_version=appliance.info.get("hwVersion"),
         identifiers={(DOMAIN, config_entry.unique_id)},
         model=f"{appliance.info.get('type')}",
-        model_id=f"{appliance.info.get('vib')} / IP: {config_entry.data[CONF_HOST]}",
+        model_id=appliance.info.get("vib"),
         serial_number=appliance.info.get("serialNumber"),
         sw_version=appliance.info.get("swVersion"),
     )
