@@ -476,12 +476,6 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity_category=EntityCategory.CONFIG,
         ),
         HCSwitchEntityDescription(
-            key="switch_refrigeration_light_internal",
-            entity="Refrigeration.Common.Setting.Light.Internal.Power",
-            device_class=SwitchDeviceClass.SWITCH,
-            entity_registry_enabled_default=False,
-        ),
-        HCSwitchEntityDescription(
             key="switch_refrigeration_light_theater_mode",
             entity="Refrigeration.Common.Setting.Light.Internal.EnableTheaterMode",
             device_class=SwitchDeviceClass.SWITCH,

@@ -248,9 +248,6 @@
       "switch_refrigerator_door_assistant_freezer": {
         "name": "Gefrierschrank-Türassistent"
       },
-      "switch_refrigeration_light_internal": {
-        "name": "Innenbeleuchtung"
-      },
       "switch_refrigeration_light_theater_mode": {
         "name": "Innenbeleuchtung Theatermodus"
       },

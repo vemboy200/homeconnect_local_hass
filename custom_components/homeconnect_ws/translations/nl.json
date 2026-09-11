@@ -161,9 +161,6 @@
       "switch_refrigerator_door_assistant_freezer": {
         "name": "Vriezer deurassistent"
       },
-      "switch_refrigeration_light_internal": {
-        "name": "Binnenverlichting"
-      },
       "switch_refrigeration_light_theater_mode": {
         "name": "Binnenverlichting TheaterMode"
       },

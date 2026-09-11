@@ -206,9 +206,6 @@
       "switch_refrigerator_door_assistant_freezer": {
         "name": "Dörrassistent – frys"
       },
-      "switch_refrigeration_light_internal": {
-        "name": "Invändigt ljus"
-      },
       "switch_refrigeration_light_theater_mode": {
         "name": "Invändigt ljus – bioläge"
       },

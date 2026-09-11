@@ -203,9 +203,6 @@
       "switch_refrigerator_door_assistant_freezer": {
         "name": "Fryserdørassistent"
       },
-      "switch_refrigeration_light_internal": {
-        "name": "Innendørslys"
-      },
       "switch_refrigeration_light_theater_mode": {
         "name": "Innendørslys teatermodus"
       },

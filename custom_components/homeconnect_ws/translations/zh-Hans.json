@@ -188,9 +188,6 @@
       "switch_refrigerator_door_assistant_freezer": {
         "name": "冷冻室门助手"
       },
-      "switch_refrigeration_light_internal": {
-        "name": "内部照明"
-      },
       "switch_refrigeration_light_theater_mode": {
         "name": "剧场模式照明"
       },
