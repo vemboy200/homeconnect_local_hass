@@ -27,7 +27,7 @@ from homeassistant.util.color import (
 from homeassistant.util.scaling import scale_ranged_value_to_int_range
 
 from .entity import HCEntity
-from .helpers import create_entities, error_decorator
+from .helpers import create_entities, entity_is_available, error_decorator
 
 if TYPE_CHECKING:
     from home_disconnect.entities import Entity as HcEntity
@@ -157,6 +157,19 @@ class HCLight(HCEntity, LightEntity):
             return cast("tuple[int, int, int]", match_max_scale((255,), tuple(rgb)))
         return None
 
+    @property
+    def _rgb_usable(self) -> bool:
+        """
+        Whether the appliance currently offers the color Setting.
+
+        Ambient lights report their color Setting as unavailable while the
+        light is off, so writing a color then would hit a Setting the
+        appliance rejects with WriteRequest NotAvailable (upstream #477).
+        """
+        if self._color_entity is None:
+            return False
+        return entity_is_available(self._color_entity, self.entity_description.available_access)
+
     @error_decorator
     async def async_turn_on(self, **kwargs: Any) -> None:
         message_data: list[dict[str, Any]] = []
@@ -166,7 +179,12 @@ class HCLight(HCEntity, LightEntity):
         # _attr_color_mode is only ever RGB when _color_entity was set in
         # __init__, and only ever BRIGHTNESS/COLOR_TEMP when _brightness_entity
         # was set there too - both entities are guaranteed non-None below.
-        if self._attr_color_mode == ColorMode.RGB and rgb is not None and brightness is not None:
+        if (
+            self._attr_color_mode == ColorMode.RGB
+            and self._rgb_usable
+            and rgb is not None
+            and brightness is not None
+        ):
             color_entity = cast("HcEntity", self._color_entity)
             rgb_with_brightness = tuple(color * brightness // 255 for color in rgb)
             message_data.append(
