@@ -776,6 +776,46 @@ async def test_set_color(
     mock_appliance.session.send_sync.reset_mock()
 
 
+async def test_turn_on_skips_color_write_when_color_setting_unavailable(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """
+    A color write must not be attempted while the color Setting is unavailable.
+
+    Confirmed on upstream issue #477 (Siemens LC91KWW60 ambient light):
+    the color Setting is only reported available while the light itself is
+    on, so writing a color before that - e.g. the light's very first
+    turn_on - hits a Setting the appliance rejects with WriteRequest
+    NotAvailable. Turning the light on should still work, just without a
+    color write, rather than raising or errouring against the appliance.
+    """
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.Lighting"].update({"value": False})
+    await mock_appliance.entities["Test.LightingCustomColor"].update({"available": False})
+    await hass.async_block_till_done()
+
+    await hass.services.async_call(
+        LIGHT_DOMAIN,
+        SERVICE_TURN_ON,
+        {
+            ATTR_ENTITY_ID: "light.fake_brand_homeappliance_light_4",
+            ATTR_RGB_COLOR: (0, 255, 0),
+            ATTR_BRIGHTNESS: 127,
+        },
+        blocking=True,
+    )
+
+    mock_appliance.session.send_sync.assert_awaited_once_with(
+        Message(
+            resource="/ro/values",
+            action=Action.POST,
+            data=[{"uid": 108, "value": True}],
+        )
+    )
+
+
 async def test_turn_on_when_brightness_has_no_value(
     hass: HomeAssistant,
     mock_appliance: MockAppliance,
