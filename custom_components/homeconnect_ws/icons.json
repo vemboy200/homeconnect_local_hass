@@ -539,6 +539,9 @@
             },
             "button_water_filter_reset": {
                 "default": "mdi:restore"
+            },
+            "button_refrigerator_open_door": {
+                "default": "mdi:door-open"
             }
         },
         "number": {

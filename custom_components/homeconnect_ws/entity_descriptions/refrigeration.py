@@ -276,6 +276,11 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity="Refrigeration.Common.Command.Dispenser.WaterFilterReset",
             entity_category=EntityCategory.CONFIG,
         ),
+        HCButtonEntityDescription(
+            key="button_refrigerator_open_door",
+            entity="BSH.Common.Command.OpenDoor",
+            entity_registry_enabled_default=False,
+        ),
     ],
     "sensor": [
         HCSensorEntityDescription(
