@@ -377,6 +377,18 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             value_off={"Off"},
         ),
         HCBinarySensorEntityDescription(
+            key="binary_sensor_favorite_001",
+            entity="BSH.Common.Event.Favorite.001.ExternalTrigger",
+            value_on={"Present", "Confirmed"},
+            value_off={"Off"},
+        ),
+        HCBinarySensorEntityDescription(
+            key="binary_sensor_favorite_002",
+            entity="BSH.Common.Event.Favorite.002.ExternalTrigger",
+            value_on={"Present", "Confirmed"},
+            value_off={"Off"},
+        ),
+        HCBinarySensorEntityDescription(
             key="binary_sensor_local_control_active",
             entity="BSH.Common.Status.LocalControlActive",
             entity_category=EntityCategory.DIAGNOSTIC,
