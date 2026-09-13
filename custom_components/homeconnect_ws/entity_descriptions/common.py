@@ -251,6 +251,24 @@ def generate_wifi(appliance: HomeAppliance) -> HCSensorEntityDescription:  # noq
     )
 
 
+def generate_ipv4(appliance: HomeAppliance) -> HCSensorEntityDescription:  # noqa: ARG001
+    """Get IPv4 address sensor description. Polled the same way as generate_wifi."""
+    return HCSensorEntityDescription(
+        key="sensor_ipv4_address",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    )
+
+
+def generate_ipv6(appliance: HomeAppliance) -> HCSensorEntityDescription:  # noqa: ARG001
+    """Get IPv6 address sensor description. Polled the same way as generate_wifi."""
+    return HCSensorEntityDescription(
+        key="sensor_ipv6_address",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    )
+
+
 def generate_temperature_unit(appliance: HomeAppliance) -> HCSelectEntityDescription | None:
     """Get Temperature unit description."""
     entity = appliance.entities.get("BSH.Common.Setting.TemperatureUnit")
@@ -606,6 +624,8 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
         ),
     ],
     "wifi": [generate_wifi],
+    "ipv4": [generate_ipv4],
+    "ipv6": [generate_ipv6],
     "update": [generate_software_download_update, generate_software_update],
     "dynamic": [generate_power_switch, generate_program],
 }

@@ -88,6 +88,8 @@ def get_available_entities(appliance: HomeAppliance) -> _EntityDescriptionsType:
         "start_button": [],
         "switch": [],
         "wifi": [],
+        "ipv4": [],
+        "ipv6": [],
         "light": [],
         "fan": [],
         "update": [],

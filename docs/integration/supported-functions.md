@@ -26,7 +26,7 @@ The following entities are available. Which ones appear depends on the appliance
 | Software Update | Update | Tracks/triggers installing an available firmware update |
 | Software Download | Update | Tracks/triggers downloading an available firmware update (only on appliances that support a separate download stage) |
 
-A few additional diagnostic entities (Local Control Active, Remote Control Active) are also available, disabled by default.
+A few additional diagnostic entities (Local Control Active, Remote Control Active, IPv4 Address, IPv6 Address) are also available, disabled by default. The IPv4/IPv6 Address sensors are polled the same way as Wi-Fi Signal Strength above, and carry the subnet prefix size, gateway, and DNS server as attributes.
 
 The Home Connect protocol only signals that a firmware update exists, not which version it is, so the Update entities show a generic "New Version" placeholder rather than a real version number when one is available. Also, as mentioned before, if you disabled cloud access for your appliance, or it cannot reach the Home Connect Cloud, then it cannot get new firmware updates.
 
