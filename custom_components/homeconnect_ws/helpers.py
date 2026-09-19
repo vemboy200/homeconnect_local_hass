@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from home_disconnect.entities import Access, Option, SelectedProgram
+from home_disconnect.entities import Access, Option, SelectedProgram, Setting
 from home_disconnect.errors import AccessError, CodeResponsError, NotConnectedError
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.service import async_extract_config_entry_ids
@@ -115,7 +115,7 @@ def entity_is_available(
     return available
 
 
-_LOCKABLE_ENTITY_TYPES = (Option, SelectedProgram)
+_LOCKABLE_ENTITY_TYPES = (Option, Setting, SelectedProgram)
 
 
 def is_lockable(entity: HcEntity | None) -> bool:
@@ -127,16 +127,19 @@ def is_locked(entity: HcEntity | None) -> bool:
     """
     Whether entity is currently locked read-only, not just inapplicable.
 
-    Options (e.g. an iDos dosing switch while a program runs) and
+    Options (e.g. an iDos dosing switch while a program runs),
     SelectedProgram (e.g. while a delayed start is armed - confirmed live on
     fork issue #59 via a Bosch WGB244A0BY's own debug log, access flips
     READ_WRITE -> READ the moment the delay is armed and back once the wash
-    actually starts) are the two HC entity types whose write access depends
-    on appliance state this way - Home Connect itself shows these as
-    visible-but-disabled on the appliance's own panel/app rather than hiding
-    them. Access.READ specifically means "still readable, just not writable
-    right now" - Access.NONE means "not applicable at all", which should stay
-    genuinely unavailable rather than shown as read-only.
+    actually starts) and Settings (e.g. a Bosch WQB245A0BY dryer's
+    CupboardDryFineAdjust/IronDryFineAdjust, READ for the whole ~1h47m of a
+    running program and READ_WRITE again once it ends, from the same issue)
+    are the HC entity types whose write access depends on appliance state
+    this way - Home Connect itself shows these as visible-but-disabled on the
+    appliance's own panel/app rather than hiding them. Access.READ
+    specifically means "still readable, just not writable right now" -
+    Access.NONE means "not applicable at all", which should stay genuinely
+    unavailable rather than shown as read-only.
     """
     return isinstance(entity, _LOCKABLE_ENTITY_TYPES) and entity.access == Access.READ
 

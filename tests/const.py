@@ -176,8 +176,8 @@ ENTITY_DESCRIPTIONS: _EntityDescriptionsType = {
             value_mapping=("On", "Off"),
         ),
         # Backed by an actual Option (unlike the two above, which are
-        # Settings) - needed to exercise the locked-read-only behavior,
-        # which only applies to Options.
+        # Settings) - covers the locked-read-only behavior for the Option
+        # entity type specifically, alongside the Setting-backed ones above.
         HCSwitchEntityDescription(
             key="Test.Switch.Option", name="Switch.Option", entity="Test.Option1"
         ),

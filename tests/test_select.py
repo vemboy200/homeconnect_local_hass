@@ -19,7 +19,12 @@ from homeassistant.components.select import (
     SERVICE_SELECT_OPTION,
 )
 from homeassistant.components.select import DOMAIN as SELECT_DOMAIN
-from homeassistant.const import ATTR_ENTITY_ID, ATTR_FRIENDLY_NAME, STATE_UNKNOWN
+from homeassistant.const import (
+    ATTR_ENTITY_ID,
+    ATTR_FRIENDLY_NAME,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+)
 from homeassistant.exceptions import ServiceValidationError
 
 from . import setup_config_entry
@@ -103,6 +108,52 @@ async def test_update(
 
     state = hass.states.get(entity_id_options)
     assert state.state == "option2"
+
+
+async def test_select_available_and_readonly_when_setting_locked(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """
+    Test a select backed by a read-locked Setting stays available and rejects writes.
+
+    Confirmed live on fork issue #59 via a Bosch WQB245A0BY dryer's debug log:
+    its fine-adjust selects are Settings that go READ for the whole time a
+    program runs and READ_WRITE again once it ends - they should stay visible
+    with their current value the whole time, not go unavailable.
+    """
+    entity_id = "select.fake_brand_homeappliance_select"
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.Select"].update({"access": "readwrite"})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state != STATE_UNAVAILABLE
+    assert state.attributes["readonly"] is False
+
+    await mock_appliance.entities["Test.Select"].update({"access": "read"})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state != STATE_UNAVAILABLE
+    assert state.attributes["readonly"] is True
+
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            SELECT_DOMAIN,
+            SERVICE_SELECT_OPTION,
+            {ATTR_ENTITY_ID: entity_id, ATTR_OPTION: "Option3"},
+            blocking=True,
+        )
+    mock_appliance.session.send_sync.assert_not_awaited()
+
+    await mock_appliance.entities["Test.Select"].update({"access": "readwrite"})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state != STATE_UNAVAILABLE
+    assert state.attributes["readonly"] is False
 
 
 async def test_select(
