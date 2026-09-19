@@ -88,15 +88,46 @@ async def test_is_locked_false_when_option_inapplicable(
     assert is_locked(option) is False
 
 
-async def test_is_locked_false_for_non_lockable_entity(
+async def test_is_locked_true_when_setting_read_only(
     mock_homeconnect_appliance: MockApplianceType,
 ) -> None:
-    """Test a Setting (neither an Option nor SelectedProgram) is never treated as locked."""
+    """
+    Test a Setting locked to read-only is reported as locked, same as an Option.
+
+    Confirmed live on fork issue #59 via a Bosch WQB245A0BY dryer's debug log:
+    its CupboardDryFineAdjust/CupboardDryPlusFineAdjust/IronDryFineAdjust
+    Settings flip READ_WRITE -> READ when a program starts and back to
+    READ_WRITE when it ends (about 1h47m read-only in the log) - they should
+    stay visible with their current value through the whole cycle, not go
+    unavailable.
+    """
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     setting = appliance.entities["Test.Switch"]
     await setting.update({"access": "read"})
 
+    assert is_locked(setting) is True
+
+
+async def test_is_locked_false_when_setting_inapplicable(
+    mock_homeconnect_appliance: MockApplianceType,
+) -> None:
+    """Test a Setting with access=NONE stays unavailable rather than read-only."""
+    appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
+    setting = appliance.entities["Test.Switch"]
+    await setting.update({"access": "none"})
+
     assert is_locked(setting) is False
+
+
+async def test_is_locked_false_for_non_lockable_entity(
+    mock_homeconnect_appliance: MockApplianceType,
+) -> None:
+    """Test a Status (not an Option, Setting or SelectedProgram) is never treated as locked."""
+    appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
+    status = appliance.entities["Test.Sensor"]
+    await status.update({"access": "read"})
+
+    assert is_locked(status) is False
 
 
 async def test_is_locked_true_when_selected_program_read_only(
@@ -140,14 +171,26 @@ async def test_is_lockable_true_for_selected_program(
     assert is_lockable(selected_program) is True
 
 
-async def test_is_lockable_false_for_non_lockable_entity(
+async def test_is_lockable_true_for_setting(
     mock_homeconnect_appliance: MockApplianceType,
 ) -> None:
-    """Test a Setting (neither an Option nor SelectedProgram) is never treated as lockable."""
+    """Test is_lockable is also true for a Setting, regardless of its current access."""
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     setting = appliance.entities["Test.Switch"]
 
-    assert is_lockable(setting) is False
+    for access in ("none", "read", "readwrite"):
+        await setting.update({"access": access})
+        assert is_lockable(setting) is True
+
+
+async def test_is_lockable_false_for_non_lockable_entity(
+    mock_homeconnect_appliance: MockApplianceType,
+) -> None:
+    """Test a Status (not an Option, Setting or SelectedProgram) is never treated as lockable."""
+    appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
+    status = appliance.entities["Test.Sensor"]
+
+    assert is_lockable(status) is False
 
 
 async def test_ensure_writable_raises_for_locked_option(

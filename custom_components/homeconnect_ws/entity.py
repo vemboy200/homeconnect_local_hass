@@ -78,7 +78,7 @@ class HCEntity(CoordinatorEntity[HomeConnectCoordinator], Entity):
         )
         available_access = self.entity_description.available_access
         if available_access is not None and is_locked(self._entity):
-            # Home Connect itself shows a locked entity (an Option or
+            # Home Connect itself shows a locked entity (an Option, Setting or
             # SelectedProgram) as visible-but-disabled rather than hiding it
             # (confirmed live on fork issue #59) - Access.READ means "still
             # readable", so widen the check instead of going unavailable and
