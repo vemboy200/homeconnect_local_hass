@@ -26,6 +26,7 @@ from home_disconnect import (
     ParserError,
     parse_device_description,
 )
+from homeassistant.components import zeroconf
 from homeassistant.components.file_upload import process_uploaded_file
 from homeassistant.config_entries import (
     SOURCE_IGNORE,
@@ -51,6 +52,8 @@ from homeassistant.helpers.selector import (
     SelectSelectorConfig,
 )
 from homeassistant.util import dt as dt_util
+from zeroconf import IPVersion
+from zeroconf.asyncio import AsyncServiceInfo
 
 from . import HC_KEY, HCConfig, LegacyOAuthCache
 from .const import (
@@ -72,6 +75,8 @@ from .hc_legacy_oauth import generate_code_verifier as legacy_generate_code_veri
 from .hc_legacy_oauth import generate_state as legacy_generate_state
 
 CONF_LEGACY_REDIRECT_URL = "legacy_redirect_url"
+HC_SERVICE_TYPE = "_homeconnect._tcp.local."
+MDNS_LOOKUP_TIMEOUT_MS = 3000
 # BSH's token response is expected to carry its own expires_in, but fall
 # back to a short, conservative window if it's ever missing rather than not
 # caching at all.
@@ -530,6 +535,35 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
             return f"{info['brand']}-{info['type']}-{info['deviceID']}"
         return cast("str", info["deviceID"])
 
+    async def _async_lookup_host(self) -> str | None:
+        """
+        Resolve the name _auto_host guesses through Home Assistant's own mDNS.
+
+        The name is right - it's exactly the hostname the Appliance
+        advertises - but handing it to the connection as-is leaves resolving
+        it to the operating system, which doesn't do mDNS: a bare name only
+        resolves if the router happens to register DHCP hostnames in its DNS,
+        and even a ".local" one doesn't from inside a container. Looking it
+        up through Home Assistant's zeroconf instead is where the discovery
+        flow already gets its host from.
+        """
+        hostname = f"{self._auto_host()}.local.".lower()
+        async_zeroconf = await zeroconf.async_get_async_instance(self.hass)
+        zc = async_zeroconf.zeroconf
+        for record in zc.cache.async_entries_with_name(HC_SERVICE_TYPE):
+            alias = getattr(record, "alias", None)
+            if alias is None:
+                continue
+            service_info = AsyncServiceInfo(HC_SERVICE_TYPE, alias)
+            if not await service_info.async_request(zc, MDNS_LOOKUP_TIMEOUT_MS):
+                continue
+            if (service_info.server or "").lower() != hostname:
+                continue
+            addresses = service_info.parsed_addresses(IPVersion.V4Only)
+            if addresses:
+                return addresses[0]
+        return None
+
     async def async_step_reconfigure_connection(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -545,7 +579,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         reconfigure_entry = self._get_reconfigure_entry()
         self.data = deepcopy(dict(reconfigure_entry.data))
         self.data[CONF_MANUAL_HOST] = False
-        self.data[CONF_HOST] = self._auto_host()
+        self.data[CONF_HOST] = await self._async_lookup_host() or self._auto_host()
         return await self.async_step_test_connection()
 
     async def async_step_reconfigure_profile(
