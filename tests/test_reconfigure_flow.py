@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
+import pytest
 from custom_components.homeconnect_ws import HC_KEY, LegacyOAuthCache, async_setup, config_flow
 from custom_components.homeconnect_ws.const import (
     CONF_AES_IV,
@@ -32,13 +34,46 @@ from .const import (
 )
 
 if TYPE_CHECKING:
-    from unittest.mock import MagicMock
-
-    import pytest
     from homeassistant.core import HomeAssistant
 
 UPLOADED_FILE = str(uuid4())
 AUTO_HOST = "Fake_deviceID"  # MOCK_APPLIANCE_INFO["deviceID"], AES mode uses it as-is
+
+
+def _fake_mdns(
+    monkeypatch: pytest.MonkeyPatch,
+    services: dict[str, tuple[str, str]],
+    *,
+    request_succeeds: bool = True,
+) -> None:
+    """Fake Home Assistant's mDNS cache, as {service name: (hostname, IPv4 address)}."""
+    zc = MagicMock()
+    zc.cache.async_entries_with_name.return_value = [
+        SimpleNamespace(alias=name) for name in services
+    ]
+    monkeypatch.setattr(
+        config_flow.zeroconf,
+        "async_get_async_instance",
+        AsyncMock(return_value=SimpleNamespace(zeroconf=zc)),
+    )
+
+    class FakeServiceInfo:
+        def __init__(self, type_: str, name: str) -> None:
+            self.server, self.address = services[name]
+
+        async def async_request(self, zc: object, timeout: float) -> bool:  # noqa: ASYNC109
+            return request_succeeds
+
+        def parsed_addresses(self, version: object) -> list[str]:
+            return [self.address]
+
+    monkeypatch.setattr(config_flow, "AsyncServiceInfo", FakeServiceInfo)
+
+
+@pytest.fixture(autouse=True)
+def mock_mdns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the tests off the real network - by default nothing shows up in mDNS."""
+    _fake_mdns(monkeypatch, {})
 
 
 def _mock_entry() -> MockConfigEntry:
@@ -89,6 +124,65 @@ async def test_reconfigure_connection_auto_succeeds(
     appliance._connect.assert_awaited_once()
     appliance._close.assert_awaited_once()
     mock_setup_entry.assert_awaited_once()
+
+
+async def test_reconfigure_connection_uses_mdns_address(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_setup_entry: AsyncMock,
+) -> None:
+    """Test that automatic discovery connects to the address mDNS reports."""
+    _fake_mdns(
+        monkeypatch,
+        {
+            "Other._homeconnect._tcp.local.": ("Other_Hostname.local.", "10.0.0.9"),
+            "Mine._homeconnect._tcp.local.": (f"{AUTO_HOST}.local.", "10.0.0.7"),
+        },
+    )
+    appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
+    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+
+    mock_config = _mock_entry()
+    mock_config.add_to_hass(hass)
+
+    result = await mock_config.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "reconfigure_connection"}
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert mock_config.data[CONF_MANUAL_HOST] is False
+    assert mock_config.data[CONF_HOST] == "10.0.0.7"
+
+
+async def test_reconfigure_connection_mdns_request_fails(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_setup_entry: AsyncMock,
+) -> None:
+    """Test that an mDNS record that can't be resolved falls back to the guessed name."""
+    _fake_mdns(
+        monkeypatch,
+        {"Mine._homeconnect._tcp.local.": (f"{AUTO_HOST}.local.", "10.0.0.7")},
+        request_succeeds=False,
+    )
+    appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
+    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+
+    mock_config = _mock_entry()
+    mock_config.add_to_hass(hass)
+
+    result = await mock_config.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "reconfigure_connection"}
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert mock_config.data[CONF_HOST] == AUTO_HOST
 
 
 async def test_reconfigure_connection_falls_back_to_manual_host(
