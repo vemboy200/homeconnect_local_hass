@@ -5,7 +5,7 @@ authors = [{ name = "chris-mc1" }, { name = "vemboy200" }]
 description = "Home Connect Local for Homeassistant"
 readme = "README.md"
 requires-python = ">=3.14.2"
-dependencies = ["home-disconnect==1.7.0b0"]
+dependencies = ["home-disconnect==1.7.0b1"]
 
 [project.urls]
 Homepage = "https://github.com/vemboy200/homeconnect_local_hass"
@@ -22,7 +22,7 @@ dev = [
     "mypy==2.3.1",
     "prek==0.5.3",
 ]
-lint = ["ruff==0.16.7"]
+lint = ["ruff==0.16.8"]
 test = [
     "pytest-homeassistant-custom-component==0.13.356",
     "pytest>=9.0.0",
