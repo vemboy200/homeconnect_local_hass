@@ -67,6 +67,7 @@
       "profile_file_parser_error": "Profildatei ist ungültig: {error}",
       "appliance_not_in_profile_file": "Profildatei enthält kein Profil für dieses Gerät",
       "all_setup": "Alle Geräte in dieser Profildatei sind bereits eingerichtet",
+      "failed_to_write_profile_file": "Profildatei konnte nicht gespeichert werden",
       "reconfigure_successful": "Neukonfiguration erfolgreich",
       "oauth_fetch_failed": "Geräteprofile konnten nicht von Home Connect abgerufen werden: {error}",
       "reauth_entry_not_found": "Der neu zu authentifizierende Konfigurationseintrag existiert nicht mehr"
@@ -251,6 +252,9 @@
       "switch_refrigeration_light_theater_mode": {
         "name": "Innenbeleuchtung Theatermodus"
       },
+      "switch_hood_boost": {
+        "name": "Boost"
+      },
       "switch_hood_silence_mode": {
         "name": "Leisemodus"
       },
@@ -290,6 +294,9 @@
       "switch_refrigerator_door_assistant_fridge": {
         "name": "Kühlschrank-Türassistent"
       },
+      "switch_hood_boost_mode": {
+        "name": "Boost-Modus"
+      },
       "switch_pretreatment": {
         "name": "Vorspülen"
       }
@@ -300,6 +307,18 @@
       },
       "binary_sensor_door_state": {
         "name": "Tür"
+      },
+      "binary_sensor_intensiv_zone_active": {
+        "name": "Intensivzone aktiv"
+      },
+      "binary_sensor_half_load_active": {
+        "name": "Halbe Ladung aktiv"
+      },
+      "binary_sensor_hygiene_plus_active": {
+        "name": "Hygiene Plus aktiv"
+      },
+      "binary_sensor_pretreatment_active": {
+        "name": "Vorspülen aktiv"
       },
       "binary_sensor_eco_dry_active": {
         "name": "EcoDry Aktiv"
@@ -1759,7 +1778,10 @@
           "cooking_oven_program_dish_recommendation_conv_grilledeggplantslices": "Empfehlung: Grilled Eggplant Slices",
           "cooking_oven_program_dish_recommendation_conv_grilledpumpkinwedges": "Empfehlung: Grilled Pumpkin Wedges",
           "cooking_oven_program_dish_recommendation_conv_steam_stuffedpepper": "Empfehlung Steam: Gefüllt Pepper",
-          "cooking_oven_program_dish_recommendation_conv_gratinatebreadslices": "Empfehlung: Gratinate Brotslices"
+          "cooking_oven_program_dish_recommendation_conv_gratinatebreadslices": "Empfehlung: Gratinate Brotslices",
+          "dishcare_dishwasher_program_intensivesuper": "IntensiveSuper",
+          "dishcare_dishwasher_program_shorthygiene": "ShortHygiene",
+          "dishcare_dishwasher_program_quickp": "QuickP"
         }
       },
       "sensor_rinse_aid": {
@@ -2003,6 +2025,12 @@
       },
       "sensor_wifi_signal_strength": {
         "name": "WLAN Signalstärke"
+      },
+      "sensor_ipv4_address": {
+        "name": "IPv4-Adresse"
+      },
+      "sensor_ipv6_address": {
+        "name": "IPv6-Adresse"
       },
       "sensor_count_ristretto_espresso": {
         "name": "Anzahl Ristretto"
@@ -3426,7 +3454,10 @@
           "cooking_oven_program_dish_recommendation_conv_grilledeggplantslices": "Empfehlung: Grilled Eggplant Slices",
           "cooking_oven_program_dish_recommendation_conv_grilledpumpkinwedges": "Empfehlung: Grilled Pumpkin Wedges",
           "cooking_oven_program_dish_recommendation_conv_steam_stuffedpepper": "Empfehlung Steam: Gefüllt Pepper",
-          "cooking_oven_program_dish_recommendation_conv_gratinatebreadslices": "Empfehlung: Gratinate Brotslices"
+          "cooking_oven_program_dish_recommendation_conv_gratinatebreadslices": "Empfehlung: Gratinate Brotslices",
+          "dishcare_dishwasher_program_intensivesuper": "IntensiveSuper",
+          "dishcare_dishwasher_program_shorthygiene": "ShortHygiene",
+          "dishcare_dishwasher_program_quickp": "QuickP"
         }
       },
       "select_sensitivity_turbidity": {
@@ -4193,6 +4224,20 @@
           "cold": "Kalt"
         }
       },
+      "select_hood_light_startup": {
+        "name": "Licht beim Einschalten",
+        "state": {
+          "turnonlight": "Einschalten",
+          "keeplightoff": "Ausgeschaltet lassen"
+        }
+      },
+      "select_hood_light_shutdown": {
+        "name": "Licht beim Ausschalten",
+        "state": {
+          "turnofflight": "Ausschalten",
+          "keeplighton": "Eingeschaltet lassen"
+        }
+      },
       "select_time_format": {
         "name": "Zeitformat",
         "state": {
@@ -4445,6 +4490,9 @@
     },
     "finish_in_not_available": {
       "message": "'Fertig in' ist an diesem Gerät nicht verfügbar"
+    },
+    "finish_in_not_writable": {
+      "message": "Das Gerät hat 'Fertig in' nicht rechtzeitig zum Schreiben freigegeben - bitte erneut versuchen"
     },
     "start_program_error": {
       "message": "Fehler {code} beim Starten des Programms, Ressource {resource}"

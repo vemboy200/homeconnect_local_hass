@@ -655,6 +655,30 @@ def test_translation_placeholders_match_descriptions() -> None:
     assert mismatched == []
 
 
+def test_german_translation_complete() -> None:
+    """
+    de.json has every key en.json has.
+
+    German is a required locale next to English: Germany has the most users of
+    this integration. Other languages are optional.
+    """
+
+    def flatten(node: dict, prefix: str = "") -> set[str]:
+        keys = set()
+        for key, value in node.items():
+            if isinstance(value, dict):
+                keys |= flatten(value, f"{prefix}{key}.")
+            else:
+                keys.add(f"{prefix}{key}")
+        return keys
+
+    translations_dir = Path("custom_components/homeconnect_ws/translations")
+    english = json.loads((translations_dir / "en.json").read_text(encoding="utf-8"))
+    german = json.loads((translations_dir / "de.json").read_text(encoding="utf-8"))
+
+    assert sorted(flatten(english) - flatten(german)) == []
+
+
 def test_sync_time_button_writes_naive_local_timestamp() -> None:
     """
     The clock button sends local time without a UTC offset.
