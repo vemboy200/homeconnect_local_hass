@@ -154,8 +154,32 @@ def ensure_writable(entity: HcEntity | None) -> None:
 
 
 def needs_full_option_set(program: Program) -> bool:
-    """Whether this appliance expects program and options as one complete write."""
+    """
+    Whether this appliance expects program and options as one complete write.
+
+    Appliance-wide: Program.full_option_set falls back to the appliance value,
+    which is true as soon as *either* SelectedProgram or ActiveProgram declares
+    the flag. Right for the ActiveProgram writes (start button, fan) - for a
+    SelectedProgram write use selected_program_needs_full_option_set().
+    """
     return program.full_option_set
+
+
+def selected_program_needs_full_option_set(entity: SelectedProgram) -> bool:
+    """
+    Whether a write to SelectedProgram itself has to carry the complete option set.
+
+    A device description declares fullOptionSet per resource, and the two can
+    disagree: a Siemens EQ.9 CoffeeMaker has
+
+        <selectedProgram fullOptionSet="false" access="readwrite" />
+        <activeProgram   fullOptionSet="true"  access="read" />
+
+    so selecting a program there is an ordinary SelectedProgram write, while
+    the appliance-wide value says otherwise. Ask the entity being written to,
+    not the appliance.
+    """
+    return entity.full_option_set
 
 
 def is_unplugged_probe(appliance: HomeAppliance, option: Option) -> bool:
