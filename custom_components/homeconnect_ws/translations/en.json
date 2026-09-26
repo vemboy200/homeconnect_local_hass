@@ -1834,7 +1834,7 @@
         "name": "Estimated total program time"
       },
       "sensor_oven_water_tank": {
-        "name": "Water Tank{group_name}",
+        "name": "Water Tank",
         "state": {
           "ok": "OK",
           "empty": "Empty",
