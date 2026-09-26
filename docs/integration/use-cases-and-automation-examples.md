@@ -149,7 +149,7 @@ actions:
 
 ### Keep the appliance clock right without internet access
 
-An appliance cut off from the internet (e.g. blocked at the router) can't sync its clock and drifts by a few seconds a day. This automation sets the clock from Home Assistant once a night, so it stays right and picks up DST changes on its own:
+An appliance cut off from the internet (e.g. blocked at the router) can't sync its clock and drifts by a few seconds a day. This automation sets the clock from Home Assistant once a night, so it stays right and picks up DST changes on its own. Both the button and the "Synchronize time with server" switch are disabled by default, so enable them on the device page first:
 
 - **Trigger**: `time` trigger at `"04:00:00"` - after the DST switch, so the clock is right by morning.
 - **Conditions**: the appliance's "Synchronize time with server" switch is off. While it's on, the appliance locks its clock (the button shows `readonly: true` and refuses to press).

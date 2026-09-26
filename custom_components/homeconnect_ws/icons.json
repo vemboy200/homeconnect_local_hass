@@ -532,7 +532,7 @@
                 "default": "mdi:power-plug-off"
             },
             "button_sync_time": {
-                "default": "mdi:clock-sync"
+                "default": "mdi:clock-edit"
             },
             "button_hood_carbon_filter_reset": {
                 "default": "mdi:restore"
