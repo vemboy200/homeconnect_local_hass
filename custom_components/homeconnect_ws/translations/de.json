@@ -1974,7 +1974,7 @@
         "name": "Geschätzte Verbleibende Programmlaufzeit"
       },
       "sensor_oven_water_tank": {
-        "name": "Wassertank{group_name}",
+        "name": "Wassertank",
         "state": {
           "ok": "OK",
           "empty": "Leer",

@@ -788,7 +788,7 @@
         "name": "预计剩余程序时间"
       },
       "sensor_oven_water_tank": {
-        "name": "水箱{group_name}",
+        "name": "水箱",
         "state": {
           "unplugged": "未连接",
           "empty": "空",
@@ -796,7 +796,7 @@
         }
       },
       "sensor_oven_current_temperature": {
-        "name": "当前温度{group_name}"
+        "name": "当前温度"
       },
       "sensor_heatup_progress": {
         "name": "预热进度"
