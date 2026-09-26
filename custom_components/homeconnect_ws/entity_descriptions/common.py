@@ -341,6 +341,9 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             key="button_sync_time",
             entity="BSH.Common.Setting.ApplianceDateTime",
             entity_category=EntityCategory.CONFIG,
+            # Only useful with "Synchronize time with server" off, which is
+            # itself disabled by default, so follow it.
+            entity_registry_enabled_default=False,
             # The appliance reports and expects a naive ISO-8601 local
             # timestamp ("2026-09-24T10:36:09"), so drop the offset that
             # dt_util.now() carries rather than sending it along.
