@@ -11,7 +11,7 @@ from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitio
     HCSelectEntityDescription,
 )
 from custom_components.homeconnect_ws.select import HCSelect
-from home_disconnect.entities import Access, Execution, Program
+from home_disconnect.entities import Access, Execution, Program, SelectedProgram
 from home_disconnect.message import Action, Message
 from homeassistant.components.select import (
     ATTR_OPTION,
@@ -479,12 +479,16 @@ async def test_full_option_set_program_sends_complete_options(
     option sent as null - every one of its programs failed to select with a
     400. Test.Option2 has no value anywhere, so it is left out of the write
     entirely rather than sent as null.
+
+    The flag is patched onto SelectedProgram, the resource this branch keys
+    off - see test_active_program_only_full_option_set_still_selects for an
+    appliance that flags ActiveProgram instead and must not end up here.
     """
     entity_id = "select.fake_brand_homeappliance_selectedprogram"
     await mock_appliance.entities["Test.Option1"].update({"value": 1})
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
 
-    with patch.object(Program, "full_option_set", new=True, create=True):
+    with patch.object(SelectedProgram, "full_option_set", new=True):
         await hass.services.async_call(
             SELECT_DOMAIN,
             SERVICE_SELECT_OPTION,
@@ -507,6 +511,50 @@ async def test_full_option_set_program_sends_complete_options(
     )
 
 
+async def test_active_program_only_full_option_set_still_selects(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """
+    Selecting stays a SelectedProgram write when only ActiveProgram is flagged.
+
+    A Siemens EQ.9 CoffeeMaker declares
+
+        <selectedProgram fullOptionSet="false" access="readwrite" />
+        <activeProgram   fullOptionSet="true"  access="read" />
+
+    Program.full_option_set falls back to the appliance-wide value, which is
+    true as soon as either resource says so. Keying the branch off that sent
+    the selection to /ro/activeProgram instead - and since every beverage
+    defaults to SELECT_AND_START, picking a drink in the UI started brewing it
+    on the spot.
+    """
+    entity_id = "select.fake_brand_homeappliance_selectedprogram"
+    await mock_appliance.entities["Test.Option1"].update({"value": 1})
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+
+    # Program.full_option_set true (appliance-wide), SelectedProgram's own false.
+    with patch.object(Program, "full_option_set", new=True, create=True):
+        await hass.services.async_call(
+            SELECT_DOMAIN,
+            SERVICE_SELECT_OPTION,
+            {
+                ATTR_ENTITY_ID: entity_id,
+                ATTR_OPTION: "test_program_program2",
+            },
+            blocking=True,
+        )
+
+    mock_appliance.session.send_sync.assert_awaited_once_with(
+        Message(
+            resource="/ro/selectedProgram",
+            action=Action.POST,
+            data={"program": 501, "options": []},
+        )
+    )
+
+
 async def test_full_option_set_select_only_program_stays_on_selected_program(
     hass: HomeAssistant,
     mock_appliance: MockAppliance,
@@ -520,7 +568,7 @@ async def test_full_option_set_select_only_program_stays_on_selected_program(
     )
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
 
-    with patch.object(Program, "full_option_set", new=True, create=True):
+    with patch.object(SelectedProgram, "full_option_set", new=True):
         await hass.services.async_call(
             SELECT_DOMAIN,
             SERVICE_SELECT_OPTION,

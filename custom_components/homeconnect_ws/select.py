@@ -15,7 +15,7 @@ from .helpers import (
     ensure_writable,
     entity_is_available,
     error_decorator,
-    needs_full_option_set,
+    selected_program_needs_full_option_set,
 )
 
 if TYPE_CHECKING:
@@ -198,13 +198,20 @@ class HCProgram(HCSelect):
     @error_decorator
     async def async_select_option(self, option: str) -> None:
         selected_program = self._runtime_data.appliance.programs[self._rev_programs[option]]
-        if needs_full_option_set(selected_program):
-            # This appliance validates a program write against the program's
-            # complete option set and rejects anything less with a 400, so
-            # neither of the branches below can apply to it (confirmed live on
-            # a Bosch HNG6764B6 oven, where every single one of its programs
-            # failed to select). Scoped to appliances that actually say so in
-            # their device description - see _needs_full_option_set.
+        if selected_program_needs_full_option_set(self._entity):
+            # This appliance validates a write to SelectedProgram against the
+            # program's complete option set and rejects anything less with a
+            # 400, so neither of the branches below can apply to it (confirmed
+            # live on a Bosch HNG6764B6 oven, which flags SelectedProgram
+            # itself and failed to select every one of its programs).
+            #
+            # Deliberately the entity's own flag, not the appliance-wide one:
+            # an appliance can flag ActiveProgram alone, and then this branch
+            # would turn every selection into a start. A Siemens EQ.9
+            # CoffeeMaker does exactly that - <selectedProgram
+            # fullOptionSet="false" access="readwrite"/> next to
+            # <activeProgram fullOptionSet="true"/> - and picking a beverage
+            # in the UI brewed it immediately.
             await self._select_with_full_option_set(selected_program)
         elif selected_program.execution in (Execution.SELECT_ONLY, Execution.SELECT_AND_START):
             # override_options=True (send no options) rather than merging in
