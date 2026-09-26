@@ -18,7 +18,7 @@ If your PR adds a user-facing entity or feature, update [docs/integration/suppor
 
 ## Checklist
 
-The PR template covers the specifics. In short: `icons.json`, `translations/en.json`, and the relevant `docs/` page, whichever apply to your change.
+The PR template covers the specifics. In short: `icons.json`, `translations/en.json` and `translations/de.json` (German is required alongside English), and the relevant `docs/` page, whichever apply to your change.
 
 ## Ai notice
 
