@@ -659,8 +659,9 @@ def test_german_translation_complete() -> None:
     """
     de.json has every key en.json has.
 
-    German is a required locale next to English: Germany has the most users of
-    this integration. Other languages are optional.
+    German is a required locale next to English: Germany has the most Home
+    Assistant installations and is BSH's home market. Other languages are
+    optional.
     """
 
     def flatten(node: dict, prefix: str = "") -> set[str]:
