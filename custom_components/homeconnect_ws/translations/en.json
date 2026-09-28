@@ -28,7 +28,7 @@
       },
       "legacy_oauth_region": {
         "title": "Home Connect Account Region",
-        "description": "Select the region your Home Connect account is registered in.",
+        "description": "Select the Home Connect cloud your account is on. This is the cloud, not where the appliance is: the Europe cloud also serves Australia.",
         "data": {
           "region": "Region"
         }
@@ -70,7 +70,17 @@
       "failed_to_write_profile_file": "Profile File could not be stored",
       "oauth_fetch_failed": "Could not fetch appliance profiles from Home Connect: {error}",
       "reauth_entry_not_found": "The config entry being re-authenticated no longer exists",
-      "reconfigure_successful": "Reconfiguration successful"
+      "reconfigure_successful": "Reconfiguration successful",
+      "invalid_discovery_info": "The discovered appliance didn't announce its brand or type."
+    }
+  },
+  "selector": {
+    "region": {
+      "options": {
+        "eu": "Europe cloud (Europe, Australia, ...)",
+        "na": "North America cloud (USA, Canada, ...)",
+        "cn": "China cloud (China)"
+      }
     }
   },
   "entity": {
@@ -2038,7 +2048,8 @@
         }
       },
       "sensor_machine_care_reminder": {
-        "name": "Machine Care Reminder"
+        "name": "Machine Care Reminder",
+        "unit_of_measurement": "cycles"
       },
       "sensor_oven_water_tank_group": {
         "name": "Water Tank{group_name}",
@@ -4253,6 +4264,18 @@
     "command_timeout": {
       "message": "The appliance did not answer the command in time"
     },
+    "missing_unique_id": {
+      "message": "This config entry has no unique ID. Remove the appliance and add it again."
+    },
+    "fan_no_default_program": {
+      "message": "This hood's fan has no default venting program to start."
+    },
+    "setup_cannot_connect": {
+      "message": "Can't connect to {host}. See {url} if this doesn't resolve on its own."
+    },
+    "setup_cannot_connect_error": {
+      "message": "Can't connect to {host} ({error}). See {url} if this doesn't resolve on its own."
+    },
     "invalid_profile": {
       "message": "The stored appliance profile can't be read: {error}. Update the profile from the integration's Reconfigure menu."
     }
@@ -4263,6 +4286,10 @@
         "title": "Export Full Profile",
         "description": "Writes this appliance's Full profile ZIP - the two profile XML files plus the local encryption key - to your config directory, under `homeconnect_ws_export/`. Retrieve it via Samba, SSH, or the File Editor add-on.\n\nFor the Safe profile (no key/MAC/serial - safe to share for a feature request), use the device page's **Download Diagnostics** button instead - no confirmation needed here for that.\n\nSubmit to confirm and write the file."
       }
+    },
+    "abort": {
+      "export_written": "Wrote `{filename}` to your config directory, under `homeconnect_ws_export/`. Retrieve it via Samba, SSH, or the File Editor add-on.",
+      "export_failed": "Couldn't write the export file: {error}"
     }
   }
 }

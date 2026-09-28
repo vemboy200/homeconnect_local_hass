@@ -251,8 +251,7 @@ async def async_setup_entry(
     coordinator = HomeConnectCoordinator(hass, config_entry)
     appliance = coordinator.appliance
     if config_entry.unique_id is None:
-        msg = "Config entry is missing its unique_id"
-        raise ConfigEntryError(msg)
+        raise ConfigEntryError(translation_domain=DOMAIN, translation_key="missing_unique_id")
     device_info = DeviceInfo(
         hw_version=appliance.info.get("hwVersion"),
         identifiers={(DOMAIN, config_entry.unique_id)},

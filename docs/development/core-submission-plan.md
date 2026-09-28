@@ -222,6 +222,12 @@ While porting, the custom integration stays the place to try new things. Anythin
 - **The simulator** stays a development tool. It isn't part of the core submission.
 - **Archiving** this repository is optional. Keeping it around for pre-releases of new features is fine, as long as the README makes clear core is the main version.
 
+### Features for after the port
+
+New features that wait until core has everything and don't belong in the initial submission:
+
+- **Program and option names per brand** (upstream chris-mc1/homeconnect_local_hass#94). Names come from BSH's keys, but brands market the same feature under different names: the dishwasher option Bosch calls CrystalDry is StarDry on newer Thermadors. Give an entity a brand-specific `translation_key` (e.g. `program_thermador`) when that brand has names contributed, and keep today's generic names for every other brand. It stays in the translation files, so hassfest validates it and each brand's names can be translated. Names come from owners picking each program and noting what the appliance shows, so coverage grows with contributions. A brand can still name a key differently by region (joe-sydney's SMU6HCS01A is an Australian Bosch), so a region or model override on top of the brand names may be needed later. Before building it, check whether any core integration chooses translation keys per brand or model, and whether BSH's cloud profile archive carries the app's display names, which would give the real names without contributions.
+
 ### Relationship with the cloud integration
 
 Home Connect Local and the cloud `home_connect` integration will coexist in core. Home Assistant doesn't remove an integration because a newer one does more; removals happen when a service or library stops working or nobody maintains it. The cloud integration is actively maintained and uses BSH's official API, so plan around both staying.

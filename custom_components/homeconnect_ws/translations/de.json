@@ -28,7 +28,7 @@
       },
       "legacy_oauth_region": {
         "title": "Home Connect Kontoregion",
-        "description": "Wählen Sie die Region aus, in der Ihr Home Connect Konto registriert ist.",
+        "description": "Wählen Sie die Home Connect Cloud aus, in der Ihr Konto liegt. Gemeint ist die Cloud, nicht der Standort des Geräts: Die Europa-Cloud bedient auch Australien.",
         "data": {
           "region": "Region"
         }
@@ -70,7 +70,17 @@
       "failed_to_write_profile_file": "Profildatei konnte nicht gespeichert werden",
       "reconfigure_successful": "Neukonfiguration erfolgreich",
       "oauth_fetch_failed": "Geräteprofile konnten nicht von Home Connect abgerufen werden: {error}",
-      "reauth_entry_not_found": "Der neu zu authentifizierende Konfigurationseintrag existiert nicht mehr"
+      "reauth_entry_not_found": "Der neu zu authentifizierende Konfigurationseintrag existiert nicht mehr",
+      "invalid_discovery_info": "Das gefundene Gerät hat seine Marke oder seinen Typ nicht angegeben."
+    }
+  },
+  "selector": {
+    "region": {
+      "options": {
+        "eu": "Europa-Cloud (Europa, Australien, ...)",
+        "na": "Nordamerika-Cloud (USA, Kanada, ...)",
+        "cn": "China-Cloud (China)"
+      }
     }
   },
   "entity": {
@@ -610,7 +620,8 @@
         }
       },
       "sensor_machine_care_reminder": {
-        "name": "Maschinenpflege Erinnerung"
+        "name": "Maschinenpflege Erinnerung",
+        "unit_of_measurement": "Zyklen"
       },
       "sensor_active_program": {
         "name": "Aktives Programm",
@@ -4580,6 +4591,10 @@
           "mode": "Exporttyp"
         }
       }
+    },
+    "abort": {
+      "export_written": "`{filename}` wurde in Ihr Konfigurationsverzeichnis unter `homeconnect_ws_export/` geschrieben. Abrufen können Sie die Datei über Samba, SSH oder das File-Editor-Add-on.",
+      "export_failed": "Die Exportdatei konnte nicht geschrieben werden: {error}"
     }
   },
   "exceptions": {
@@ -4633,6 +4648,18 @@
     },
     "command_timeout": {
       "message": "Das Gerät hat den Befehl nicht rechtzeitig beantwortet"
+    },
+    "missing_unique_id": {
+      "message": "Dieser Konfigurationseintrag hat keine eindeutige ID. Entfernen Sie das Gerät und fügen Sie es erneut hinzu."
+    },
+    "fan_no_default_program": {
+      "message": "Für den Lüfter dieser Dunstabzugshaube ist kein Standard-Lüftungsprogramm festgelegt."
+    },
+    "setup_cannot_connect": {
+      "message": "Keine Verbindung zu {host}. Siehe {url}, falls sich das nicht von selbst behebt."
+    },
+    "setup_cannot_connect_error": {
+      "message": "Keine Verbindung zu {host} ({error}). Siehe {url}, falls sich das nicht von selbst behebt."
     },
     "invalid_profile": {
       "message": "Das gespeicherte Geräteprofil kann nicht gelesen werden: {error}. Aktualisiere das Profil über das Menü „Neu konfigurieren“ der Integration."

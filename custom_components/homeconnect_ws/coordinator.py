@@ -262,10 +262,6 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
 
             await self.appliance.close()
 
-        msg = f"Can't connect to {self.config_entry.data[CONF_HOST]}"
-        if last_err is not None:
-            msg += f" ({type(last_err).__name__}: {last_err})"
-        msg += f" - see {TROUBLESHOOTING_URL} if this doesn't resolve on its own"
         # UpdateFailed, not ConfigEntryNotReady: HA's own
         # async_config_entry_first_refresh() already converts a failed setup
         # into ConfigEntryNotReady for us. Raising ConfigEntryNotReady
@@ -279,7 +275,17 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
         # issue #30 (an oven unreachable for an extended period produced
         # dozens of these). UpdateFailed is handled quietly and still ends
         # up as ConfigEntryNotReady with this as __cause__.
-        raise UpdateFailed(msg) from last_err
+        raise UpdateFailed(
+            translation_domain=DOMAIN,
+            translation_key=(
+                "setup_cannot_connect" if last_err is None else "setup_cannot_connect_error"
+            ),
+            translation_placeholders={
+                "host": self.config_entry.data[CONF_HOST],
+                "error": f"{type(last_err).__name__}: {last_err}",
+                "url": TROUBLESHOOTING_URL,
+            },
+        ) from last_err
 
     async def _connect(self) -> None:
         self.logger.debug(
