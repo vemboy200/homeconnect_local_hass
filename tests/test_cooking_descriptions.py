@@ -2,36 +2,36 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from custom_components.homeconnect_ws.entity_descriptions.cooking import generate_oven_status
-from home_disconnect.entities import Access, DeviceDescription, EntityDescription
+from home_disconnect import Access
 from homeassistant.const import UnitOfTemperature
 
 if TYPE_CHECKING:
-    from home_disconnect.testutils import MockApplianceType
+    from . import MockApplianceFactory
 
 
 async def test_generate_oven_status_fahrenheit_cavity(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """US ovens expose Fahrenheit cavity temperatures on the local API."""
-    description = DeviceDescription(
-        status=[
-            EntityDescription(
-                uid=1,
-                name="Cooking.Oven.Status.Cavity.001.CurrentTemperatureFahrenheit",
-                available=True,
-                access=Access.READ,
-            ),
-            EntityDescription(
-                uid=2,
-                name="Cooking.Oven.Status.Cavity.001.MeatProbeTemperatureFahrenheit",
-                available=True,
-                access=Access.READ,
-            ),
+    description = {
+        "status": [
+            {
+                "uid": 1,
+                "name": "Cooking.Oven.Status.Cavity.001.CurrentTemperatureFahrenheit",
+                "available": True,
+                "access": Access.READ,
+            },
+            {
+                "uid": 2,
+                "name": "Cooking.Oven.Status.Cavity.001.MeatProbeTemperatureFahrenheit",
+                "available": True,
+                "access": Access.READ,
+            },
         ]
-    )
+    }
     appliance = await mock_homeconnect_appliance(description=description)
     descriptions = generate_oven_status(appliance)
 
@@ -49,25 +49,25 @@ async def test_generate_oven_status_fahrenheit_cavity(
 
 
 async def test_generate_oven_status_prefers_celsius_cavity(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """Celsius cavity temperature is used when both units are present."""
-    description = DeviceDescription(
-        status=[
-            EntityDescription(
-                uid=1,
-                name="Cooking.Oven.Status.Cavity.001.CurrentTemperature",
-                available=True,
-                access=Access.READ,
-            ),
-            EntityDescription(
-                uid=2,
-                name="Cooking.Oven.Status.Cavity.001.CurrentTemperatureFahrenheit",
-                available=True,
-                access=Access.READ,
-            ),
+    description = {
+        "status": [
+            {
+                "uid": 1,
+                "name": "Cooking.Oven.Status.Cavity.001.CurrentTemperature",
+                "available": True,
+                "access": Access.READ,
+            },
+            {
+                "uid": 2,
+                "name": "Cooking.Oven.Status.Cavity.001.CurrentTemperatureFahrenheit",
+                "available": True,
+                "access": Access.READ,
+            },
         ]
-    )
+    }
     appliance = await mock_homeconnect_appliance(description=description)
     descriptions = generate_oven_status(appliance)
 
@@ -76,17 +76,17 @@ async def test_generate_oven_status_prefers_celsius_cavity(
     assert descriptions["sensor"][0].native_unit_of_measurement == UnitOfTemperature.CELSIUS
 
 
-def _cavity_status(uid: int, cavity: str, field: str) -> EntityDescription:
-    return EntityDescription(
-        uid=uid,
-        name=f"Cooking.Oven.Status.Cavity.{cavity}.{field}",
-        available=True,
-        access=Access.READ,
-    )
+def _cavity_status(uid: int, cavity: str, field: str) -> dict[str, Any]:
+    return {
+        "uid": uid,
+        "name": f"Cooking.Oven.Status.Cavity.{cavity}.{field}",
+        "available": True,
+        "access": Access.READ,
+    }
 
 
 async def test_layout_only_cavity_adds_no_name_suffix(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """
     A cavity that only reports layout fields doesn't count as a second oven.
@@ -95,8 +95,8 @@ async def test_layout_only_cavity_adds_no_name_suffix(
     with only State/CavityType/LengthX/LengthY/Position, next to the smart 30"
     oven (cavity 340). Its entities used to be named "Current Temperature 340".
     """
-    description = DeviceDescription(
-        status=[
+    description = {
+        "status": [
             _cavity_status(1, "340", "CurrentTemperatureFahrenheit"),
             _cavity_status(2, "340", "State"),
             _cavity_status(3, "340", "Position"),
@@ -105,7 +105,7 @@ async def test_layout_only_cavity_adds_no_name_suffix(
                 for i, field in enumerate(("CavityType", "State", "LengthX", "LengthY", "Position"))
             ),
         ]
-    )
+    }
     appliance = await mock_homeconnect_appliance(description=description)
     descriptions = generate_oven_status(appliance)
 
@@ -114,15 +114,15 @@ async def test_layout_only_cavity_adds_no_name_suffix(
 
 
 async def test_two_real_cavities_keep_name_suffix(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """Two cavities that both report more than layout still get told apart."""
-    description = DeviceDescription(
-        status=[
+    description = {
+        "status": [
             _cavity_status(1, "001", "CurrentTemperature"),
             _cavity_status(2, "002", "CurrentTemperature"),
         ]
-    )
+    }
     appliance = await mock_homeconnect_appliance(description=description)
     descriptions = generate_oven_status(appliance)
 

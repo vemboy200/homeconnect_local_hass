@@ -4,19 +4,21 @@ from __future__ import annotations
 
 from binascii import Error as BinasciiError
 from typing import TYPE_CHECKING
-from unittest.mock import ANY, AsyncMock, MagicMock, Mock, call
+from unittest.mock import ANY, AsyncMock, MagicMock, Mock
 from uuid import uuid4
 
 from aiohttp import ClientConnectionError, ClientConnectorSSLError
 from custom_components.homeconnect_ws import config_flow
 from custom_components.homeconnect_ws.const import (
     CONF_AES_IV,
+    CONF_DESCRIPTION_XML,
+    CONF_FEATURE_MAPPING_XML,
     CONF_FILE,
     CONF_MANUAL_HOST,
     CONF_PSK,
     DOMAIN,
 )
-from home_disconnect import AuthenticationError, HCHandshakeError, ParserError
+from home_disconnect import AuthenticationError, HandshakeError, ProfileError, parse_profile
 from homeassistant.config_entries import SOURCE_IGNORE, SOURCE_USER
 from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE, CONF_DEVICE_ID, CONF_HOST, CONF_NAME
 from homeassistant.data_entry_flow import FlowResultType
@@ -25,14 +27,16 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from . import MockAppliance
 from .const import (
-    MOCK_AES_DEVICE_DESCRIPTION,
+    MOCK_AES_DESCRIPTION_XML,
     MOCK_AES_DEVICE_ID,
     MOCK_AES_DEVICE_INFO,
+    MOCK_AES_FEATURE_MAPPING_XML,
     MOCK_CONFIG_DATA,
-    MOCK_TLS_DEVICE_DESCRIPTION,
+    MOCK_TLS_DESCRIPTION_XML,
     MOCK_TLS_DEVICE_ID,
     MOCK_TLS_DEVICE_ID_2,
     MOCK_TLS_DEVICE_INFO,
+    MOCK_TLS_FEATURE_MAPPING_XML,
 )
 
 if TYPE_CHECKING:
@@ -50,7 +54,7 @@ async def test_user_init(
 ) -> None:
     """Test config flow init."""
     appliance = MockAppliance(MOCK_TLS_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
 
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
     result = await hass.config_entries.flow.async_configure(
@@ -98,7 +102,7 @@ async def test_user_tls(
 ) -> None:
     """Test config flow compleate for TLS Appliance."""
     appliance = MockAppliance(MOCK_TLS_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
 
     randbytes = Mock()
     randbytes.return_value = bytes.fromhex("01020304")
@@ -127,13 +131,14 @@ async def test_user_tls(
         },
     )
 
-    assert appliance.description == MOCK_TLS_DEVICE_DESCRIPTION
+    assert appliance.profile == parse_profile(
+        MOCK_TLS_DESCRIPTION_XML, MOCK_TLS_FEATURE_MAPPING_XML
+    )
     assert appliance.host == "Test_Brand-Test_TLS-010203040506070809"
     assert appliance.app_name == "Homeassistant"
     assert appliance.app_id == "01020304"
     assert appliance.psk64 == MOCK_TLS_DEVICE_INFO["key"]
     assert appliance.iv64 is None
-    assert appliance.connection_callback == ANY
 
     appliance._connect.assert_awaited_once()
     appliance._close.assert_awaited_once()
@@ -144,8 +149,9 @@ async def test_user_tls(
     assert result["title"] == "Test_Brand Test_TLS"
     assert result["data"][CONF_DESCRIPTION] == {
         "info": MOCK_TLS_DEVICE_INFO,
-        "MOCK_TLS_DEVICE_DESCRIPTION": None,
     }
+    assert result["data"][CONF_DESCRIPTION_XML] == MOCK_TLS_DESCRIPTION_XML
+    assert result["data"][CONF_FEATURE_MAPPING_XML] == MOCK_TLS_FEATURE_MAPPING_XML
     assert result["data"][CONF_HOST] == "Test_Brand-Test_TLS-010203040506070809"
     assert result["data"][CONF_PSK] == MOCK_TLS_DEVICE_INFO["key"]
     assert CONF_AES_IV not in result["data"]
@@ -163,7 +169,7 @@ async def test_user_aes(
 ) -> None:
     """Test config flow compleate for AES Appliance."""
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
 
     randbytes = Mock()
     randbytes.return_value = bytes.fromhex("01020304")
@@ -192,13 +198,14 @@ async def test_user_aes(
         },
     )
 
-    assert appliance.description == MOCK_AES_DEVICE_DESCRIPTION
+    assert appliance.profile == parse_profile(
+        MOCK_AES_DESCRIPTION_XML, MOCK_AES_FEATURE_MAPPING_XML
+    )
     assert appliance.host == MOCK_AES_DEVICE_ID
     assert appliance.app_name == "Homeassistant"
     assert appliance.app_id == "01020304"
     assert appliance.psk64 == MOCK_AES_DEVICE_INFO["key"]
     assert appliance.iv64 == MOCK_AES_DEVICE_INFO["iv"]
-    assert appliance.connection_callback == ANY
 
     appliance._connect.assert_awaited_once()
     appliance._close.assert_awaited_once()
@@ -209,8 +216,9 @@ async def test_user_aes(
     assert result["title"] == "Test_Brand Test_AES"
     assert result["data"][CONF_DESCRIPTION] == {
         "info": MOCK_AES_DEVICE_INFO,
-        "MOCK_AES_DEVICE_DESCRIPTION": None,
     }
+    assert result["data"][CONF_DESCRIPTION_XML] == MOCK_AES_DESCRIPTION_XML
+    assert result["data"][CONF_FEATURE_MAPPING_XML] == MOCK_AES_FEATURE_MAPPING_XML
     assert result["data"][CONF_HOST] == "101112131415161718"
     assert result["data"][CONF_PSK] == MOCK_AES_DEVICE_INFO["key"]
     assert result["data"][CONF_AES_IV] == MOCK_AES_DEVICE_INFO["iv"]
@@ -272,7 +280,7 @@ async def test_user_select_device_one(
 ) -> None:
     """Test select device when only one device left to setup."""
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
 
     randbytes = Mock()
     randbytes.return_value = bytes.fromhex("01020304")
@@ -311,8 +319,9 @@ async def test_user_select_device_one(
     assert result["title"] == "Test_Brand Test_AES"
     assert result["data"][CONF_DESCRIPTION] == {
         "info": MOCK_AES_DEVICE_INFO,
-        "MOCK_AES_DEVICE_DESCRIPTION": None,
     }
+    assert result["data"][CONF_DESCRIPTION_XML] == MOCK_AES_DESCRIPTION_XML
+    assert result["data"][CONF_FEATURE_MAPPING_XML] == MOCK_AES_FEATURE_MAPPING_XML
     assert result["data"][CONF_HOST] == "101112131415161718"
     assert result["data"][CONF_PSK] == MOCK_AES_DEVICE_INFO["key"]
     assert result["data"][CONF_AES_IV] == MOCK_AES_DEVICE_INFO["iv"]
@@ -377,7 +386,7 @@ async def test_user_set_host(
 ) -> None:
     """Test set host."""
     appliance = MockAppliance(MOCK_TLS_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
     appliance._connect.side_effect = ClientConnectionError()
 
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
@@ -456,7 +465,7 @@ async def test_user_auth_failed_ssl_error(
 ) -> None:
     """Test a config flow with ClientConnectorSSLError."""
     appliance = MockAppliance(MOCK_TLS_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
 
     appliance._connect.side_effect = ClientConnectorSSLError(MagicMock(), MagicMock())
 
@@ -495,7 +504,7 @@ async def test_user_auth_failed_binascii_error(
 ) -> None:
     """Test a config flow with BinasciiError."""
     appliance = MockAppliance(MOCK_TLS_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
     appliance._connect.side_effect = BinasciiError()
 
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
@@ -531,7 +540,7 @@ async def test_user_connection_failed_timeout(
 ) -> None:
     """Test a config flow with TimeoutError."""
     appliance = MockAppliance(MOCK_TLS_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
     appliance._connect.side_effect = TimeoutError()
 
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
@@ -569,7 +578,7 @@ async def test_user_connection_failed_connection_error(
 ) -> None:
     """Test a config flow with ClientConnectionError."""
     appliance = MockAppliance(MOCK_TLS_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
     appliance._connect.side_effect = ClientConnectionError()
 
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
@@ -605,10 +614,10 @@ async def test_user_connection_failed_handshake_error(
     mock_setup_entry: AsyncMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test a config flow with HCHandshakeError."""
+    """Test a config flow with HandshakeError."""
     appliance = MockAppliance(MOCK_TLS_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
-    appliance._connect.side_effect = HCHandshakeError()
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
+    appliance._connect.side_effect = HandshakeError()
 
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
     result = await hass.config_entries.flow.async_configure(
@@ -645,7 +654,7 @@ async def test_user_auth_failed_authentication_error(
 ) -> None:
     """Test a config flow with AuthenticationError."""
     appliance = MockAppliance(MOCK_TLS_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
     appliance._connect.side_effect = AuthenticationError()
 
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
@@ -679,7 +688,7 @@ async def test_user_invalid_config_parser(
     mock_setup_entry: AsyncMock,
 ) -> None:
     """Test a config flow with error in config parser."""
-    mock_process_profile_file.side_effect = ParserError("Test Error")
+    mock_process_profile_file.side_effect = ProfileError("Test Error")
 
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
     result = await hass.config_entries.flow.async_configure(
@@ -742,7 +751,7 @@ async def test_user_invalid_profile_no_description(
     mock_setup_entry: AsyncMock,
 ) -> None:
     """Test a config flow with no description."""
-    mock_process_profile_file.return_value[MOCK_AES_DEVICE_ID].pop("description")
+    mock_process_profile_file.return_value[MOCK_AES_DEVICE_ID].pop("description_xml")
 
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
     result = await hass.config_entries.flow.async_configure(
@@ -840,36 +849,34 @@ async def test_user_select_all_setup(
 
 
 async def test_process_profile(
-    monkeypatch: pytest.MonkeyPatch,
     hass: HomeAssistant,
     mock_process_uploaded_file: MagicMock,
 ) -> None:
     """Test processing profile file."""
-    mock_parser = MagicMock()
-    monkeypatch.setattr(config_flow, "parse_device_description", mock_parser)
-
     mock_config_flow = AsyncMock()
     mock_config_flow.hass = hass
     result = config_flow.HomeConnectConfigFlow._process_profile_file(
         mock_config_flow, UPLOADED_FILE
     )
 
-    assert result == {
-        MOCK_TLS_DEVICE_ID: {
-            "info": MOCK_TLS_DEVICE_INFO,
-            "description": mock_parser.return_value,
-        },
-        MOCK_AES_DEVICE_ID: {
-            "info": MOCK_AES_DEVICE_INFO,
-            "description": mock_parser.return_value,
-        },
-    }
+    assert set(result) == {MOCK_TLS_DEVICE_ID, MOCK_AES_DEVICE_ID}
+    for device_id, info, description_xml, feature_mapping_xml in (
+        (
+            MOCK_TLS_DEVICE_ID,
+            MOCK_TLS_DEVICE_INFO,
+            MOCK_TLS_DESCRIPTION_XML,
+            MOCK_TLS_FEATURE_MAPPING_XML,
+        ),
+        (
+            MOCK_AES_DEVICE_ID,
+            MOCK_AES_DEVICE_INFO,
+            MOCK_AES_DESCRIPTION_XML,
+            MOCK_AES_FEATURE_MAPPING_XML,
+        ),
+    ):
+        assert result[device_id]["info"] == info
+        assert result[device_id]["description_info"]["type"] == info["type"]
+        assert result[device_id]["description_xml"] == description_xml
+        assert result[device_id]["feature_mapping_xml"] == feature_mapping_xml
 
-    mock_parser.assert_has_calls(
-        [
-            call(b"TLS_DeviceDescription", b"TLS_FeatureMapping"),
-            call(b"AES_DeviceDescription", b"AES_FeatureMapping"),
-        ],
-        any_order=True,
-    )
     mock_process_uploaded_file.assert_called_with(ANY, UPLOADED_FILE)

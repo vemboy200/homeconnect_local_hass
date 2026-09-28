@@ -19,7 +19,7 @@ from custom_components.homeconnect_ws.const import (
     DOMAIN,
 )
 from custom_components.homeconnect_ws.hc_legacy_oauth import LegacyOAuthToken
-from home_disconnect import ParserError
+from home_disconnect import ProfileError
 from homeassistant.const import CONF_HOST
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.util import dt as dt_util
@@ -27,9 +27,9 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from . import MockAppliance
 from .const import (
-    MOCK_AES_DEVICE_DESCRIPTION,
     MOCK_AES_DEVICE_ID,
     MOCK_AES_DEVICE_INFO,
+    MOCK_AES_PAYLOAD,
     MOCK_CONFIG_DATA,
 )
 
@@ -103,7 +103,7 @@ async def test_reconfigure_connection_auto_succeeds(
 ) -> None:
     """Test that picking Change Connection tries automatic discovery first."""
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
 
     mock_config = _mock_entry()
     mock_config.add_to_hass(hass)
@@ -140,7 +140,7 @@ async def test_reconfigure_connection_uses_mdns_address(
         },
     )
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
 
     mock_config = _mock_entry()
     mock_config.add_to_hass(hass)
@@ -169,7 +169,7 @@ async def test_reconfigure_connection_mdns_request_fails(
         request_succeeds=False,
     )
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
 
     mock_config = _mock_entry()
     mock_config.add_to_hass(hass)
@@ -192,7 +192,7 @@ async def test_reconfigure_connection_falls_back_to_manual_host(
 ) -> None:
     """Test that a failed automatic attempt falls back to asking for a fixed IP."""
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
     appliance._connect.side_effect = [TimeoutError(), None]
 
     mock_config = _mock_entry()
@@ -227,7 +227,7 @@ async def test_reconfigure_connection_failed(
 ) -> None:
     """Test both the automatic attempt and the manual retry failing."""
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
     appliance._connect.side_effect = TimeoutError()
 
     mock_config = _mock_entry()
@@ -258,7 +258,7 @@ async def test_reconfigure_profile_via_upload(
 ) -> None:
     """Test refreshing the profile via a fresh file upload."""
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
 
     mock_process_profile_file.return_value[MOCK_AES_DEVICE_ID]["info"]["key"] = "New_AES_PSK_KEY"
     mock_process_profile_file.return_value[MOCK_AES_DEVICE_ID]["info"]["iv"] = "New_AES_IV"
@@ -303,7 +303,7 @@ async def test_reconfigure_profile_via_sign_in(
 ) -> None:
     """Test refreshing the profile via a fresh Home Connect sign-in instead of a file."""
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
     monkeypatch.setattr(
         config_flow,
         "legacy_async_exchange_code_for_token",
@@ -314,14 +314,7 @@ async def test_reconfigure_profile_via_sign_in(
     monkeypatch.setattr(
         config_flow,
         "async_fetch_appliances",
-        AsyncMock(
-            return_value={
-                MOCK_AES_DEVICE_ID: {
-                    "info": MOCK_AES_DEVICE_INFO,
-                    "description": MOCK_AES_DEVICE_DESCRIPTION,
-                }
-            }
-        ),
+        AsyncMock(return_value={MOCK_AES_DEVICE_ID: MOCK_AES_PAYLOAD}),
     )
 
     await async_setup(hass, {})
@@ -369,20 +362,13 @@ async def test_reconfigure_profile_sign_in_reuses_valid_cache(
 ) -> None:
     """A still-good cached token skips the whole browser round-trip."""
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
     exchange_mock = AsyncMock()
     monkeypatch.setattr(config_flow, "legacy_async_exchange_code_for_token", exchange_mock)
     monkeypatch.setattr(
         config_flow,
         "async_fetch_appliances",
-        AsyncMock(
-            return_value={
-                MOCK_AES_DEVICE_ID: {
-                    "info": MOCK_AES_DEVICE_INFO,
-                    "description": MOCK_AES_DEVICE_DESCRIPTION,
-                }
-            }
-        ),
+        AsyncMock(return_value={MOCK_AES_DEVICE_ID: MOCK_AES_PAYLOAD}),
     )
 
     await async_setup(hass, {})
@@ -417,7 +403,7 @@ async def test_reconfigure_profile_sign_in_ignores_expired_cache(
 ) -> None:
     """An expired cached token doesn't skip the sign-in - the normal form still shows."""
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
     fetch_mock = AsyncMock()
     monkeypatch.setattr(config_flow, "async_fetch_appliances", fetch_mock)
 
@@ -450,7 +436,7 @@ async def test_reconfigure_profile_sign_in_clears_rejected_cache(
 ) -> None:
     """A cached token the Appliance actually rejects falls back to a fresh sign-in, not an error."""
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
     monkeypatch.setattr(
         config_flow, "async_fetch_appliances", AsyncMock(side_effect=RuntimeError("expired"))
     )
@@ -570,7 +556,7 @@ async def test_reconfigure_profile_invalid_config_parser(
     mock_config = _mock_entry()
     mock_config.add_to_hass(hass)
 
-    mock_process_profile_file.side_effect = ParserError("Test Error")
+    mock_process_profile_file.side_effect = ProfileError("Test Error")
 
     result = await mock_config.start_reconfigure_flow(hass)
     result = await hass.config_entries.flow.async_configure(

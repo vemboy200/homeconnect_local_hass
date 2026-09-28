@@ -11,7 +11,7 @@ from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitio
     HCSwitchEntityDescription,
 )
 from custom_components.homeconnect_ws.switch import HCSwitch
-from home_disconnect.message import Action, Message
+from home_disconnect.messages import Action, Message
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import (
     ATTR_ENTITY_ID,
@@ -24,17 +24,17 @@ from homeassistant.const import (
 )
 from homeassistant.exceptions import ServiceValidationError
 
-from . import setup_config_entry
+from . import setup_config_entry, update_entity
 from .const import MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
-    from home_disconnect.testutils import MockAppliance
+    from home_disconnect import Appliance
     from homeassistant.core import HomeAssistant
 
 
 async def test_setup(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test setting up entity."""
@@ -56,28 +56,28 @@ async def test_setup(
 
 async def test_update(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test updating entity."""
     entity_id = "switch.fake_brand_homeappliance_switch"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
 
-    await mock_appliance.entities["Test.Switch"].update({"value": False})
+    await update_entity(mock_appliance.entities["Test.Switch"], {"value": False})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state
     assert state.state == STATE_OFF
 
-    await mock_appliance.entities["Test.Switch"].update({"value": True})
+    await update_entity(mock_appliance.entities["Test.Switch"], {"value": True})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state
     assert state.state == STATE_ON
 
-    await mock_appliance.entities["Test.Switch"].update({"value": None})
+    await update_entity(mock_appliance.entities["Test.Switch"], {"value": None})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
@@ -87,21 +87,21 @@ async def test_update(
 
 async def test_update_enum(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test updating entity with enum."""
     entity_id = "switch.fake_brand_homeappliance_switch_enum"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
 
-    await mock_appliance.entities["Test.Switch.Enum"].update({"value": 0})
+    await update_entity(mock_appliance.entities["Test.Switch.Enum"], {"value": 0})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state
     assert state.state == STATE_OFF
 
-    await mock_appliance.entities["Test.Switch.Enum"].update({"value": 1})
+    await update_entity(mock_appliance.entities["Test.Switch.Enum"], {"value": 1})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
@@ -111,7 +111,7 @@ async def test_update_enum(
 
 async def test_turn_on(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test turning on."""
@@ -125,18 +125,18 @@ async def test_turn_on(
         blocking=True,
     )
 
-    mock_appliance.session.send_sync.assert_awaited_once_with(
+    mock_appliance.session.request.assert_awaited_once_with(
         Message(
             resource="/ro/values",
             action=Action.POST,
-            data={"uid": 201, "value": True},
+            data=[{"uid": 201, "value": True}],
         )
     )
 
 
 async def test_turn_on_enum(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test turning on with enum."""
@@ -149,18 +149,18 @@ async def test_turn_on_enum(
         service_data={ATTR_ENTITY_ID: entity_id},
         blocking=True,
     )
-    mock_appliance.session.send_sync.assert_awaited_once_with(
+    mock_appliance.session.request.assert_awaited_once_with(
         Message(
             resource="/ro/values",
             action=Action.POST,
-            data={"uid": 202, "value": 1},
+            data=[{"uid": 202, "value": 1}],
         )
     )
 
 
 async def test_turn_off(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test turning off."""
@@ -174,18 +174,18 @@ async def test_turn_off(
         blocking=True,
     )
 
-    mock_appliance.session.send_sync.assert_awaited_once_with(
+    mock_appliance.session.request.assert_awaited_once_with(
         Message(
             resource="/ro/values",
             action=Action.POST,
-            data={"uid": 201, "value": False},
+            data=[{"uid": 201, "value": False}],
         )
     )
 
 
 async def test_turn_off_enum(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test turning off with enum."""
@@ -198,11 +198,11 @@ async def test_turn_off_enum(
         service_data={ATTR_ENTITY_ID: entity_id},
         blocking=True,
     )
-    mock_appliance.session.send_sync.assert_awaited_once_with(
+    mock_appliance.session.request.assert_awaited_once_with(
         Message(
             resource="/ro/values",
             action=Action.POST,
-            data={"uid": 202, "value": 0},
+            data=[{"uid": 202, "value": 0}],
         )
     )
 
@@ -249,7 +249,7 @@ async def test_is_on_not_forced_when_not_expected_offline() -> None:
 
 async def test_available_and_readonly_when_option_locked(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """
@@ -265,14 +265,16 @@ async def test_available_and_readonly_when_option_locked(
     """
     entity_id = "switch.fake_brand_homeappliance_switch_option"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await mock_appliance.entities["Test.Option1"].update({"value": True, "access": "readwrite"})
+    await update_entity(
+        mock_appliance.entities["Test.Option1"], {"value": True, "access": "readwrite"}
+    )
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state.state == STATE_ON
     assert state.attributes["readonly"] is False
 
-    await mock_appliance.entities["Test.Option1"].update({"access": "read"})
+    await update_entity(mock_appliance.entities["Test.Option1"], {"access": "read"})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
@@ -282,13 +284,13 @@ async def test_available_and_readonly_when_option_locked(
 
 async def test_turn_on_raises_when_option_locked(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test turning on raises a clear error instead of a silent/opaque failure."""
     entity_id = "switch.fake_brand_homeappliance_switch_option"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await mock_appliance.entities["Test.Option1"].update({"value": False, "access": "read"})
+    await update_entity(mock_appliance.entities["Test.Option1"], {"value": False, "access": "read"})
     await hass.async_block_till_done()
 
     with pytest.raises(ServiceValidationError):
@@ -299,12 +301,12 @@ async def test_turn_on_raises_when_option_locked(
             blocking=True,
         )
 
-    mock_appliance.session.send_sync.assert_not_awaited()
+    mock_appliance.session.request.assert_not_awaited()
 
 
 async def test_available_and_readonly_when_setting_locked(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """
@@ -318,21 +320,23 @@ async def test_available_and_readonly_when_setting_locked(
     """
     entity_id = "switch.fake_brand_homeappliance_switch"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await mock_appliance.entities["Test.Switch"].update({"value": True, "access": "readwrite"})
+    await update_entity(
+        mock_appliance.entities["Test.Switch"], {"value": True, "access": "readwrite"}
+    )
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state.state == STATE_ON
     assert state.attributes["readonly"] is False
 
-    await mock_appliance.entities["Test.Switch"].update({"access": "read"})
+    await update_entity(mock_appliance.entities["Test.Switch"], {"access": "read"})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state.state == STATE_ON
     assert state.attributes["readonly"] is True
 
-    await mock_appliance.entities["Test.Switch"].update({"access": "readwrite"})
+    await update_entity(mock_appliance.entities["Test.Switch"], {"access": "readwrite"})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
@@ -342,13 +346,13 @@ async def test_available_and_readonly_when_setting_locked(
 
 async def test_turn_on_raises_when_setting_locked(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test turning on a locked Setting raises a clear error instead of a silent failure."""
     entity_id = "switch.fake_brand_homeappliance_switch"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await mock_appliance.entities["Test.Switch"].update({"value": False, "access": "read"})
+    await update_entity(mock_appliance.entities["Test.Switch"], {"value": False, "access": "read"})
     await hass.async_block_till_done()
 
     with pytest.raises(ServiceValidationError):
@@ -359,4 +363,4 @@ async def test_turn_on_raises_when_setting_locked(
             blocking=True,
         )
 
-    mock_appliance.session.send_sync.assert_not_awaited()
+    mock_appliance.session.request.assert_not_awaited()

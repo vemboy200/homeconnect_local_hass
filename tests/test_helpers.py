@@ -16,13 +16,14 @@ from custom_components.homeconnect_ws.helpers import (
 )
 from homeassistant.exceptions import ServiceValidationError
 
+from . import update_entity
 from .const import DEVICE_DESCRIPTION
 
 if TYPE_CHECKING:
-    from home_disconnect.testutils import MockApplianceType
+    from . import MockApplianceFactory
 
 
-async def test_get_entities_from_regex(mock_homeconnect_appliance: MockApplianceType) -> None:
+async def test_get_entities_from_regex(mock_homeconnect_appliance: MockApplianceFactory) -> None:
     """Test get_entities_from_regex helper."""
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     pattern = re.compile(r"^Test\.RegEx\.(.*)\..*$")
@@ -35,7 +36,7 @@ async def test_get_entities_from_regex(mock_homeconnect_appliance: MockAppliance
     ]
 
 
-async def test_get_groups_from_regex(mock_homeconnect_appliance: MockApplianceType) -> None:
+async def test_get_groups_from_regex(mock_homeconnect_appliance: MockApplianceFactory) -> None:
     """Test get_groups_from_regex helper."""
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     pattern = re.compile(r"^Test\.RegEx\.(.*)\..*$")
@@ -44,7 +45,7 @@ async def test_get_groups_from_regex(mock_homeconnect_appliance: MockApplianceTy
 
 
 async def test_is_locked_true_when_option_read_only(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """
     Test an Option locked to read-only is reported as locked.
@@ -56,24 +57,24 @@ async def test_is_locked_true_when_option_read_only(
     """
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     option = appliance.entities["Test.Option1"]
-    await option.update({"access": "read"})
+    await update_entity(option, {"access": "read"})
 
     assert is_locked(option) is True
 
 
 async def test_is_locked_false_when_option_writable(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """Test a normally writable Option is not treated as locked."""
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     option = appliance.entities["Test.Option1"]
-    await option.update({"access": "readwrite"})
+    await update_entity(option, {"access": "readwrite"})
 
     assert is_locked(option) is False
 
 
 async def test_is_locked_false_when_option_inapplicable(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """
     Test access=NONE stays genuinely unavailable rather than read-only.
@@ -83,13 +84,13 @@ async def test_is_locked_false_when_option_inapplicable(
     """
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     option = appliance.entities["Test.Option1"]
-    await option.update({"access": "none"})
+    await update_entity(option, {"access": "none"})
 
     assert is_locked(option) is False
 
 
 async def test_is_locked_true_when_setting_read_only(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """
     Test a Setting locked to read-only is reported as locked, same as an Option.
@@ -103,35 +104,35 @@ async def test_is_locked_true_when_setting_read_only(
     """
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     setting = appliance.entities["Test.Switch"]
-    await setting.update({"access": "read"})
+    await update_entity(setting, {"access": "read"})
 
     assert is_locked(setting) is True
 
 
 async def test_is_locked_false_when_setting_inapplicable(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """Test a Setting with access=NONE stays unavailable rather than read-only."""
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     setting = appliance.entities["Test.Switch"]
-    await setting.update({"access": "none"})
+    await update_entity(setting, {"access": "none"})
 
     assert is_locked(setting) is False
 
 
 async def test_is_locked_false_for_non_lockable_entity(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """Test a Status (not an Option, Setting or SelectedProgram) is never treated as locked."""
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     status = appliance.entities["Test.Sensor"]
-    await status.update({"access": "read"})
+    await update_entity(status, {"access": "read"})
 
     assert is_locked(status) is False
 
 
 async def test_is_locked_true_when_selected_program_read_only(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """
     Test SelectedProgram locked to read-only is reported as locked, same as an Option.
@@ -144,25 +145,25 @@ async def test_is_locked_true_when_selected_program_read_only(
     """
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     selected_program = appliance.entities["Test.SelectedProgram"]
-    await selected_program.update({"access": "read"})
+    await update_entity(selected_program, {"access": "read"})
 
     assert is_locked(selected_program) is True
 
 
 async def test_is_lockable_true_for_any_access(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """Test is_lockable is true for an Option regardless of its current access."""
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     option = appliance.entities["Test.Option1"]
 
     for access in ("none", "read", "readwrite"):
-        await option.update({"access": access})
+        await update_entity(option, {"access": access})
         assert is_lockable(option) is True
 
 
 async def test_is_lockable_true_for_selected_program(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """Test is_lockable is also true for SelectedProgram, not just Option."""
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
@@ -172,19 +173,19 @@ async def test_is_lockable_true_for_selected_program(
 
 
 async def test_is_lockable_true_for_setting(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """Test is_lockable is also true for a Setting, regardless of its current access."""
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     setting = appliance.entities["Test.Switch"]
 
     for access in ("none", "read", "readwrite"):
-        await setting.update({"access": access})
+        await update_entity(setting, {"access": access})
         assert is_lockable(setting) is True
 
 
 async def test_is_lockable_false_for_non_lockable_entity(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """Test a Status (not an Option, Setting or SelectedProgram) is never treated as lockable."""
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
@@ -194,23 +195,23 @@ async def test_is_lockable_false_for_non_lockable_entity(
 
 
 async def test_ensure_writable_raises_for_locked_option(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """Test ensure_writable raises a clear error for a read-only Option."""
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     option = appliance.entities["Test.Option1"]
-    await option.update({"access": "read"})
+    await update_entity(option, {"access": "read"})
 
     with pytest.raises(ServiceValidationError):
         ensure_writable(option)
 
 
 async def test_ensure_writable_noop_for_writable_option(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """Test ensure_writable is a no-op for a writable Option."""
     appliance = await mock_homeconnect_appliance(description=DEVICE_DESCRIPTION)
     option = appliance.entities["Test.Option1"]
-    await option.update({"access": "readwrite"})
+    await update_entity(option, {"access": "readwrite"})
 
     ensure_writable(option)

@@ -4,32 +4,37 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from zipfile import ZipFile
 
 import pytest
 from custom_components import homeconnect_ws
 from custom_components.homeconnect_ws import coordinator, entity_descriptions
-from home_disconnect.testutils import MockAppliance
+
+from . import MockApplianceFactory, appliance_class, make_appliance
 
 if TYPE_CHECKING:
     from collections.abc import Generator
     from pathlib import Path
 
+    from home_disconnect import Appliance
+
 from .const import (
     DEVICE_DESCRIPTION,
     ENTITY_DESCRIPTIONS,
-    MOCK_AES_DEVICE_DESCRIPTION,
+    MOCK_AES_DESCRIPTION_XML,
     MOCK_AES_DEVICE_ID,
     MOCK_AES_DEVICE_INFO,
-    MOCK_TLS_DEVICE_DESCRIPTION,
+    MOCK_AES_FEATURE_MAPPING_XML,
+    MOCK_AES_PAYLOAD,
+    MOCK_TLS_DESCRIPTION_XML,
     MOCK_TLS_DEVICE_ID,
     MOCK_TLS_DEVICE_ID_2,
     MOCK_TLS_DEVICE_INFO,
+    MOCK_TLS_FEATURE_MAPPING_XML,
+    MOCK_TLS_PAYLOAD,
 )
-
-pytest_plugins = ["home_disconnect.testutils"]
 
 
 @pytest.fixture(autouse=True)
@@ -65,12 +70,12 @@ def create_profile_file(tmp_path: Path) -> Path:
 
     with ZipFile(file_path, mode="w") as file:
         # TLS Appliance
-        file.writestr("010203040506070809_FeatureMapping.xml", "TLS_FeatureMapping")
-        file.writestr("010203040506070809_DeviceDescription.xml", "TLS_DeviceDescription")
+        file.writestr("010203040506070809_FeatureMapping.xml", MOCK_TLS_FEATURE_MAPPING_XML)
+        file.writestr("010203040506070809_DeviceDescription.xml", MOCK_TLS_DESCRIPTION_XML)
         file.writestr("010203040506070809.json", json.dumps(MOCK_TLS_DEVICE_INFO))
         # AES Appliance
-        file.writestr("101112131415161718_FeatureMapping.xml", "AES_FeatureMapping")
-        file.writestr("101112131415161718_DeviceDescription.xml", "AES_DeviceDescription")
+        file.writestr("101112131415161718_FeatureMapping.xml", MOCK_AES_FEATURE_MAPPING_XML)
+        file.writestr("101112131415161718_DeviceDescription.xml", MOCK_AES_DESCRIPTION_XML)
         file.writestr("101112131415161718.json", json.dumps(MOCK_AES_DEVICE_INFO))
     return file_path
 
@@ -93,18 +98,9 @@ def mock_process_uploaded_file(
 def mock_process_profile_file() -> Generator[MagicMock]:
     """Mock process profile files."""
     device_description = {
-        MOCK_TLS_DEVICE_ID: {
-            "info": MOCK_TLS_DEVICE_INFO,
-            "description": MOCK_TLS_DEVICE_DESCRIPTION,
-        },
-        MOCK_AES_DEVICE_ID: {
-            "info": MOCK_AES_DEVICE_INFO,
-            "description": MOCK_AES_DEVICE_DESCRIPTION,
-        },
-        MOCK_TLS_DEVICE_ID_2: {
-            "info": MOCK_TLS_DEVICE_INFO,
-            "description": MOCK_TLS_DEVICE_DESCRIPTION,
-        },
+        MOCK_TLS_DEVICE_ID: MOCK_TLS_PAYLOAD,
+        MOCK_AES_DEVICE_ID: MOCK_AES_PAYLOAD,
+        MOCK_TLS_DEVICE_ID_2: MOCK_TLS_PAYLOAD,
     }
     with patch(
         "custom_components.homeconnect_ws.config_flow.HomeConnectConfigFlow._process_profile_file",
@@ -114,19 +110,18 @@ def mock_process_profile_file() -> Generator[MagicMock]:
 
 
 @pytest.fixture
-def mock_appliance(
-    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
-) -> MockAppliance:
-    """Mock HomeAppliance."""
-    if "mock_appliance" in request.keywords:
-        psk64 = request.keywords["mock_appliance"].kwargs.get("psk")
-        iv64 = request.keywords["mock_appliance"].kwargs.get("iv")
-    else:
-        psk64 = None
-        iv64 = None
-    appliance = MockAppliance(DEVICE_DESCRIPTION, "host", "mock_app", "mock_app_id", psk64, iv64)
-    appliance.session.connected = True
-    monkeypatch.setattr(coordinator, "HomeAppliance", Mock(return_value=appliance))
-    monkeypatch.setattr(coordinator.HomeConnectCoordinator, "connected", True)
-
+def mock_appliance(monkeypatch: pytest.MonkeyPatch) -> Appliance:
+    """Mock the coordinator's Appliance: a real one on a mocked session."""
+    appliance = make_appliance(DEVICE_DESCRIPTION)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))
     return appliance
+
+
+@pytest.fixture
+def mock_homeconnect_appliance() -> MockApplianceFactory:
+    """Create Appliances for test descriptions, on mocked sessions."""
+
+    async def go(description: dict | None = None, **kwargs: Any) -> Appliance:
+        return make_appliance(description or {}, **kwargs)
+
+    return go

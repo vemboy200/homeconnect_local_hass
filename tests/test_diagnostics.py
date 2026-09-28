@@ -10,13 +10,13 @@ from . import setup_config_entry
 from .const import MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
-    from home_disconnect.testutils import MockAppliance
+    from home_disconnect import Appliance
     from homeassistant.core import HomeAssistant
 
 
 async def test_diagnostics_returns_safe_profile(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Diagnostics returns the two profile XML files and basic device info, no key/MAC/serial."""
@@ -38,7 +38,7 @@ async def test_diagnostics_returns_safe_profile(
 
 async def test_diagnostics_still_includes_redacted_entry_data_and_live_state(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """

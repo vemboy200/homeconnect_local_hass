@@ -17,13 +17,7 @@ from custom_components.homeconnect_ws.entity_descriptions import (
     HCSwitchEntityDescription,
     _EntityDescriptionsType,
 )
-from home_disconnect.entities import (
-    Access,
-    DeviceDescription,
-    EntityDescription,
-    Execution,
-    OptionDescription,
-)
+from home_disconnect import Access, Execution, serialize_legacy_description
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE_ID, CONF_HOST, CONF_MODE, CONF_NAME
 
@@ -42,7 +36,6 @@ MOCK_APPLIANCE_INFO = {
 
 MOCK_TLS_DEVICE_ID = "010203040506070809"
 MOCK_TLS_DEVICE_ID_2 = "102030405060708090"
-MOCK_TLS_DEVICE_DESCRIPTION = {"info": {}, "MOCK_TLS_DEVICE_DESCRIPTION": None}
 MOCK_TLS_DEVICE_INFO = {
     "haId": MOCK_TLS_DEVICE_ID,
     "deviceID": MOCK_TLS_DEVICE_ID,
@@ -55,12 +48,11 @@ MOCK_TLS_DEVICE_INFO = {
     "deviceDescriptionFileName": "010203040506070809_DeviceDescription.xml",
     "created": "2025-01-07T11:34:30.833000000+01:00",
     "connectionType": "TLS",
-    "key": "TLS_PSK_KEY",
+    "key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
 }
 
 
 MOCK_AES_DEVICE_ID = "101112131415161718"
-MOCK_AES_DEVICE_DESCRIPTION = {"info": {}, "MOCK_AES_DEVICE_DESCRIPTION": None}
 MOCK_AES_DEVICE_INFO = {
     "haId": MOCK_AES_DEVICE_ID,
     "deviceID": MOCK_AES_DEVICE_ID,
@@ -73,8 +65,34 @@ MOCK_AES_DEVICE_INFO = {
     "deviceDescriptionFileName": "101112131415161718_DeviceDescription.xml",
     "created": "2025-01-07T11:34:30.833000000+01:00",
     "connectionType": "AES",
-    "key": "AES_PSK_KEY",
-    "iv": "AES_IV",
+    "key": "HyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4=",
+    "iv": "AAECAwQFBgcICQoLDA0ODw==",
+}
+
+MOCK_TLS_DESCRIPTION_XML, MOCK_TLS_FEATURE_MAPPING_XML = serialize_legacy_description(
+    {
+        "info": {"type": "Test_TLS", "brand": "Test_Brand", "model": "Test_vib"},
+        "status": [{"uid": 527, "name": "BSH.Common.Status.DoorState", "access": "read"}],
+    }
+)
+MOCK_AES_DESCRIPTION_XML, MOCK_AES_FEATURE_MAPPING_XML = serialize_legacy_description(
+    {
+        "info": {"type": "Test_AES", "brand": "Test_Brand", "model": "Test_vib"},
+        "status": [{"uid": 527, "name": "BSH.Common.Status.DoorState", "access": "read"}],
+    }
+)
+# What the config flow keeps per appliance from a profile file (AppliancePayload).
+MOCK_TLS_PAYLOAD = {
+    "info": MOCK_TLS_DEVICE_INFO,
+    "description_info": {},
+    "description_xml": MOCK_TLS_DESCRIPTION_XML,
+    "feature_mapping_xml": MOCK_TLS_FEATURE_MAPPING_XML,
+}
+MOCK_AES_PAYLOAD = {
+    "info": MOCK_AES_DEVICE_INFO,
+    "description_info": {},
+    "description_xml": MOCK_AES_DESCRIPTION_XML,
+    "feature_mapping_xml": MOCK_AES_FEATURE_MAPPING_XML,
 }
 
 ENTITY_DESCRIPTIONS: _EntityDescriptionsType = {
@@ -95,6 +113,8 @@ ENTITY_DESCRIPTIONS: _EntityDescriptionsType = {
                 "BSH.Common.Program.Favorite.002": "favorite_002",
                 "Test.Program.Program1": "test_program_program1",
                 "Test.Program.Program2": "test_program_program2",
+                "Test.Program.Fan1": "test_program_fan1",
+                "Test.Program.Fan2": "test_program_fan2",
             },
         )
     ],
@@ -218,174 +238,174 @@ ENTITY_DESCRIPTIONS: _EntityDescriptionsType = {
         ),
     ],
 }
-DEVICE_DESCRIPTION = DeviceDescription(
-    status=[
-        EntityDescription(
-            uid=100,
-            name="Test.BinarySensor",
-            available=True,
-            access=Access.READ_WRITE,
-        ),
-        EntityDescription(
-            uid=101,
-            name="Test.BinarySensor.Enum",
-            enumeration={"0": "Off", "1": "On"},
-            available=True,
-            access=Access.READ_WRITE,
-        ),
-        EntityDescription(
-            uid=102,
-            name="Test.Sensor",
-            available=True,
-            access=Access.READ_WRITE,
-        ),
-        EntityDescription(
-            uid=103,
-            name="Test.Sensor.Enum",
-            enumeration={
+DEVICE_DESCRIPTION = {
+    "status": [
+        {
+            "uid": 100,
+            "name": "Test.BinarySensor",
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+        {
+            "uid": 101,
+            "name": "Test.BinarySensor.Enum",
+            "enumeration": {"0": "Off", "1": "On"},
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+        {
+            "uid": 102,
+            "name": "Test.Sensor",
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+        {
+            "uid": 103,
+            "name": "Test.Sensor.Enum",
+            "enumeration": {
                 "0": "Off",
                 "1": "On",
             },
-            available=True,
-            access=Access.READ_WRITE,
-        ),
-        EntityDescription(
-            uid=104,
-            name="Test.RegEx.001.Sensor",
-            available=True,
-            access=Access.READ,
-        ),
-        EntityDescription(
-            uid=105,
-            name="Test.RegEx.002.Sensor",
-            available=True,
-            access=Access.READ,
-        ),
-        EntityDescription(
-            uid=106,
-            name="BSH.Common.Status.RemoteControlStartAllowed",
-            available=True,
-            access=Access.READ,
-        ),
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+        {
+            "uid": 104,
+            "name": "Test.RegEx.001.Sensor",
+            "available": True,
+            "access": Access.READ,
+        },
+        {
+            "uid": 105,
+            "name": "Test.RegEx.002.Sensor",
+            "available": True,
+            "access": Access.READ,
+        },
+        {
+            "uid": 106,
+            "name": "BSH.Common.Status.RemoteControlStartAllowed",
+            "available": True,
+            "access": Access.READ,
+        },
     ],
-    setting=[
-        EntityDescription(
-            uid=200,
-            name="Test.PowerState",
-            enumeration={"1": "Off", "2": "On"},
-            available=True,
-            access=Access.READ_WRITE,
-        ),
-        EntityDescription(
-            uid=201,
-            name="Test.Switch",
-            available=True,
-            access=Access.READ_WRITE,
-        ),
-        EntityDescription(
-            uid=202,
-            name="Test.Switch.Enum",
-            enumeration={"0": "Off", "1": "On"},
-            available=True,
-            access=Access.READ_WRITE,
-        ),
-        EntityDescription(
-            uid=203,
-            name="Test.Select",
-            enumeration={"0": "Option1", "1": "Option2", "2": "Option3"},
-            available=True,
-            access=Access.READ_WRITE,
-        ),
-        EntityDescription(
-            uid=204,
-            name="Test.Number",
-            min=0,
-            max=20,
-            stepSize=2,
-            available=True,
-            access=Access.READ_WRITE,
-        ),
-        EntityDescription(
-            uid=104,
-            name="Test.RegEx.001.Switch",
-            available=True,
-            access=Access.READ_WRITE,
-        ),
-        EntityDescription(
-            uid=105,
-            name="Test.RegEx.002.Switch",
-            available=True,
-            access=Access.READ_WRITE,
-        ),
-        EntityDescription(
-            uid=106,
-            name="BSH.Common.Setting.Favorite.001.Name",
-            access=Access.READ_WRITE,
-            available=True,
-            default="Named Favorite",
-        ),
-        EntityDescription(
-            uid=107,
-            name="BSH.Common.Setting.Favorite.002.Name",
-            access=Access.READ_WRITE,
-            available=True,
-            default="",
-        ),
-        EntityDescription(
-            uid=108,
-            name="Test.Lighting",
-            access=Access.READ_WRITE,
-            available=True,
-            protocolType="Boolean",
-        ),
-        EntityDescription(
-            uid=109,
-            name="Test.LightingBrightness",
-            access=Access.READ_WRITE,
-            available=True,
-            default=0,
-            min=2,
-            max=100,
-            protocolType="Float",
-        ),
-        EntityDescription(
-            uid=110,
-            name="Test.LightingColorTempPercent",
-            access=Access.READ_WRITE,
-            available=True,
-            default=0,
-            min=0,
-            max=100,
-            protocolType="Float",
-        ),
-        EntityDescription(
-            uid=111,
-            name="Test.LightingCustomColor",
-            access=Access.READ_WRITE,
-            available=True,
-            default="#000000",
-            protocolType="String",
-        ),
-        EntityDescription(
-            uid=112,
-            name="Test.LightingColor",
-            access=Access.READ_WRITE,
-            available=True,
-            default=0,
-            enumeration={
+    "setting": [
+        {
+            "uid": 200,
+            "name": "Test.PowerState",
+            "enumeration": {"1": "Off", "2": "On"},
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+        {
+            "uid": 201,
+            "name": "Test.Switch",
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+        {
+            "uid": 202,
+            "name": "Test.Switch.Enum",
+            "enumeration": {"0": "Off", "1": "On"},
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+        {
+            "uid": 203,
+            "name": "Test.Select",
+            "enumeration": {"0": "Option1", "1": "Option2", "2": "Option3"},
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+        {
+            "uid": 204,
+            "name": "Test.Number",
+            "min": 0,
+            "max": 20,
+            "stepSize": 2,
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+        {
+            "uid": 205,
+            "name": "Test.RegEx.001.Switch",
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+        {
+            "uid": 206,
+            "name": "Test.RegEx.002.Switch",
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+        {
+            "uid": 207,
+            "name": "BSH.Common.Setting.Favorite.001.Name",
+            "access": Access.READ_WRITE,
+            "available": True,
+            "default": "Named Favorite",
+        },
+        {
+            "uid": 107,
+            "name": "BSH.Common.Setting.Favorite.002.Name",
+            "access": Access.READ_WRITE,
+            "available": True,
+            "default": "",
+        },
+        {
+            "uid": 108,
+            "name": "Test.Lighting",
+            "access": Access.READ_WRITE,
+            "available": True,
+            "protocolType": "Boolean",
+        },
+        {
+            "uid": 109,
+            "name": "Test.LightingBrightness",
+            "access": Access.READ_WRITE,
+            "available": True,
+            "default": 0,
+            "min": 2,
+            "max": 100,
+            "protocolType": "Float",
+        },
+        {
+            "uid": 110,
+            "name": "Test.LightingColorTempPercent",
+            "access": Access.READ_WRITE,
+            "available": True,
+            "default": 0,
+            "min": 0,
+            "max": 100,
+            "protocolType": "Float",
+        },
+        {
+            "uid": 111,
+            "name": "Test.LightingCustomColor",
+            "access": Access.READ_WRITE,
+            "available": True,
+            "default": "#000000",
+            "protocolType": "String",
+        },
+        {
+            "uid": 112,
+            "name": "Test.LightingColor",
+            "access": Access.READ_WRITE,
+            "available": True,
+            "default": 0,
+            "enumeration": {
                 "1": "CustomColor",
                 "33": "Color32",
                 "34": "Color33",
             },
-            protocolType="Integer",
-        ),
-        EntityDescription(
-            uid=113,
-            name="Cooking.Hood.Setting.ColorTemperature",
-            access=Access.READ_WRITE,
-            available=True,
-            default=0,
-            enumeration={
+            "protocolType": "Integer",
+        },
+        {
+            "uid": 113,
+            "name": "Cooking.Hood.Setting.ColorTemperature",
+            "access": Access.READ_WRITE,
+            "available": True,
+            "default": 0,
+            "enumeration": {
                 "0": "custom",
                 "1": "warm",
                 "2": "warmToNeutral",
@@ -393,137 +413,137 @@ DEVICE_DESCRIPTION = DeviceDescription(
                 "4": "neutralToCold",
                 "5": "cold",
             },
-            protocolType="Integer",
-        ),
+            "protocolType": "Integer",
+        },
     ],
-    event=[
-        EntityDescription(
-            uid=800,
-            name="Test.Event1",
-            enumeration={"0": "Off", "1": "Present", "2": "Confirmed"},
-        ),
-        EntityDescription(
-            uid=801,
-            name="Test.Event2",
-            enumeration={"0": "Off", "1": "Present", "2": "Confirmed"},
-        ),
+    "event": [
+        {
+            "uid": 800,
+            "name": "Test.Event1",
+            "enumeration": {"0": "Off", "1": "Present", "2": "Confirmed"},
+        },
+        {
+            "uid": 801,
+            "name": "Test.Event2",
+            "enumeration": {"0": "Off", "1": "Present", "2": "Confirmed"},
+        },
     ],
-    command=[
-        EntityDescription(
-            uid=300,
-            name="Test.AbortProgram",
-            available=True,
-            access=Access.READ_WRITE,
-        )
+    "command": [
+        {
+            "uid": 300,
+            "name": "Test.AbortProgram",
+            "available": True,
+            "access": Access.READ_WRITE,
+        }
     ],
-    option=[
-        EntityDescription(
-            uid=401,
-            name="Test.Option1",
-            available=True,
-            access=Access.READ_WRITE,
-        ),
-        EntityDescription(
-            uid=402,
-            name="Test.Option2",
-            available=True,
-            access=Access.READ_WRITE,
-        ),
-        EntityDescription(
-            uid=403,
-            name="Test.FanSpeed1",
-            available=True,
-            access=Access.READ_WRITE,
-            enumeration={"0": "Off", "1": "Speed1", "2": "Speed1"},
-            default=0,
-        ),
-        EntityDescription(
-            uid=404,
-            name="Test.FanSpeed2",
-            available=True,
-            access=Access.READ_WRITE,
-            enumeration={"0": "Off", "1": "Speed1", "2": "Speed1"},
-            default=0,
-        ),
+    "option": [
+        {
+            "uid": 401,
+            "name": "Test.Option1",
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+        {
+            "uid": 402,
+            "name": "Test.Option2",
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+        {
+            "uid": 403,
+            "name": "Test.FanSpeed1",
+            "available": True,
+            "access": Access.READ_WRITE,
+            "enumeration": {"0": "Off", "1": "Speed1", "2": "Speed1"},
+            "default": 0,
+        },
+        {
+            "uid": 404,
+            "name": "Test.FanSpeed2",
+            "available": True,
+            "access": Access.READ_WRITE,
+            "enumeration": {"0": "Off", "1": "Speed1", "2": "Speed1"},
+            "default": 0,
+        },
     ],
-    program=[
-        EntityDescription(
-            uid=500,
-            name="Test.Program.Program1",
-            options=[
-                OptionDescription(access=Access.READ_WRITE, available=True, refUID=401),
-                OptionDescription(access=Access.READ_WRITE, available=True, refUID=402),
+    "program": [
+        {
+            "uid": 500,
+            "name": "Test.Program.Program1",
+            "options": [
+                {"access": Access.READ_WRITE, "available": True, "refUID": 401},
+                {"access": Access.READ_WRITE, "available": True, "refUID": 402},
             ],
-        ),
-        EntityDescription(
-            uid=501,
-            name="Test.Program.Program2",
-            options=[
-                OptionDescription(access=Access.READ_WRITE, available=True, refUID=401),
-                OptionDescription(access=Access.READ_WRITE, available=True, refUID=402),
+        },
+        {
+            "uid": 501,
+            "name": "Test.Program.Program2",
+            "options": [
+                {"access": Access.READ_WRITE, "available": True, "refUID": 401},
+                {"access": Access.READ_WRITE, "available": True, "refUID": 402},
             ],
-        ),
-        EntityDescription(
-            uid=502,
-            name="Test.Program.Program3",
-            options=[
-                OptionDescription(access=Access.READ_WRITE, available=True, refUID=401),
-                OptionDescription(access=Access.READ_WRITE, available=True, refUID=402),
+        },
+        {
+            "uid": 507,
+            "name": "Test.Program.Program3",
+            "options": [
+                {"access": Access.READ_WRITE, "available": True, "refUID": 401},
+                {"access": Access.READ_WRITE, "available": True, "refUID": 402},
             ],
-            execution=Execution.START_ONLY,
-        ),
-        EntityDescription(
-            uid=506,
-            name="Test.Program.Program4",
-            options=[
-                OptionDescription(access=Access.READ_WRITE, available=True, refUID=401),
-                OptionDescription(access=Access.READ_WRITE, available=True, refUID=402),
+            "execution": Execution.START_ONLY,
+        },
+        {
+            "uid": 506,
+            "name": "Test.Program.Program4",
+            "options": [
+                {"access": Access.READ_WRITE, "available": True, "refUID": 401},
+                {"access": Access.READ_WRITE, "available": True, "refUID": 402},
             ],
-            execution=Execution.SELECT_ONLY,
-        ),
-        EntityDescription(
-            uid=502,
-            name="BSH.Common.Program.Favorite.001",
-            available=True,
-        ),
-        EntityDescription(
-            uid=503,
-            name="BSH.Common.Program.Favorite.002",
-            available=True,
-        ),
-        EntityDescription(
-            uid=504,
-            name="Test.Program.Fan1",
-            available=True,
-            options=[
-                OptionDescription(access=Access.READ_WRITE, available=True, refUID=401),
-                OptionDescription(access=Access.READ_WRITE, available=True, refUID=403),
-                OptionDescription(access=Access.READ_WRITE, available=True, refUID=404),
+            "execution": Execution.SELECT_ONLY,
+        },
+        {
+            "uid": 502,
+            "name": "BSH.Common.Program.Favorite.001",
+            "available": True,
+        },
+        {
+            "uid": 503,
+            "name": "BSH.Common.Program.Favorite.002",
+            "available": True,
+        },
+        {
+            "uid": 504,
+            "name": "Test.Program.Fan1",
+            "available": True,
+            "options": [
+                {"access": Access.READ_WRITE, "available": True, "refUID": 401},
+                {"access": Access.READ_WRITE, "available": True, "refUID": 403},
+                {"access": Access.READ_WRITE, "available": True, "refUID": 404},
             ],
-        ),
-        EntityDescription(
-            uid=505,
-            name="Test.Program.Fan2",
-            available=True,
-            options=[
-                OptionDescription(access=Access.READ_WRITE, available=True, refUID=401),
-                OptionDescription(access=Access.READ_WRITE, available=True, refUID=403),
-                OptionDescription(access=Access.READ_WRITE, available=True, refUID=404),
+        },
+        {
+            "uid": 505,
+            "name": "Test.Program.Fan2",
+            "available": True,
+            "options": [
+                {"access": Access.READ_WRITE, "available": True, "refUID": 401},
+                {"access": Access.READ_WRITE, "available": True, "refUID": 403},
+                {"access": Access.READ_WRITE, "available": True, "refUID": 404},
             ],
-        ),
+        },
     ],
-    selectedProgram=EntityDescription(
-        uid=600,
-        name="Test.SelectedProgram",
-        access=Access.READ_WRITE,
-    ),
-    activeProgram=EntityDescription(
-        uid=700,
-        name="Test.ActiveProgram",
-        access=Access.READ_WRITE,
-    ),
-    info=MOCK_APPLIANCE_INFO,
-)
+    "selectedProgram": {
+        "uid": 600,
+        "name": "Test.SelectedProgram",
+        "access": Access.READ_WRITE,
+    },
+    "activeProgram": {
+        "uid": 700,
+        "name": "Test.ActiveProgram",
+        "access": Access.READ_WRITE,
+    },
+    "info": MOCK_APPLIANCE_INFO,
+}
 
 MOCK_CONFIG_DATA = {
     CONF_DESCRIPTION: DEVICE_DESCRIPTION,

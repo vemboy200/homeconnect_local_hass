@@ -75,7 +75,8 @@ class HCStartButton(HCEntity, ButtonEntity):
         # always available regardless of remote-control state.
         if not self._runtime_data.appliance.session.connected:
             return False
-        if not getattr(self._entity, "available", True):
+        # None means the appliance hasn't said; only an explicit False hides it.
+        if self._entity.available is False:
             return False
         selected_program = self._runtime_data.appliance.selected_program
         if selected_program is None:

@@ -7,17 +7,17 @@ from typing import TYPE_CHECKING
 from custom_components.homeconnect_ws.const import DOMAIN
 from homeassistant.const import ATTR_FRIENDLY_NAME, STATE_OFF, STATE_ON, STATE_UNKNOWN
 
-from . import setup_config_entry
+from . import setup_config_entry, update_entity
 from .const import MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
-    from home_disconnect.testutils import MockAppliance
+    from home_disconnect import Appliance
     from homeassistant.core import HomeAssistant
 
 
 async def test_setup(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test setting up entity."""
@@ -40,26 +40,26 @@ async def test_setup(
 
 async def test_update(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test updating entity."""
     entity_id = "binary_sensor.fake_brand_homeappliance_binarysensor"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
 
-    await mock_appliance.entities["Test.BinarySensor"].update({"value": True})
+    await update_entity(mock_appliance.entities["Test.BinarySensor"], {"value": True})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state.state == STATE_ON
 
-    await mock_appliance.entities["Test.BinarySensor"].update({"value": False})
+    await update_entity(mock_appliance.entities["Test.BinarySensor"], {"value": False})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state.state == STATE_OFF
 
-    await mock_appliance.entities["Test.BinarySensor"].update({"value": None})
+    await update_entity(mock_appliance.entities["Test.BinarySensor"], {"value": None})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
@@ -68,7 +68,7 @@ async def test_update(
 
 async def test_connection_sensor_clean_disconnect_attribute(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """clean_disconnect reflects the most recent close code, not current connectivity."""
@@ -76,7 +76,7 @@ async def test_connection_sensor_clean_disconnect_attribute(
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
     entry = hass.config_entries.async_entries(DOMAIN)[0]
 
-    mock_appliance.session.last_close_code = 1000
+    mock_appliance.session.close_code = 1000
     entry.runtime_data.coordinator.async_set_updated_data(None)
     await hass.async_block_till_done()
 
@@ -84,7 +84,7 @@ async def test_connection_sensor_clean_disconnect_attribute(
     assert state
     assert state.attributes["clean_disconnect"] is True
 
-    mock_appliance.session.last_close_code = 1006
+    mock_appliance.session.close_code = 1006
     entry.runtime_data.coordinator.async_set_updated_data(None)
     await hass.async_block_till_done()
 
@@ -94,20 +94,20 @@ async def test_connection_sensor_clean_disconnect_attribute(
 
 async def test_update_enum(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test updating entity with enum."""
     entity_id = "binary_sensor.fake_brand_homeappliance_binarysensor_enum"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
 
-    await mock_appliance.entities["Test.BinarySensor.Enum"].update({"value": 0})
+    await update_entity(mock_appliance.entities["Test.BinarySensor.Enum"], {"value": 0})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state.state == STATE_OFF
 
-    await mock_appliance.entities["Test.BinarySensor.Enum"].update({"value": 1})
+    await update_entity(mock_appliance.entities["Test.BinarySensor.Enum"], {"value": 1})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
