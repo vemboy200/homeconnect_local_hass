@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
-from home_disconnect.message import Action
-from home_disconnect.message import Message as HC_Message
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
@@ -200,7 +198,11 @@ class HCLight(HCEntity, LightEntity):
                 self._color_mode_entity is not None
                 and self._color_mode_entity.value != "CustomColor"
             ):
-                color_mode_value = self._color_mode_entity._rev_enumeration["CustomColor"]  # noqa: SLF001
+                color_mode_value = next(
+                    key
+                    for key, name in (self._color_mode_entity.enum or {}).items()
+                    if name == "CustomColor"
+                )
                 message_data.append({"uid": self._color_mode_entity.uid, "value": color_mode_value})
 
         elif (
@@ -246,20 +248,12 @@ class HCLight(HCEntity, LightEntity):
             # upstream #477, a Siemens LC91KWW60/04 ambient light: a bare
             # power-on write succeeds, one that also carries a color value
             # gets the whole message rejected with WriteRequest NotAvailable).
-            power_message = HC_Message(
-                resource="/ro/values",
-                action=Action.POST,
-                data=[{"uid": self._entity.uid, "value": True}],
-            )
-            await self._runtime_data.appliance.session.send_sync(power_message)
+            await self._entity.set_value_raw(True)
 
         if message_data:
-            message = HC_Message(
-                resource="/ro/values",
-                action=Action.POST,
-                data=message_data,
+            await self._runtime_data.appliance.set_values_raw(
+                {item["uid"]: item["value"] for item in message_data}
             )
-            await self._runtime_data.appliance.session.send_sync(message)
 
     @error_decorator
     async def async_turn_off(self, **kwargs: Any) -> None:

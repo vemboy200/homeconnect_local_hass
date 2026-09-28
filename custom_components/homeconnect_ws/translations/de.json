@@ -4633,6 +4633,9 @@
     },
     "command_timeout": {
       "message": "Das Gerät hat den Befehl nicht rechtzeitig beantwortet"
+    },
+    "invalid_profile": {
+      "message": "Das gespeicherte Geräteprofil kann nicht gelesen werden: {error}. Aktualisiere das Profil über das Menü „Neu konfigurieren“ der Integration."
     }
   }
 }

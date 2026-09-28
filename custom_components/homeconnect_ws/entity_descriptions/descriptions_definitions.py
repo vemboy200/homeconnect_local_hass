@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal, NotRequired, TypedDict
 
-from home_disconnect import HomeAppliance
+from home_disconnect import Appliance
 from home_disconnect.entities import Access
 from homeassistant.components.binary_sensor import BinarySensorEntityDescription
 from homeassistant.components.button import ButtonEntityDescription
@@ -209,8 +209,7 @@ _EntityDescriptionsDefinitionsType = dict[
         "dynamic",
     ],
     list[
-        HCEntityDescription
-        | Callable[[HomeAppliance], HCEntityDescription | EntityDescriptions | None]
+        HCEntityDescription | Callable[[Appliance], HCEntityDescription | EntityDescriptions | None]
     ],
 ]
 

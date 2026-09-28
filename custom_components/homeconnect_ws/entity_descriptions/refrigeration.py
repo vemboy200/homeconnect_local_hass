@@ -22,10 +22,10 @@ from .descriptions_definitions import (
 )
 
 if TYPE_CHECKING:
-    from home_disconnect import HomeAppliance
+    from home_disconnect import Appliance
 
 
-def generate_internal_light(appliance: HomeAppliance) -> HCLightEntityDescription | None:
+def generate_internal_light(appliance: Appliance) -> HCLightEntityDescription | None:
     """Get internal light description."""
     if "Refrigeration.Common.Setting.Light.Internal.Power" not in appliance.entities:
         return None
@@ -44,7 +44,7 @@ def generate_internal_light(appliance: HomeAppliance) -> HCLightEntityDescriptio
 
 
 def generate_internal_light_brightness(
-    appliance: HomeAppliance,
+    appliance: Appliance,
 ) -> HCNumberEntityDescription | None:
     """Get internal light brightness description."""
     if "Refrigeration.Common.Setting.Light.Internal.Brightness" not in appliance.entities:

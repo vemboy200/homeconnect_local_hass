@@ -4252,6 +4252,9 @@
     },
     "command_timeout": {
       "message": "The appliance did not answer the command in time"
+    },
+    "invalid_profile": {
+      "message": "The stored appliance profile can't be read: {error}. Update the profile from the integration's Reconfigure menu."
     }
   },
   "options": {

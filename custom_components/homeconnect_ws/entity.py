@@ -14,6 +14,7 @@ from .helpers import entity_is_available, is_lockable, is_locked
 
 if TYPE_CHECKING:
     from home_disconnect.entities import Entity as HcEntity
+    from home_disconnect.entities import Program
     from homeassistant.helpers.device_registry import DeviceInfo
 
     from . import HCData
@@ -31,7 +32,7 @@ class HCEntity(CoordinatorEntity[HomeConnectCoordinator], Entity):
     entity_description: HCEntityDescription
     _attr_has_entity_name = True
     _entity: HcEntity | None = None
-    _entities: list[HcEntity]
+    _entities: list[HcEntity | Program]
     _extra_attributes: list[ExtraAttributeDict]
     _has_callback: bool = False
     # Whether a locked (read-only) Option/Setting/SelectedProgram stays

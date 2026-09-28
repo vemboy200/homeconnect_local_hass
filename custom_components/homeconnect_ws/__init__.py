@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Never
 
 import voluptuous as vol
-from home_disconnect import CodeResponsError, Entity
-from home_disconnect.entities import Access
-from home_disconnect.message import Action
-from home_disconnect.message import Message as HC_Message
+from home_disconnect import AccessError, Entity, ResponseError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_DESCRIPTION, EVENT_HOMEASSISTANT_STOP
 from homeassistant.exceptions import ConfigEntryError, ServiceValidationError
@@ -34,13 +30,13 @@ from .const import (
 )
 from .coordinator import HomeConnectCoordinator
 from .entity_descriptions import get_available_entities
-from .helpers import build_known_option_set, error_decorator, get_config_entry_from_call
+from .helpers import error_decorator, get_config_entry_from_call
 from .profile_storage import load_description_files, remove_description_files
 
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from home_disconnect import HomeAppliance
+    from home_disconnect import Appliance
     from homeassistant.core import Event, HomeAssistant, ServiceCall, ServiceResponse
     from homeassistant.helpers.typing import ConfigType
 
@@ -64,7 +60,7 @@ CONFIG_SCHEMA = vol.Schema(
 class HCData:
     """Dataclass for runtime data."""
 
-    appliance: HomeAppliance
+    appliance: Appliance
     device_info: DeviceInfo
     available_entity_descriptions: _EntityDescriptionsType
     coordinator: HomeConnectCoordinator
@@ -97,14 +93,8 @@ type HCConfigEntry = ConfigEntry[HCData]
 
 HC_KEY: HassKey[HCConfig] = HassKey(DOMAIN)
 
-# Roughly one broadcast cycle - confirmed on issue #384's dryer, which
-# reports ActiveProgram's access as READ_WRITE for a narrow window roughly
-# every 30s. Long enough to catch the next window, short enough to fail
-# fast if the appliance stops broadcasting it at all.
-_ACTIVE_PROGRAM_WRITABLE_TIMEOUT = 35
 
-
-def _raise_start_error(err: CodeResponsError) -> Never:
+def _raise_start_error(err: ResponseError) -> Never:
     raise ServiceValidationError(
         translation_domain=DOMAIN,
         translation_key="start_program_error",
@@ -112,73 +102,7 @@ def _raise_start_error(err: CodeResponsError) -> Never:
     ) from None
 
 
-async def _wait_for_writable(entity: Entity) -> None:
-    """
-    Wait for entity.access to allow a write, bounded to about one broadcast cycle.
-
-    Some appliances broadcast a descriptionChange NOTIFY flipping an entity's
-    access between READ and READ_WRITE on their own schedule rather than
-    accepting a write at any time. AccessMixin already tracks the live
-    access state, so wait for the next update that makes it writable instead
-    of firing blind into a closed window.
-    """
-    if getattr(entity, "access", None) in (Access.READ_WRITE, Access.WRITE_ONLY):
-        return
-    became_writable = asyncio.Event()
-
-    async def _on_update(_: Entity) -> None:
-        if getattr(entity, "access", None) in (Access.READ_WRITE, Access.WRITE_ONLY):
-            became_writable.set()
-
-    entity.register_callback(_on_update)
-    try:
-        async with asyncio.timeout(_ACTIVE_PROGRAM_WRITABLE_TIMEOUT):
-            await became_writable.wait()
-    except TimeoutError:
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="finish_in_not_writable",
-        ) from None
-    finally:
-        entity.unregister_callback(_on_update)
-
-
-async def _set_finish_in_with_active_program(
-    appliance: HomeAppliance, finish_in_entity: Entity, seconds: int
-) -> None:
-    """
-    Fall back for appliances where FinishInRelative can't be set on its own.
-
-    Confirmed on a Siemens dryer (issue #384): POST /ro/activeProgram returns
-    501 NotImplemented outright, and a standalone FinishInRelative write
-    returns 541 ProcessStateNotCompliant. The official app's own captured
-    traffic shows the only format this appliance accepts is FinishInRelative
-    and ActiveProgram written together in a single /ro/values message, sent
-    while ActiveProgram's own access briefly reports READ_WRITE.
-    """
-    active_program_entity = appliance.entities.get("BSH.Common.Root.ActiveProgram")
-    program = appliance.selected_program
-    if active_program_entity is None or program is None:
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="no_program_selected",
-        )
-    await _wait_for_writable(active_program_entity)
-    message = HC_Message(
-        resource="/ro/values",
-        action=Action.POST,
-        data=[
-            {"uid": finish_in_entity.uid, "value": seconds},
-            {"uid": active_program_entity.uid, "value": program.uid},
-        ],
-    )
-    try:
-        await appliance.session.send_sync(message)
-    except CodeResponsError as exc:
-        _raise_start_error(exc)
-
-
-def _get_entity_or_raise(appliance: HomeAppliance, key: str, error_key: str) -> Entity:
+def _get_entity_or_raise(appliance: Appliance, key: str, error_key: str) -> Entity:
     entity = appliance.entities.get(key)
     if not entity:
         raise ServiceValidationError(
@@ -199,7 +123,7 @@ def _duration_to_seconds(data: dict[str, Any]) -> int:
 async def _set_value_or_raise(entity: Entity, relative_time_in_seconds: int) -> None:
     try:
         await entity.set_value(relative_time_in_seconds)
-    except CodeResponsError as exc:
+    except ResponseError as exc:
         _raise_start_error(exc)
 
 
@@ -215,32 +139,26 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     async def handle_start_program(call: ServiceCall) -> ServiceResponse:
         config_entry = await get_config_entry_from_call(hass, call)
 
-        options: dict[int, str | int | bool] = {}
+        options: dict[Entity | str | int, Any] = {}
         appliance = config_entry.runtime_data.appliance
         if "start_in" in call.data:
             entity = _get_entity_or_raise(
                 appliance, "BSH.Common.Option.StartInRelative", "start_in_not_available"
             )
-            options[entity.uid] = _duration_to_seconds(call.data["start_in"])
+            options[entity] = _duration_to_seconds(call.data["start_in"])
 
         if "finish_in" in call.data:
             entity = _get_entity_or_raise(
                 appliance, "BSH.Common.Option.FinishInRelative", "finish_in_not_available"
             )
-            options[entity.uid] = _duration_to_seconds(call.data["finish_in"])
+            options[entity] = _duration_to_seconds(call.data["finish_in"])
 
         if appliance.selected_program:
             try:
-                # The requested start_in/finish_in on top of the known option
-                # values; the default merge would also add null for every
-                # option the appliance never reported, and the appliance
-                # rejects the write with 400. See HCStartButton.
-                options = {
-                    **build_known_option_set(appliance, appliance.selected_program),
-                    **options,
-                }
-                await appliance.selected_program.start(options, override_options=True)
-            except CodeResponsError as exc:
+                # The library adds the program's known option values (or a
+                # full set, for appliances that want one) under these.
+                await appliance.start_program(options=options)
+            except ResponseError as exc:
                 _raise_start_error(exc)
         else:
             raise ServiceValidationError(
@@ -265,22 +183,19 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     async def handle_set_finish_in(call: ServiceCall) -> ServiceResponse:
         config_entry = await get_config_entry_from_call(hass, call)
         appliance = config_entry.runtime_data.appliance
-        finish_in_entity = _get_entity_or_raise(
+        _get_entity_or_raise(
             appliance, "BSH.Common.Option.FinishInRelative", "finish_in_not_available"
         )
         seconds = _duration_to_seconds(call.data["finish_in"])
         try:
-            await finish_in_entity.set_value(seconds)
-        except CodeResponsError as exc:
-            # Only the two codes actually seen on issue #384's dryer trigger
-            # the fallback - anything else (an out-of-range value, the
-            # ordinary "Option locked while no compatible program is
-            # selected" pattern from #59, etc.) is a real, unrelated
-            # rejection and should surface immediately, not spend up to 35s
-            # waiting on an ActiveProgram window that will never open.
-            if exc.code not in (501, 541):
-                _raise_start_error(exc)
-            await _set_finish_in_with_active_program(appliance, finish_in_entity, seconds)
+            # Includes the fallback for appliances that only accept
+            # FinishInRelative together with the active program (issue #384).
+            await appliance.set_finish_in(seconds)
+        except ResponseError as exc:
+            _raise_start_error(exc)
+        except AccessError as exc:
+            key = "no_program_selected" if "No program" in str(exc) else "finish_in_not_writable"
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key=key) from None
         return None
 
     hass.services.async_register(DOMAIN, "start_program", handle_start_program)
@@ -307,15 +222,17 @@ async def async_setup_entry(
         # migration step - it has to happen here, every time, cheaply
         # short-circuited by the CONF_DESCRIPTION check above once an entry
         # has been converted.
-        description = await load_description_files(hass, config_entry)
+        converted = await load_description_files(hass, config_entry)
         new_data = {
             k: v
             for k, v in config_entry.data.items()
             if k not in (CONF_APPLIANCE_INFO, CONF_DESCRIPTION_FILENAME, CONF_FEATURE_FILENAME)
         }
-        new_data[CONF_DESCRIPTION] = description
+        new_data.update(converted)
         await remove_description_files(hass, config_entry)
-        _LOGGER.debug("Converted %s from v2 to v1 storage", description["info"].get("vib"))
+        _LOGGER.debug(
+            "Converted %s from v2 to v1 storage", converted[CONF_DESCRIPTION]["info"].get("vib")
+        )
 
     if new_data is not None or config_entry.version != 1:
         # VERSION is declared as 2 (see config_flow.py) purely so HA

@@ -6,8 +6,12 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from home_disconnect.entities import Access, Option, SelectedProgram, Setting
-from home_disconnect.errors import AccessError, CodeResponsError, NotConnectedError
+from home_disconnect import (
+    AccessError,
+    ConnectionClosedError,
+    InvalidValueError,
+    ResponseError,
+)
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.service import async_extract_config_entry_ids
 
@@ -15,11 +19,10 @@ from .const import DOMAIN
 
 if TYPE_CHECKING:
     import re
-    from collections.abc import Callable, Coroutine, Iterator
+    from collections.abc import Callable, Coroutine
 
-    from home_disconnect import HomeAppliance
-    from home_disconnect.entities import Entity as HcEntity
-    from home_disconnect.entities import Program
+    from home_disconnect import Access, Appliance
+    from home_disconnect import Entity as HcEntity
     from homeassistant.core import HomeAssistant, ServiceCall
 
     from . import HCConfigEntry, HCData
@@ -68,9 +71,7 @@ class EntityMatch:
     groups: tuple[str, ...]
 
 
-def get_entities_from_regex(
-    appliance: HomeAppliance, pattern: re.Pattern[str]
-) -> list[EntityMatch]:
+def get_entities_from_regex(appliance: Appliance, pattern: re.Pattern[str]) -> list[EntityMatch]:
     """Get all entities matching the pattern."""
     return [
         EntityMatch(entity=entity, groups=match.groups())
@@ -79,9 +80,7 @@ def get_entities_from_regex(
     ]
 
 
-def get_groups_from_regex(
-    appliance: HomeAppliance, pattern: re.Pattern[str]
-) -> set[tuple[str, ...]]:
+def get_groups_from_regex(appliance: Appliance, pattern: re.Pattern[str]) -> set[tuple[str, ...]]:
     """Get all regex groups matching the pattern."""
     groups: set[tuple[str, ...]] = set()
     for entity in appliance.entities:
@@ -108,19 +107,23 @@ def entity_is_available(
     """Check is HC entity is available."""
     available = True
     if entity is not None and hasattr(entity, "available"):
-        available &= entity.available
+        # None (not reported yet) counts as available.
+        available &= entity.available is not False
 
     if entity is not None and available_access is not None and hasattr(entity, "access"):
-        available &= entity.access in available_access
+        access = entity.access
+        # readStatic is read-only and fixed (e.g. an oven cavity's size): wherever
+        # READ counts as available, so does READ_STATIC.
+        if access is not None and access.value == "readstatic":
+            available &= any(a.value == "read" for a in available_access)
+        else:
+            available &= access in available_access
     return available
-
-
-_LOCKABLE_ENTITY_TYPES = (Option, Setting, SelectedProgram)
 
 
 def is_lockable(entity: HcEntity | None) -> bool:
     """Whether entity is a type HC locks read-only rather than hides, regardless of access."""
-    return isinstance(entity, _LOCKABLE_ENTITY_TYPES)
+    return entity is not None and entity.lockable
 
 
 def is_locked(entity: HcEntity | None) -> bool:
@@ -128,20 +131,12 @@ def is_locked(entity: HcEntity | None) -> bool:
     Whether entity is currently locked read-only, not just inapplicable.
 
     Options (e.g. an iDos dosing switch while a program runs),
-    SelectedProgram (e.g. while a delayed start is armed - confirmed live on
-    fork issue #59 via a Bosch WGB244A0BY's own debug log, access flips
-    READ_WRITE -> READ the moment the delay is armed and back once the wash
-    actually starts) and Settings (e.g. a Bosch WQB245A0BY dryer's
-    CupboardDryFineAdjust/IronDryFineAdjust, READ for the whole ~1h47m of a
-    running program and READ_WRITE again once it ends, from the same issue)
-    are the HC entity types whose write access depends on appliance state
-    this way - Home Connect itself shows these as visible-but-disabled on the
-    appliance's own panel/app rather than hiding them. Access.READ
-    specifically means "still readable, just not writable right now" -
-    Access.NONE means "not applicable at all", which should stay genuinely
-    unavailable rather than shown as read-only.
+    SelectedProgram (e.g. while a delayed start is armed - fork issue #59) and
+    Settings (e.g. a dryer's fine-adjust settings during a program) are
+    locked READ rather than hidden - the library's Entity.locked. Access.NONE
+    means "not applicable at all" and stays unavailable instead.
     """
-    return isinstance(entity, _LOCKABLE_ENTITY_TYPES) and entity.access == Access.READ
+    return entity is not None and entity.locked
 
 
 def ensure_writable(entity: HcEntity | None) -> None:
@@ -151,111 +146,6 @@ def ensure_writable(entity: HcEntity | None) -> None:
             translation_domain=DOMAIN,
             translation_key="read_only",
         )
-
-
-def needs_full_option_set(program: Program) -> bool:
-    """
-    Whether this appliance expects program and options as one complete write.
-
-    Appliance-wide: Program.full_option_set falls back to the appliance value,
-    which is true as soon as *either* SelectedProgram or ActiveProgram declares
-    the flag. Right for the ActiveProgram writes (start button, fan) - for a
-    SelectedProgram write use selected_program_needs_full_option_set().
-    """
-    return program.full_option_set
-
-
-def selected_program_needs_full_option_set(entity: SelectedProgram) -> bool:
-    """
-    Whether a write to SelectedProgram itself has to carry the complete option set.
-
-    A device description declares fullOptionSet per resource, and the two can
-    disagree: a Siemens EQ.9 CoffeeMaker has
-
-        <selectedProgram fullOptionSet="false" access="readwrite" />
-        <activeProgram   fullOptionSet="true"  access="read" />
-
-    so selecting a program there is an ordinary SelectedProgram write, while
-    the appliance-wide value says otherwise. Ask the entity being written to,
-    not the appliance.
-    """
-    return entity.full_option_set
-
-
-def is_unplugged_probe(appliance: HomeAppliance, option: Option) -> bool:
-    """
-    Whether option is a meat probe setpoint while no probe is plugged in.
-
-    Supplying it anyway makes the appliance reject the entire program write.
-    """
-    if "MeatProbeTemperature" not in option.name:
-        return False
-    plugged = appliance.status.get("Cooking.Oven.Status.MeatprobePlugged")
-    return not bool(getattr(plugged, "value", False))
-
-
-def _writable_options(appliance: HomeAppliance, program: Program) -> Iterator[Option]:
-    """
-    Yield the program's options that may go into a program write right now.
-
-    Skips read-only options, an unplugged meat probe, and options the appliance
-    does not offer for this program at the moment (available is False): a
-    Siemens EQ.9 CoffeeMaker lists DisplayName on every beverage program but
-    never reports it or makes it available, and sending any value for it makes
-    the appliance reject the whole write with 400 - the same effect the
-    meat-probe special case guards against, just for the general case.
-    """
-    for opt in program._options:  # noqa: SLF001
-        if opt.access != Access.READ_WRITE:
-            continue
-        if is_unplugged_probe(appliance, opt):
-            continue
-        if opt.available is False:
-            continue
-        yield opt
-
-
-def build_known_option_set(
-    appliance: HomeAppliance, program: Program
-) -> dict[int, str | int | bool]:
-    """
-    Collect the options whose value the appliance has reported, for a program write.
-
-    Mirrors the library's default merge (every READ_WRITE option's value_shadow)
-    so that known values still go out - a hood's Venting program needs its real
-    level to start - but leaves out options that have no value yet. The library
-    would send those as {"uid": x, "value": None}, and an appliance that never
-    reported the option rejects the whole write with 400.
-    """
-    options: dict[int, str | int | bool] = {}
-    for opt in _writable_options(appliance, program):
-        value = opt.value_shadow
-        if value is None:
-            value = opt.value
-        if value is None:
-            continue
-        options[opt.uid] = value
-    return options
-
-
-def build_full_option_set(
-    appliance: HomeAppliance, program: Program
-) -> dict[int, str | int | bool]:
-    """
-    Collect a complete, well-formed option set for a program write.
-
-    An appliance that wants a full option set rejects {"uid": x, "value": None}
-    entries, so on top of the known values fall back to the option's minimum.
-    Options that stay valueless even then are left out rather than sent as null.
-    """
-    options = build_known_option_set(appliance, program)
-    for opt in _writable_options(appliance, program):
-        if opt.uid in options or opt.min is None:
-            continue
-        # opt.min is typed float (generic XML min/max parsing), but the
-        # wire protocol only ever takes int/str/bool option values.
-        options[opt.uid] = int(opt.min)
-    return options
 
 
 def error_decorator[T](
@@ -271,13 +161,19 @@ def error_decorator[T](
                 translation_domain=DOMAIN,
                 translation_key="access_error",
             ) from None
-        except CodeResponsError as exc:
+        except InvalidValueError as exc:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="code_respons",
+                translation_placeholders={"message": str(exc)},
+            ) from None
+        except ResponseError as exc:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="code_respons",
-                translation_placeholders={"message": exc.message},
+                translation_placeholders={"message": str(exc)},
             ) from None
-        except NotConnectedError:
+        except ConnectionClosedError:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="not_connected",

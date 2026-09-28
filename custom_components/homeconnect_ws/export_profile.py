@@ -7,10 +7,10 @@ import zipfile
 from io import BytesIO
 from typing import TYPE_CHECKING
 
-from home_disconnect import serialize_device_description
 from homeassistant.const import CONF_DESCRIPTION, CONF_MODE
 
 from .const import CONF_AES_IV, CONF_PSK
+from .profile_storage import profile_xml_from_entry_data
 
 if TYPE_CHECKING:
     from . import HCConfigEntry
@@ -41,7 +41,7 @@ def build_profile_zip(config_entry: HCConfigEntry, full: bool) -> bytes:  # noqa
     description_filename = f"{stub}_DeviceDescription.xml"
     feature_filename = f"{stub}_FeatureMapping.xml"
 
-    device_description_xml, feature_mapping_xml = serialize_device_description(description)
+    device_description_xml, feature_mapping_xml = profile_xml_from_entry_data(config_entry.data)
 
     buffer = BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:

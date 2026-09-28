@@ -7,8 +7,6 @@ import math
 from typing import TYPE_CHECKING, Any, Final, NamedTuple, override
 
 from home_disconnect.entities import Access
-from home_disconnect.message import Action
-from home_disconnect.message import Message as HC_Message
 from homeassistant.components.fan import FanEntity, FanEntityFeature
 from homeassistant.core import callback
 from homeassistant.exceptions import ServiceValidationError
@@ -19,11 +17,9 @@ from .const import DOMAIN
 from .entity import HCEntity
 from .entity_descriptions.common import POWER_OFF_STATE_NAMES
 from .helpers import (
-    build_full_option_set,
     create_entities,
     entity_is_available,
     error_decorator,
-    needs_full_option_set,
 )
 
 if TYPE_CHECKING:
@@ -226,11 +222,10 @@ class HCFan(HCEntity, FanEntity):
         *,
         entity_name: str | None = None,
         value: int = 0,
-    ) -> dict[int, str | int | bool]:
+    ) -> dict[HcEntity | str | int, Any]:
         """Build writable fan option uids for the given program."""
-        options: dict[int, str | int | bool] = {}
-        # Program.options has no public accessor in the library yet.
-        for option in program._options:  # noqa: SLF001
+        options: dict[HcEntity | str | int, Any] = {}
+        for option in program.options:
             if option.name not in self._speed_entities:
                 continue
             if option.access != Access.READ_WRITE:
@@ -275,7 +270,8 @@ class HCFan(HCEntity, FanEntity):
                 translation_placeholders={"percentage": str(percentage)},
             )
 
-        await program.start(options)
+        # The new speed on top of the program's known option values.
+        await self._runtime_data.appliance.start_program(program, options=options)
         self.async_write_ha_state()
 
     @error_decorator
@@ -293,12 +289,7 @@ class HCFan(HCEntity, FanEntity):
             # appliance whose ActiveProgram is flagged fullOptionSet validates
             # a program write against the program's complete option set and
             # rejects an empty one. Confirmed live on a Bosch hood.
-            options = (
-                build_full_option_set(self._runtime_data.appliance, program)
-                if needs_full_option_set(program)
-                else {}
-            )
-            await program.start(options, override_options=True)
+            await self._runtime_data.appliance.start_program(program, include_current_options=False)
         else:
             await self.async_set_percentage(int(percentage))
         self.async_write_ha_state()
@@ -376,33 +367,15 @@ class HCFan(HCEntity, FanEntity):
         venting_level = appliance.options[_VENTING_LEVEL_ENTITY]
         venting_intensive_level = appliance.options.get(_VENTING_INTENSIVE_LEVEL_ENTITY)
 
-        options: list[dict[str, Any]] = [
-            {"uid": venting_level.uid, "value": 0},
-            {"uid": venting_boost.uid, "value": True},
-        ]
+        options: dict[int, Any] = {venting_level.uid: 0, venting_boost.uid: True}
         # Make intensive level optional (not sure if such a case can happen)
         if venting_intensive_level is not None:
-            options.append({"uid": venting_intensive_level.uid, "value": 0})
-
-        message_data: list[dict[str, Any]] = []
-        message_data.append({"program": venting_program.uid, "options": options})
-        message = HC_Message(
-            resource="/ro/activeProgram",
-            action=Action.POST,
-            data=message_data,
-        )
-        await self._runtime_data.appliance.session.send_sync(message)
+            options[venting_intensive_level.uid] = 0
+        await venting_program.start(raw_options=options)
 
     async def stop_boost(self) -> None:
         """Set new preset mode."""
         appliance = self._runtime_data.appliance
         venting_program = appliance.programs[_VENTING_PROGRAM_ENTITY]
 
-        message_data: list[dict[str, Any]] = []
-        message_data.append({"program": venting_program.uid, "options": []})
-        message = HC_Message(
-            resource="/ro/activeProgram",
-            action=Action.POST,
-            data=message_data,
-        )
-        await self._runtime_data.appliance.session.send_sync(message)
+        await venting_program.start(raw_options={})

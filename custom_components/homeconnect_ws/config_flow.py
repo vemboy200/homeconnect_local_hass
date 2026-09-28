@@ -2,29 +2,26 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import random
-import re
-from asyncio import Event, wait_for
 from binascii import Error as BinasciiError
 from copy import deepcopy
 from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
-from zipfile import ZipFile
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-from aiohttp import ClientConnectionError, ClientConnectorSSLError
+from aiohttp import ClientConnectionError
 from home_disconnect import (
+    Appliance,
     AuthenticationError,
-    ConnectionFailedError,
-    ConnectionState,
-    HCHandshakeError,
-    HomeAppliance,
-    ParserError,
-    parse_device_description,
+    HomeDisconnectError,
+    LoadedProfile,
+    ProfileError,
+    load_profiles_from_zip,
 )
 from homeassistant.components import zeroconf
 from homeassistant.components.file_upload import process_uploaded_file
@@ -58,6 +55,8 @@ from zeroconf.asyncio import AsyncServiceInfo
 from . import HC_KEY, HCConfig, LegacyOAuthCache
 from .const import (
     CONF_AES_IV,
+    CONF_DESCRIPTION_XML,
+    CONF_FEATURE_MAPPING_XML,
     CONF_FILE,
     CONF_MANUAL_HOST,
     CONF_PSK,
@@ -73,6 +72,7 @@ from .hc_legacy_oauth import build_authorize_url as legacy_build_authorize_url
 from .hc_legacy_oauth import extract_code_from_redirect as legacy_extract_code_from_redirect
 from .hc_legacy_oauth import generate_code_verifier as legacy_generate_code_verifier
 from .hc_legacy_oauth import generate_state as legacy_generate_state
+from .profile_storage import profile_from_entry_data
 
 CONF_LEGACY_REDIRECT_URL = "legacy_redirect_url"
 HC_SERVICE_TYPE = "_homeconnect._tcp.local."
@@ -120,33 +120,36 @@ CONFIG_REGION_SCHEMA = vol.Schema(
 )
 
 
+def appliance_payload(loaded: LoadedProfile) -> AppliancePayload:
+    """Turn a loaded profile into the flow's per-appliance data."""
+    if loaded.connection is None:
+        msg = "The profile has no key"
+        raise ValueError(msg)
+    info = loaded.profile.info
+    return {
+        "info": dict(loaded.connection.raw),
+        "description_info": {
+            "type": info.type,
+            "brand": info.brand,
+            "model": info.model,
+            "vib": info.model,
+            "version": info.version,
+            "revision": info.revision,
+        },
+        "description_xml": loaded.description_xml.decode(),
+        "feature_mapping_xml": loaded.feature_mapping_xml.decode(),
+    }
+
+
 def process_zip_file(config_path: Path) -> dict[str, AppliancePayload]:
     """Process uploaded zip file."""
-    profile_file = ZipFile(config_path)
-
     appliances: dict[str, AppliancePayload] = {}
-    re_info = re.compile(".*.json$")
-    infolist = profile_file.infolist()
-    for file in infolist:
-        if re_info.match(file.filename):
-            appliance_info = json.load(profile_file.open(file))
-
-            description_file_name = appliance_info["deviceDescriptionFileName"]
-            feature_file_name = appliance_info["featureMappingFileName"]
-            description_file = profile_file.open(description_file_name).read()
-            feature_file = profile_file.open(feature_file_name).read()
-
-            # home_disconnect's parse_device_description() is typed as
-            # str | TextIO, but it just forwards to xmltodict.parse(), which
-            # also accepts bytes (as returned by ZipFile.open().read() here).
-            appliance_description = parse_device_description(
-                cast("str", description_file), cast("str", feature_file)
-            )
-            appliances[appliance_info["haId"]] = {
-                "info": appliance_info,
-                "description": appliance_description,
-            }
-            _LOGGER.debug("Found Appliance %s", appliance_info["vib"])
+    for loaded in load_profiles_from_zip(config_path.read_bytes()):
+        if loaded.connection is None:
+            # An XML pair without its key (e.g. a "safe" export) can't be set up.
+            continue
+        appliances[loaded.connection.ha_id] = appliance_payload(loaded)
+        _LOGGER.debug("Found Appliance %s", loaded.connection.raw.get("vib"))
     return appliances
 
 
@@ -347,10 +350,10 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
                             self.data[CONF_AES_IV] = None
                             _LOGGER.info("PSK override")
 
-            except ParserError as exc:
+            except ProfileError as exc:
                 return self.async_abort(
                     reason="profile_file_parser_error",
-                    description_placeholders={"error": exc.args[0]},
+                    description_placeholders={"error": str(exc)},
                 )
             except (KeyError, ValueError):
                 return self.async_abort(reason="invalid_profile_file")
@@ -422,51 +425,36 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         """Test connection with Appliance."""
         _LOGGER.debug("Testing connection to %s Appliance", self.data[CONF_MODE])
         self.errors = {}
-        event = Event()
-
-        async def connection_callback(state: ConnectionState) -> None:
-            if state == ConnectionState.CONNECTED:
-                event.set()
-
-        appliance = HomeAppliance(
-            description=deepcopy(self.data[CONF_DESCRIPTION]),
-            host=self.data[CONF_HOST],
-            app_name="Homeassistant",
-            app_id=self.data[CONF_DEVICE_ID],
-            psk64=self.data[CONF_PSK],
-            iv64=self.data.get(CONF_AES_IV, None),
-            connection_callback=connection_callback,
-            # Same reason as coordinator.py: keep socket/session logs under
-            # this integration's logger so HA's homeconnect_ws log filter
-            # includes them.
-            logger=_LOGGER,
-        )
+        appliance: Appliance | None = None
         try:
-            await appliance.connect()
-            await wait_for(event.wait(), timeout=20)
+            appliance = Appliance(
+                async_get_clientsession(self.hass),
+                self.data[CONF_HOST],
+                profile_from_entry_data(self.data),
+                self.data[CONF_PSK],
+                self.data.get(CONF_AES_IV, None),
+                app_name="Homeassistant",
+                app_id=self.data[CONF_DEVICE_ID],
+                reconnect=False,
+                info=deepcopy(self.data[CONF_DESCRIPTION]["info"]),
+            )
+            async with asyncio.timeout(20):
+                await appliance.connect()
             self.data[CONF_DESCRIPTION]["info"].update(appliance.info)
             if self.unique_id is None:
                 # The setup-from-dump path skips async_step_device_select,
                 # the only other place a unique_id gets set.
                 await self.async_set_unique_id(appliance.info["deviceID"])
 
-        except ClientConnectorSSLError as ex:
-            _LOGGER.debug("validate_config failed: %s", ex)
-            if self.data[CONF_MODE] == "TLS":
-                self.errors["base"] = "cannot_connect"
-            else:
-                return self.async_abort(reason="auth_failed")
-        except BinasciiError as ex:
+        except (BinasciiError, AuthenticationError) as ex:
             _LOGGER.debug("validate_config failed: %s", ex)
             return self.async_abort(reason="auth_failed")
-        except AuthenticationError as ex:
-            _LOGGER.debug("validate_config failed: %s", ex)
-            return self.async_abort(reason="auth_failed")
-        except (TimeoutError, ClientConnectionError, ConnectionFailedError, HCHandshakeError) as ex:
+        except (TimeoutError, ClientConnectionError, HomeDisconnectError) as ex:
             _LOGGER.debug("validate_config failed: %s", ex)
             self.errors["base"] = "cannot_connect"
         finally:
-            await appliance.close()
+            if appliance is not None:
+                await appliance.close()
         if self.errors:
             if not self.data.get(CONF_MANUAL_HOST, False):
                 # This attempt used the automatically-guessed mDNS-style
@@ -622,7 +610,9 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         try:
             appliance_info = appliance["info"]
 
-            self.data[CONF_DESCRIPTION] = appliance["description"]
+            self.data[CONF_DESCRIPTION] = {"info": dict(appliance["description_info"])}
+            self.data[CONF_DESCRIPTION_XML] = appliance["description_xml"]
+            self.data[CONF_FEATURE_MAPPING_XML] = appliance["feature_mapping_xml"]
 
             self.data[CONF_DEVICE_ID] = random.randbytes(4).hex()  # noqa: S311
             self.data[CONF_NAME] = f"{appliance_info['brand']} {appliance_info['type']}"
