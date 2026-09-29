@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 from custom_components.homeconnect_ws.const import DOMAIN
+from custom_components.homeconnect_ws.coordinator import TROUBLESHOOTING_URL
 from home_disconnect import ConnectionState
 from home_disconnect.messages import Message
 
@@ -103,3 +107,15 @@ async def test_async_get_network_info_coalesces_concurrent_calls(
 
     assert first == second == _SAMPLE_NETWORK_INFO
     mock_appliance.session.request.assert_not_called()
+
+
+def test_troubleshooting_url_points_at_a_real_heading() -> None:
+    """The link in the setup error names a docs page and heading that exist."""
+    url = urlsplit(TROUBLESHOOTING_URL)
+    doc = Path(__file__).parent.parent / url.path.split("/blob/beta/", 1)[1]
+    headings = {
+        re.sub(r"[^a-z0-9 -]", "", line.lstrip("#").strip().lower()).replace(" ", "-")
+        for line in doc.read_text(encoding="utf-8").splitlines()
+        if line.startswith("#")
+    }
+    assert url.fragment in headings

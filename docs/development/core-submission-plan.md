@@ -86,8 +86,10 @@ Core requires code that talks to a device or service to live in the library, not
 | `hc_cloud_api.py` and `hc_legacy_oauth.py` (account sign-in and profile fetch) | One library module, something like `home_disconnect.account` (drop the "legacy" name, it's the app's own sign-in) |
 | Profile ZIP reading and writing (`config_flow.py`, `export_profile.py`, `hc_cloud_api.py`) | One library profile loader and writer (the simulator can use it too) |
 | Clock sync timestamp format | Something like `appliance.set_datetime()` |
+| Feature names written as strings in the entity descriptions (`"BSH.Common.Status.DoorState"`, about 380 of them) | Library constants the descriptions reference, the way core's `home_connect` uses `aiohomeconnect`'s `StatusKey` |
+| Finding oven cavities, hob zones and favorites in the profile (`get_groups_from_regex` and the regexes in `cooking.py` and `common.py`) | A library call that lists them, for example an oven's cavity IDs |
 
-Entities, entity descriptions, the config flow UI, storage paths, the error decorator and translations stay in the integration.
+Entities, entity descriptions, the config flow UI, storage paths, the error decorator and translations stay in the integration. The descriptions are Home Assistant code (they extend HA's `*EntityDescription` classes and use its device classes and units), and a library can't depend on Home Assistant. Core's `roborock` is the pattern: its descriptions live in the integration and point at the library for the value (`data.status.battery`), the options (`WaterLevelMapping`) and the command (`api.set_water_level`).
 
 The integration is MIT (© chris_mc1), so code moved from here into the library is licensed. Keep the MIT notice and credit him.
 

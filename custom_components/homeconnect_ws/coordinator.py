@@ -44,11 +44,13 @@ _LOGGER = logging.getLogger(__name__)
 
 # A sustained "Can't connect" failure has more than one real cause (a stale/
 # wrong encryption key, a genuinely offline appliance, or a stuck local API
-# needing a power cycle - see the README's "websocket shutdown" section) -
-# not something a single log line can diagnose, so point at the doc instead
-# of guessing which one it is.
+# needing a power cycle - see the troubleshooting doc's "websocket shutdown"
+# section) - not something a single log line can diagnose, so point at the doc
+# instead of guessing which one it is. The docs are on the default branch
+# (beta), and a test checks the page and heading still exist.
 TROUBLESHOOTING_URL = (
-    "https://github.com/vemboy200/homeconnect_local_hass"
+    "https://github.com/vemboy200/homeconnect_local_hass/blob/beta"
+    "/docs/integration/support-and-troubleshooting.md"
     "#home-assistant-cannot-connect-to-my-appliance-what-should-i-do"
 )
 
