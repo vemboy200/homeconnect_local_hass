@@ -22,6 +22,7 @@ from home_disconnect import (
     AccessError,
     Appliance,
     ConnectionFailedError,
+    ConnectionState,
     ResponseError,
     serialize_legacy_description,
 )
@@ -595,11 +596,11 @@ async def test_nudge_reconnect_is_noop_when_already_connected(
     assert appliance.session.connect.call_count == connect_calls_before
 
 
-async def test_nudge_reconnect_is_noop_for_non_exempt_appliance(
+async def test_nudge_reconnect_skips_the_backoff_for_other_appliances(
     hass: HomeAssistant,
     mock_appliance: Appliance,
 ) -> None:
-    """A dishwasher's coordinator ignores the nudge - not in the exempt/disconnect-prone set."""
+    """A dishwasher reconnects through home-disconnect, so the nudge skips its backoff."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data=MOCK_CONFIG_DATA,
@@ -610,10 +611,14 @@ async def test_nudge_reconnect_is_noop_for_non_exempt_appliance(
     coord = entry.runtime_data.coordinator
 
     connect_calls_before = mock_appliance.session.connect.call_count
+    mock_appliance.state = ConnectionState.RECONNECTING
+    coord.connected = False
     coord.async_nudge_reconnect()
     await hass.async_block_till_done()
 
+    # No connect of its own: home-disconnect's reconnect loop does it.
     assert mock_appliance.session.connect.call_count == connect_calls_before
+    mock_appliance.session.retry_now.assert_called_once_with()
 
 
 async def test_setup_entry_washer_dryer_combo_connect_failure_is_non_blocking(

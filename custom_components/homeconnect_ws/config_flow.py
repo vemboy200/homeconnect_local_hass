@@ -639,11 +639,10 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
                 if not config_entry.data.get(CONF_MANUAL_HOST, False):
                     updates = {CONF_HOST: str(discovery_info.ip_address)}
                 if config_entry.state is ConfigEntryState.LOADED:
-                    # Standalone washers/dryers disable home-disconnect's own
-                    # auto-reconnect and rely on this re-announcement (or the
-                    # fallback poll) to notice they're back - nudge it now
-                    # rather than waiting out the poll's interval. A no-op for
-                    # every other appliance type and while already connected.
+                    # An appliance re-announcing itself is usually one that's
+                    # just come back (a washer powered on, a hob woken up), so
+                    # retry now instead of waiting for the next scheduled
+                    # attempt. A no-op while already connected.
                     config_entry.runtime_data.coordinator.async_nudge_reconnect()
             self._abort_if_unique_id_configured(updates=updates)
             self.data[CONF_HOST] = str(discovery_info.ip_address)

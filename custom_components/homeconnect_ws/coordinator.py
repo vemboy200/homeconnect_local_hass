@@ -75,8 +75,8 @@ SETUP_CONNECT_RETRY_DELAY = 3  # seconds
 # not exponential: unlike a connect failure at startup, we have no evidence
 # a temporarily-offline laundry appliance takes long to come back once it
 # does, and this is the guaranteed path (works even on networks where mDNS
-# doesn't route multicast) - an mDNS-triggered immediate reconnect is a
-# planned follow-up to shortcut this wait when discovery does work.
+# doesn't route multicast). When discovery does work, async_nudge_reconnect
+# shortcuts this wait.
 LAUNDRY_RECONNECT_POLL_INTERVAL = timedelta(seconds=20)
 
 # Standalone washers and dryers routinely cut their own WiFi radio entirely
@@ -350,8 +350,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
         Fallback reconnect for standalone washers/dryers (reconect=False).
 
         Runs unconditionally, regardless of mDNS: it's the guaranteed path,
-        not a backstop for a separate mDNS-driven reconnect (that's a planned
-        follow-up, layered on top of this rather than replacing it).
+        and async_nudge_reconnect's mDNS-driven retry is layered on top of it.
         """
         if self.connected:
             return
@@ -388,15 +387,25 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
 
     def async_nudge_reconnect(self) -> None:
         """
-        Retry immediately instead of waiting out the fallback poll's interval.
+        Retry immediately instead of waiting for the next scheduled attempt.
 
         Called from the zeroconf discovery flow (see async_step_zeroconf) when
         this appliance re-announces itself on mDNS - the same discovery that
         drives initial setup already fires on every re-announcement, so this
-        rides it rather than running a second, redundant listener. A no-op for
-        non-exempt appliance types or while already connected.
+        rides it rather than running a second, redundant listener. A no-op
+        while already connected.
+
+        Appliances that sleep can refuse connections for hours (fork issue
+        #119: a hob from 04:50 until it was turned on at 07:34), by which time
+        home-disconnect's backoff waits 5 minutes between attempts. They
+        announce themselves as soon as they wake, so skip that wait.
         """
-        if self._escalate_connectivity_logging or self.connected:
+        if self.connected:
+            return
+        if self._escalate_connectivity_logging:
+            # home-disconnect reconnects this one; retry_now() does nothing
+            # unless it's actually between attempts.
+            self.appliance.retry_now()
             return
         self.config_entry.async_create_background_task(
             self.hass,
