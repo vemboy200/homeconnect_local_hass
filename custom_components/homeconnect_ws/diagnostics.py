@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from home_disconnect import serialize_device_description
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE_ID
 
 from .const import CONF_AES_IV, CONF_PSK
+from .profile_storage import profile_xml_from_entry_data
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -34,7 +34,7 @@ async def async_get_config_entry_diagnostics(
     """
     description = entry.data[CONF_DESCRIPTION]
     info = description["info"]
-    device_description_xml, feature_mapping_xml = serialize_device_description(description)
+    device_description_xml, feature_mapping_xml = profile_xml_from_entry_data(entry.data)
 
     return {
         "brand": info.get("brand"),

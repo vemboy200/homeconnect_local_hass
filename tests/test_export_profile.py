@@ -7,7 +7,7 @@ import zipfile
 from io import BytesIO
 
 from custom_components.homeconnect_ws.export_profile import build_profile_zip, filename_stub
-from home_disconnect import parse_device_description
+from home_disconnect import parse_profile
 from homeassistant.const import CONF_MODE
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -43,11 +43,11 @@ def test_build_profile_zip_full_includes_key() -> None:
         assert profile["deviceDescriptionFileName"] == "fake_brand_Fake_vib_DeviceDescription.xml"
         assert profile["featureMappingFileName"] == "fake_brand_Fake_vib_FeatureMapping.xml"
 
-        description = parse_device_description(
-            zip_file.read("fake_brand_Fake_vib_DeviceDescription.xml"),
-            zip_file.read("fake_brand_Fake_vib_FeatureMapping.xml"),
+        profile = parse_profile(
+            zip_file.read("fake_brand_Fake_vib_DeviceDescription.xml").decode(),
+            zip_file.read("fake_brand_Fake_vib_FeatureMapping.xml").decode(),
         )
-        assert description["info"]["brand"] == "Fake_Brand"
+        assert profile.info.brand == "Fake_Brand"
 
 
 def test_build_profile_zip_safe_omits_key() -> None:
@@ -61,8 +61,8 @@ def test_build_profile_zip_safe_omits_key() -> None:
         assert "fake_brand_Fake_vib_FeatureMapping.xml" in names
         assert not any(name.endswith(".json") for name in names)
 
-        description = parse_device_description(
-            zip_file.read("fake_brand_Fake_vib_DeviceDescription.xml"),
-            zip_file.read("fake_brand_Fake_vib_FeatureMapping.xml"),
+        profile = parse_profile(
+            zip_file.read("fake_brand_Fake_vib_DeviceDescription.xml").decode(),
+            zip_file.read("fake_brand_Fake_vib_FeatureMapping.xml").decode(),
         )
-        assert description["info"]["brand"] == "Fake_Brand"
+        assert profile.info.brand == "Fake_Brand"

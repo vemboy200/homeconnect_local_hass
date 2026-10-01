@@ -17,7 +17,7 @@ from .entity_descriptions.descriptions_definitions import HCBinarySensorEntityDe
 from .helpers import create_entities
 
 if TYPE_CHECKING:
-    from home_disconnect import HomeAppliance
+    from home_disconnect import Appliance
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.device_registry import DeviceInfo
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -81,7 +81,7 @@ class HCConnectionSensor(CoordinatorEntity[HomeConnectCoordinator], BinarySensor
         self, entity_description: HCBinarySensorEntityDescription, runtime_data: HCData
     ) -> None:
         super().__init__(runtime_data.coordinator)
-        self._appliance: HomeAppliance = runtime_data.appliance
+        self._appliance: Appliance = runtime_data.appliance
         self.entity_description = entity_description
         self._attr_unique_id = f"{runtime_data.appliance.info['deviceID']}-{entity_description.key}"
         self._attr_device_info: DeviceInfo = runtime_data.device_info
@@ -96,4 +96,4 @@ class HCConnectionSensor(CoordinatorEntity[HomeConnectCoordinator], BinarySensor
         # Reflects the most recent close, regardless of current connectivity -
         # not just "while currently disconnected" - so it stays checkable
         # after the appliance reconnects, not only in the moment it's down.
-        return {"clean_disconnect": self._appliance.session.last_close_code == 1000}
+        return {"clean_disconnect": self._appliance.session.close_code == 1000}

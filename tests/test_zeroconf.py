@@ -4,17 +4,20 @@ from __future__ import annotations
 
 from ipaddress import ip_address
 from typing import TYPE_CHECKING
-from unittest.mock import ANY, Mock
+from unittest.mock import Mock
 from uuid import uuid4
 
 from custom_components.homeconnect_ws import config_flow
 from custom_components.homeconnect_ws.const import (
     CONF_AES_IV,
+    CONF_DESCRIPTION_XML,
+    CONF_FEATURE_MAPPING_XML,
     CONF_FILE,
     CONF_MANUAL_HOST,
     CONF_PSK,
     DOMAIN,
 )
+from home_disconnect import parse_profile
 from homeassistant.config_entries import SOURCE_ZEROCONF
 from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE_ID, CONF_HOST, CONF_NAME
 from homeassistant.data_entry_flow import FlowResultType
@@ -24,9 +27,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from . import MockAppliance
 from .const import (
     MOCK_CONFIG_DATA,
-    MOCK_TLS_DEVICE_DESCRIPTION,
+    MOCK_TLS_DESCRIPTION_XML,
     MOCK_TLS_DEVICE_ID,
     MOCK_TLS_DEVICE_INFO,
+    MOCK_TLS_FEATURE_MAPPING_XML,
 )
 
 if TYPE_CHECKING:
@@ -66,7 +70,7 @@ async def test_zeroconf_init(
 ) -> None:
     """Test setup from zeroconf discovery."""
     appliance = MockAppliance(MOCK_TLS_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
 
     randbytes = Mock()
     randbytes.return_value = bytes.fromhex("01020304")
@@ -85,13 +89,14 @@ async def test_zeroconf_init(
             CONF_FILE: UPLOADED_FILE,
         },
     )
-    assert appliance.description == MOCK_TLS_DEVICE_DESCRIPTION
+    assert appliance.profile == parse_profile(
+        MOCK_TLS_DESCRIPTION_XML, MOCK_TLS_FEATURE_MAPPING_XML
+    )
     assert appliance.host == "127.0.0.2"
     assert appliance.app_name == "Homeassistant"
     assert appliance.app_id == "01020304"
     assert appliance.psk64 == MOCK_TLS_DEVICE_INFO["key"]
     assert appliance.iv64 is None
-    assert appliance.connection_callback == ANY
 
     appliance._connect.assert_awaited_once()
     appliance._close.assert_awaited_once()
@@ -102,8 +107,9 @@ async def test_zeroconf_init(
     assert result["title"] == "Test_Brand Test_TLS"
     assert result["data"][CONF_DESCRIPTION] == {
         "info": MOCK_TLS_DEVICE_INFO,
-        "MOCK_TLS_DEVICE_DESCRIPTION": None,
     }
+    assert result["data"][CONF_DESCRIPTION_XML] == MOCK_TLS_DESCRIPTION_XML
+    assert result["data"][CONF_FEATURE_MAPPING_XML] == MOCK_TLS_FEATURE_MAPPING_XML
     assert result["data"][CONF_HOST] == "127.0.0.2"
     assert result["data"][CONF_PSK] == MOCK_TLS_DEVICE_INFO["key"]
     assert CONF_AES_IV not in result["data"]

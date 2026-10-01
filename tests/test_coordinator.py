@@ -9,13 +9,14 @@ from urllib.parse import urlsplit
 
 from custom_components.homeconnect_ws.const import DOMAIN
 from custom_components.homeconnect_ws.coordinator import TROUBLESHOOTING_URL
-from home_disconnect.message import Message
+from home_disconnect import ConnectionState
+from home_disconnect.messages import Message
 
 from . import setup_config_entry
 from .const import MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
-    from home_disconnect.testutils import MockAppliance
+    from home_disconnect import Appliance
     from homeassistant.core import HomeAssistant
 
 _SAMPLE_NETWORK_INFO = [
@@ -35,7 +36,7 @@ _SAMPLE_NETWORK_INFO = [
 
 async def test_async_get_network_info_skips_when_not_connected(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """
@@ -50,25 +51,26 @@ async def test_async_get_network_info_skips_when_not_connected(
     """
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
     entry = hass.config_entries.async_entries(DOMAIN)[0]
-    mock_appliance.session.connected = False
-    mock_appliance.session.send_sync.reset_mock()
+    mock_appliance.state = ConnectionState.DISCONNECTED
+    mock_appliance.session.request.reset_mock()
 
     result = await entry.runtime_data.coordinator.async_get_network_info()
 
     assert result is None
-    mock_appliance.session.send_sync.assert_not_called()
+    mock_appliance.session.request.assert_not_called()
 
 
 async def test_async_get_network_info_fetches_once_connected(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Returns whatever /ni/info responds with once connected."""
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
     entry = hass.config_entries.async_entries(DOMAIN)[0]
-    mock_appliance.session.send_sync.reset_mock()
-    mock_appliance.session.send_sync.return_value = Message(
+    mock_appliance.session.request.reset_mock()
+    mock_appliance.session.request.side_effect = None
+    mock_appliance.session.request.return_value = Message(
         resource="/ni/info", data=_SAMPLE_NETWORK_INFO
     )
 
@@ -79,7 +81,7 @@ async def test_async_get_network_info_fetches_once_connected(
 
 async def test_async_get_network_info_coalesces_concurrent_calls(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """
@@ -92,18 +94,19 @@ async def test_async_get_network_info_coalesces_concurrent_calls(
     """
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
     entry = hass.config_entries.async_entries(DOMAIN)[0]
-    mock_appliance.session.send_sync.reset_mock()
-    mock_appliance.session.send_sync.return_value = Message(
+    mock_appliance.session.request.reset_mock()
+    mock_appliance.session.request.side_effect = None
+    mock_appliance.session.request.return_value = Message(
         resource="/ni/info", data=_SAMPLE_NETWORK_INFO
     )
     coordinator = entry.runtime_data.coordinator
 
     first = await coordinator.async_get_network_info()
-    mock_appliance.session.send_sync.reset_mock()
+    mock_appliance.session.request.reset_mock()
     second = await coordinator.async_get_network_info()
 
     assert first == second == _SAMPLE_NETWORK_INFO
-    mock_appliance.session.send_sync.assert_not_called()
+    mock_appliance.session.request.assert_not_called()
 
 
 def test_troubleshooting_url_points_at_a_real_heading() -> None:

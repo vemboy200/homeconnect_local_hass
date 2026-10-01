@@ -31,7 +31,7 @@ from .refrigeration import REFRIGERATION_ENTITY_DESCRIPTIONS
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from home_disconnect import HomeAppliance
+    from home_disconnect import Appliance
 
 
 ALL_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType | None = None
@@ -53,8 +53,8 @@ def get_all_entity_description() -> _EntityDescriptionsDefinitionsType:
 
 def _resolve_description(
     description: HCEntityDescription
-    | Callable[[HomeAppliance], HCEntityDescription | EntityDescriptions | None],
-    appliance: HomeAppliance,
+    | Callable[[Appliance], HCEntityDescription | EntityDescriptions | None],
+    appliance: Appliance,
 ) -> HCEntityDescription | None:
     """
     Resolve a single per-type description entry to a concrete instance, if any.
@@ -74,7 +74,7 @@ def _resolve_description(
     return cast("HCEntityDescription", dynamic_result)
 
 
-def get_available_entities(appliance: HomeAppliance) -> _EntityDescriptionsType:
+def get_available_entities(appliance: Appliance) -> _EntityDescriptionsType:
     """Get all available Entity descriptions."""
     available_entities: _EntityDescriptionsType = {
         "button": [],

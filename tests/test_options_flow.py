@@ -15,13 +15,13 @@ from . import setup_config_entry
 from .const import MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
-    from home_disconnect.testutils import MockAppliance
+    from home_disconnect import Appliance
     from homeassistant.core import HomeAssistant
 
 
 async def test_options_flow_init_does_not_write_without_confirmation(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """
@@ -47,7 +47,7 @@ async def test_options_flow_init_does_not_write_without_confirmation(
 
 async def test_options_flow_writes_full_profile_zip_after_confirmation(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Submitting the confirmation form writes the Full profile ZIP and says where."""
@@ -73,7 +73,7 @@ async def test_options_flow_writes_full_profile_zip_after_confirmation(
 
 async def test_options_flow_notifies_on_write_failure(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """An OSError while writing the export file is reported in the dialog, not raised."""

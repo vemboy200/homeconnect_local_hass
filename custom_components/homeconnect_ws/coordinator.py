@@ -10,14 +10,13 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 import aiohttp
-from aiohttp.client_exceptions import ClientConnectionResetError
 from home_disconnect import (
-    AllreadyConnectedError,
+    AlreadyConnectedError,
+    Appliance,
     ConnectionFailedError,
     ConnectionState,
-    HCHandshakeError,
-    HomeAppliance,
-    NotConnectedError,
+    HandshakeError,
+    HomeDisconnectError,
 )
 from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE_ID, CONF_HOST
 from homeassistant.exceptions import ConfigEntryError
@@ -31,6 +30,7 @@ from .const import (
     CONF_PSK,
     DOMAIN,
 )
+from .profile_storage import profile_from_entry_data
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -75,8 +75,8 @@ SETUP_CONNECT_RETRY_DELAY = 3  # seconds
 # not exponential: unlike a connect failure at startup, we have no evidence
 # a temporarily-offline laundry appliance takes long to come back once it
 # does, and this is the guaranteed path (works even on networks where mDNS
-# doesn't route multicast) - an mDNS-triggered immediate reconnect is a
-# planned follow-up to shortcut this wait when discovery does work.
+# doesn't route multicast). When discovery does work, async_nudge_reconnect
+# shortcuts this wait.
 LAUNDRY_RECONNECT_POLL_INTERVAL = timedelta(seconds=20)
 
 # Standalone washers and dryers routinely cut their own WiFi radio entirely
@@ -111,7 +111,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
     """My custom coordinator."""
 
     config_entry: HCConfigEntry
-    appliance: HomeAppliance
+    appliance: Appliance
     _connecting: bool = True
     connected: bool = False
     _escalate_connectivity_logging: bool
@@ -150,27 +150,21 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
         self._escalate_connectivity_logging = (
             appliance_info.get("type") not in EXPECTED_OFFLINE_APPLIANCE_TYPES
         )
-        self.appliance = HomeAppliance(
-            description=deepcopy(config_entry.data[CONF_DESCRIPTION]),
-            host=config_entry.data[CONF_HOST],
+        self.appliance = Appliance(
+            async_get_clientsession(hass),
+            config_entry.data[CONF_HOST],
+            profile_from_entry_data(config_entry.data),
+            config_entry.data[CONF_PSK],
+            config_entry.data.get(CONF_AES_IV, None),
             app_name="Homeassistant",
             app_id=config_entry.data[CONF_DEVICE_ID],
-            psk64=config_entry.data[CONF_PSK],
-            iv64=config_entry.data.get(CONF_AES_IV, None),
-            session=async_get_clientsession(hass),
-            connection_callback=self._connection_state_callback,
-            # HA's integration log viewer filters on the domain string
-            # "homeconnect_ws". home-disconnect defaults to loggers like
-            # home_disconnect.hc_socket, which that filter drops. Passing
-            # this integration's logger reparents those lines under
-            # custom_components.homeconnect_ws.* so they show up.
-            logger=_LOGGER,
+            on_connection_state=self._connection_state_callback,
             # Standalone washers/dryers get their own fallback-poll-based
             # reconnect (see LAUNDRY_RECONNECT_POLL_INTERVAL) instead of
             # home-disconnect's built-in one, so the two don't hammer the
-            # appliance in parallel once the poll and the mDNS-triggered
-            # reconnect (a planned follow-up) both exist.
-            reconect=self._escalate_connectivity_logging,
+            # appliance in parallel.
+            reconnect=self._escalate_connectivity_logging,
+            info=deepcopy(appliance_info),
         )
         self.disconnect_time = time.time()
         self._connect_lock = asyncio.Lock()
@@ -211,7 +205,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
             return False
         if self.appliance.session.connected:
             return False
-        return self.appliance.session.last_close_code in {None, 1000}
+        return self.appliance.session.close_code in {None, 1000}
 
     async def close(self) -> None:
         self._connecting = False
@@ -263,7 +257,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
                 last_err = err
                 continue
 
-            if self.appliance.session.connected:
+            if self.appliance.connected:
                 self.connected = True
                 self.async_set_updated_data(None)
                 return
@@ -309,11 +303,17 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
                     return
                 try:
                     await self.appliance.connect()
-                    if self.appliance.session.connected:
+                    if self.appliance.connected:
                         self.connected = True
                         self.async_set_updated_data(None)
                         return
-                except (ConnectionFailedError, HCHandshakeError, aiohttp.ClientResponseError):
+                except (
+                    ConnectionFailedError,
+                    HandshakeError,
+                    HomeDisconnectError,
+                    TimeoutError,
+                    aiohttp.ClientResponseError,
+                ):
                     # aiohttp.ClientResponseError (e.g. a 404 on the websocket upgrade)
                     # isn't wrapped by the library into ConnectionFailedError/
                     # HCHandshakeError, and doesn't trigger a connection state change
@@ -326,7 +326,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
                         first_failure = False  # first_failure_fix
                     else:
                         self.logger.debug(msg)
-                except AllreadyConnectedError:
+                except AlreadyConnectedError:
                     # Shouldn't happen now that _connect_lock serializes every
                     # caller - kept as a defensive fallback, not the expected path.
                     await self.appliance.close()
@@ -350,8 +350,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
         Fallback reconnect for standalone washers/dryers (reconect=False).
 
         Runs unconditionally, regardless of mDNS: it's the guaranteed path,
-        not a backstop for a separate mDNS-driven reconnect (that's a planned
-        follow-up, layered on top of this rather than replacing it).
+        and async_nudge_reconnect's mDNS-driven retry is layered on top of it.
         """
         if self.connected:
             return
@@ -365,10 +364,9 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
             try:
                 await self.appliance.connect()
             except (
-                ConnectionFailedError,
-                HCHandshakeError,
+                HomeDisconnectError,
+                TimeoutError,
                 aiohttp.ClientResponseError,
-                AllreadyConnectedError,
             ):
                 self.logger.debug(
                     "Reconnect poll: still can't reach %s", self.config_entry.data[CONF_HOST]
@@ -381,7 +379,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
                 )
                 await self.appliance.close()
             else:
-                if self.appliance.session.connected:
+                if self.appliance.connected:
                     self.connected = True
                     self.async_set_updated_data(None)
                 else:
@@ -389,15 +387,25 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
 
     def async_nudge_reconnect(self) -> None:
         """
-        Retry immediately instead of waiting out the fallback poll's interval.
+        Retry immediately instead of waiting for the next scheduled attempt.
 
         Called from the zeroconf discovery flow (see async_step_zeroconf) when
         this appliance re-announces itself on mDNS - the same discovery that
         drives initial setup already fires on every re-announcement, so this
-        rides it rather than running a second, redundant listener. A no-op for
-        non-exempt appliance types or while already connected.
+        rides it rather than running a second, redundant listener. A no-op
+        while already connected.
+
+        Appliances that sleep can refuse connections for hours (fork issue
+        #119: a hob from 04:50 until it was turned on at 07:34), by which time
+        home-disconnect's backoff waits 5 minutes between attempts. They
+        announce themselves as soon as they wake, so skip that wait.
         """
-        if self._escalate_connectivity_logging or self.connected:
+        if self.connected:
+            return
+        if self._escalate_connectivity_logging:
+            # home-disconnect reconnects this one; retry_now() does nothing
+            # unless it's actually between attempts.
+            self.appliance.retry_now()
             return
         self.config_entry.async_create_background_task(
             self.hass,
@@ -420,7 +428,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
                 < NETWORK_INFO_COALESCE_WINDOW.total_seconds()
             ):
                 return self._network_info
-            if not self.appliance.session.connected:
+            if not self.appliance.connected:
                 # Entities can be added (and their immediate poll-on-add fired)
                 # before the appliance's first handshake completes - test-
                 # before-setup is exempt for this integration precisely
@@ -433,11 +441,9 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
                 self.logger.debug("Network info update skipped: not connected")
                 return self._network_info
             try:
-                self._network_info = await self.appliance.get_network_config()
-            except ClientConnectionResetError:
-                self.logger.debug("Network info update failed: Connection reset")
-            except NotConnectedError:
-                self.logger.debug("Network info update failed: Not connected")
+                self._network_info = await self.appliance.get_network_info()
+            except (HomeDisconnectError, TimeoutError) as err:
+                self.logger.debug("Network info update failed: %s", err)
             else:
                 self._network_info_fetched_at = now
             return self._network_info
@@ -454,10 +460,10 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
                 )
             self.connected = True
 
-        elif event in (ConnectionState.RECONNECTING, ConnectionState.ABNORMAL_CLOSURE):
-            # ABNORMAL_CLOSURE covers a connection that has never succeeded yet
-            # (e.g. the appliance is already unreachable when HA starts), since
-            # the library only enters RECONNECTING after a prior successful
+        elif event in (ConnectionState.RECONNECTING, ConnectionState.DISCONNECTED):
+            # DISCONNECTED covers a drop with the library's own reconnect off
+            # (standalone washers/dryers) and a failed first connect, since the
+            # library only enters RECONNECTING after a prior successful
             # connection drops.
             if self.connected and self._escalate_connectivity_logging:
                 self.logger.warning(

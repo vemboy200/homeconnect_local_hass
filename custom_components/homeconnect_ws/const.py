@@ -2,19 +2,18 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Final, TypedDict
+from typing import Any, Final, TypedDict
 
 from homeassistant.const import Platform
 
-if TYPE_CHECKING:
-    from home_disconnect import DeviceDescription
-
 
 class AppliancePayload(TypedDict):
-    """A single appliance's info + parsed profile, keyed by haId elsewhere."""
+    """A single appliance's key info, profile info and profile XML, keyed by haId elsewhere."""
 
     info: dict[str, Any]
-    description: DeviceDescription
+    description_info: dict[str, Any]
+    description_xml: str
+    feature_mapping_xml: str
 
 
 DOMAIN: Final = "homeconnect_ws"
@@ -46,3 +45,7 @@ CONF_DEV_OVERRIDE_PSK: Final = "override_psk"
 CONF_APPLIANCE_INFO: Final = "appliance_info"
 CONF_DESCRIPTION_FILENAME: Final = "description_filename"
 CONF_FEATURE_FILENAME: Final = "feature_filename"
+
+# The profile's original XML, kept inline in the config entry.
+CONF_DESCRIPTION_XML: Final = "description_xml"
+CONF_FEATURE_MAPPING_XML: Final = "feature_mapping_xml"

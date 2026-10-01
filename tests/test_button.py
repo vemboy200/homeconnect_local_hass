@@ -10,23 +10,23 @@ from custom_components import homeconnect_ws
 from custom_components.homeconnect_ws import entity_descriptions
 from custom_components.homeconnect_ws.entity_descriptions import HCButtonEntityDescription
 from home_disconnect.entities import Program
-from home_disconnect.message import Action, Message
+from home_disconnect.messages import Action, Message
 from homeassistant.components.button import DOMAIN as BUTTON_DOMAIN
 from homeassistant.components.button import SERVICE_PRESS
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_FRIENDLY_NAME, STATE_UNAVAILABLE
 from homeassistant.exceptions import HomeAssistantError
 
-from . import setup_config_entry
+from . import setup_config_entry, update_entity
 from .const import ENTITY_DESCRIPTIONS, MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
-    from home_disconnect.testutils import MockAppliance
+    from home_disconnect import Appliance
     from homeassistant.core import HomeAssistant
 
 
 async def test_setup(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test setting up entity."""
@@ -45,13 +45,13 @@ async def test_setup(
 
 async def test_start(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test pressing start button."""
     entity_id = "button.fake_brand_homeappliance_activeprogram"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await mock_appliance.entities["Test.SelectedProgram"].update({"value": 500})
+    await update_entity(mock_appliance.entities["Test.SelectedProgram"], {"value": 500})
     await hass.async_block_till_done()
 
     await hass.services.async_call(
@@ -61,23 +61,25 @@ async def test_start(
         blocking=True,
     )
 
-    mock_appliance.session.send_sync.assert_awaited_once_with(
+    mock_appliance.session.request.assert_awaited_once_with(
         Message(
             resource="/ro/activeProgram",
             action=Action.POST,
-            data={
-                "program": 500,
-                # No option has a reported value yet, so none goes out -
-                # the appliance rejects {"value": null} entries with 400.
-                "options": [],
-            },
+            data=[
+                {
+                    "program": 500,
+                    # No option has a reported value yet, so none goes out -
+                    # the appliance rejects {"value": null} entries with 400.
+                    "options": [],
+                }
+            ],
         )
     )
 
 
 async def test_start_full_option_set(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """
@@ -90,7 +92,7 @@ async def test_start_full_option_set(
     """
     entity_id = "button.fake_brand_homeappliance_activeprogram"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await mock_appliance.entities["Test.SelectedProgram"].update({"value": 500})
+    await update_entity(mock_appliance.entities["Test.SelectedProgram"], {"value": 500})
     await hass.async_block_till_done()
 
     with patch.object(Program, "full_option_set", new=True, create=True):
@@ -101,21 +103,23 @@ async def test_start_full_option_set(
             blocking=True,
         )
 
-    mock_appliance.session.send_sync.assert_awaited_once_with(
+    mock_appliance.session.request.assert_awaited_once_with(
         Message(
             resource="/ro/activeProgram",
             action=Action.POST,
-            data={
-                "program": 500,
-                "options": [],
-            },
+            data=[
+                {
+                    "program": 500,
+                    "options": [],
+                }
+            ],
         )
     )
 
 
 async def test_start_sends_known_values_but_skips_unavailable_options(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """
@@ -128,10 +132,10 @@ async def test_start_sends_known_values_but_skips_unavailable_options(
     (Siemens EQ.9 CoffeeMaker, fork issue #97).
     """
     entity_id = "button.fake_brand_homeappliance_activeprogram"
-    await mock_appliance.entities["Test.Option1"].update({"value": 1})
-    await mock_appliance.entities["Test.Option2"].update({"value": 2, "available": False})
+    await update_entity(mock_appliance.entities["Test.Option1"], {"value": 1})
+    await update_entity(mock_appliance.entities["Test.Option2"], {"value": 2, "available": False})
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await mock_appliance.entities["Test.SelectedProgram"].update({"value": 500})
+    await update_entity(mock_appliance.entities["Test.SelectedProgram"], {"value": 500})
     await hass.async_block_till_done()
 
     await hass.services.async_call(
@@ -141,21 +145,23 @@ async def test_start_sends_known_values_but_skips_unavailable_options(
         blocking=True,
     )
 
-    mock_appliance.session.send_sync.assert_awaited_once_with(
+    mock_appliance.session.request.assert_awaited_once_with(
         Message(
             resource="/ro/activeProgram",
             action=Action.POST,
-            data={
-                "program": 500,
-                "options": [{"uid": 401, "value": 1}],
-            },
+            data=[
+                {
+                    "program": 500,
+                    "options": [{"uid": 401, "value": 1}],
+                }
+            ],
         )
     )
 
 
 async def test_start_full_option_set_skips_unavailable_options(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """
@@ -167,10 +173,10 @@ async def test_start_full_option_set_skips_unavailable_options(
     appliance reject every start with 400; without it the same write succeeds.
     """
     entity_id = "button.fake_brand_homeappliance_activeprogram"
-    await mock_appliance.entities["Test.Option1"].update({"min": 5})
-    await mock_appliance.entities["Test.Option2"].update({"min": 1, "available": False})
+    await update_entity(mock_appliance.entities["Test.Option1"], {"min": 5})
+    await update_entity(mock_appliance.entities["Test.Option2"], {"min": 1, "available": False})
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await mock_appliance.entities["Test.SelectedProgram"].update({"value": 500})
+    await update_entity(mock_appliance.entities["Test.SelectedProgram"], {"value": 500})
     await hass.async_block_till_done()
 
     with patch.object(Program, "full_option_set", new=True, create=True):
@@ -181,21 +187,23 @@ async def test_start_full_option_set_skips_unavailable_options(
             blocking=True,
         )
 
-    mock_appliance.session.send_sync.assert_awaited_once_with(
+    mock_appliance.session.request.assert_awaited_once_with(
         Message(
             resource="/ro/activeProgram",
             action=Action.POST,
-            data={
-                "program": 500,
-                "options": [{"uid": 401, "value": 5}],
-            },
+            data=[
+                {
+                    "program": 500,
+                    "options": [{"uid": 401, "value": 5}],
+                }
+            ],
         )
     )
 
 
 async def test_start_available_for_select_only_program(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """
@@ -211,7 +219,7 @@ async def test_start_available_for_select_only_program(
     """
     entity_id = "button.fake_brand_homeappliance_activeprogram"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await mock_appliance.entities["Test.SelectedProgram"].update({"value": 506})
+    await update_entity(mock_appliance.entities["Test.SelectedProgram"], {"value": 506})
     await hass.async_block_till_done()
 
     await hass.services.async_call(
@@ -221,23 +229,25 @@ async def test_start_available_for_select_only_program(
         blocking=True,
     )
 
-    mock_appliance.session.send_sync.assert_awaited_once_with(
+    mock_appliance.session.request.assert_awaited_once_with(
         Message(
             resource="/ro/activeProgram",
             action=Action.POST,
-            data={
-                "program": 506,
-                # No option has a reported value yet, so none goes out -
-                # the appliance rejects {"value": null} entries with 400.
-                "options": [],
-            },
+            data=[
+                {
+                    "program": 506,
+                    # No option has a reported value yet, so none goes out -
+                    # the appliance rejects {"value": null} entries with 400.
+                    "options": [],
+                }
+            ],
         )
     )
 
 
 async def test_start_stays_available_when_remote_start_not_allowed(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """
@@ -252,13 +262,13 @@ async def test_start_stays_available_when_remote_start_not_allowed(
     """
     entity_id = "button.fake_brand_homeappliance_activeprogram"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await mock_appliance.entities["Test.SelectedProgram"].update({"value": 500})
-    await mock_appliance.entities["BSH.Common.Status.RemoteControlStartAllowed"].update(
-        {"value": False}
+    await update_entity(mock_appliance.entities["Test.SelectedProgram"], {"value": 500})
+    await update_entity(
+        mock_appliance.entities["BSH.Common.Status.RemoteControlStartAllowed"], {"value": False}
     )
-    # The button only registers a callback on its own entity (ActiveProgram), not
-    # on SelectedProgram - nudge it so HA's cached state actually recomputes.
-    await mock_appliance.entities["Test.ActiveProgram"].update({"access": "readwrite"})
+    # The appliance also turns ActiveProgram read-only while it refuses a start,
+    # which is the change the button's callback sees.
+    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"access": "read"})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
@@ -268,15 +278,15 @@ async def test_start_stays_available_when_remote_start_not_allowed(
 
 async def test_start_raises_when_remote_start_not_allowed(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Pressing start while remote start isn't allowed must error, not silently no-op."""
     entity_id = "button.fake_brand_homeappliance_activeprogram"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await mock_appliance.entities["Test.SelectedProgram"].update({"value": 500})
-    await mock_appliance.entities["BSH.Common.Status.RemoteControlStartAllowed"].update(
-        {"value": False}
+    await update_entity(mock_appliance.entities["Test.SelectedProgram"], {"value": 500})
+    await update_entity(
+        mock_appliance.entities["BSH.Common.Status.RemoteControlStartAllowed"], {"value": False}
     )
     await hass.async_block_till_done()
 
@@ -289,12 +299,12 @@ async def test_start_raises_when_remote_start_not_allowed(
         )
 
     assert exc_info.value.translation_key == "remote_start_not_allowed"
-    mock_appliance.session.send_sync.assert_not_awaited()
+    mock_appliance.session.request.assert_not_awaited()
 
 
 async def test_start_proceeds_when_blocked_for_a_different_reason(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """
@@ -310,11 +320,11 @@ async def test_start_proceeds_when_blocked_for_a_different_reason(
     """
     entity_id = "button.fake_brand_homeappliance_activeprogram"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await mock_appliance.entities["Test.SelectedProgram"].update({"value": 500})
-    await mock_appliance.entities["BSH.Common.Status.RemoteControlStartAllowed"].update(
-        {"value": True}
+    await update_entity(mock_appliance.entities["Test.SelectedProgram"], {"value": 500})
+    await update_entity(
+        mock_appliance.entities["BSH.Common.Status.RemoteControlStartAllowed"], {"value": True}
     )
-    await mock_appliance.entities["Test.ActiveProgram"].update({"access": "read"})
+    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"access": "read"})
     await hass.async_block_till_done()
 
     await hass.services.async_call(
@@ -324,12 +334,12 @@ async def test_start_proceeds_when_blocked_for_a_different_reason(
         blocking=True,
     )
 
-    mock_appliance.session.send_sync.assert_awaited_once()
+    mock_appliance.session.request.assert_awaited_once()
 
 
 async def test_abort(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test pressing abort button."""
@@ -343,18 +353,18 @@ async def test_abort(
         blocking=True,
     )
 
-    mock_appliance.session.send_sync.assert_awaited_once_with(
+    mock_appliance.session.request.assert_awaited_once_with(
         Message(
             resource="/ro/values",
             action=Action.POST,
-            data={"uid": 300, "value": True},
+            data=[{"uid": 300, "value": True}],
         )
     )
 
 
 async def test_press_writes_value_from_press_value_fn(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
@@ -387,18 +397,18 @@ async def test_press_writes_value_from_press_value_fn(
         blocking=True,
     )
 
-    mock_appliance.session.send_sync.assert_awaited_once_with(
+    mock_appliance.session.request.assert_awaited_once_with(
         Message(
             resource="/ro/values",
             action=Action.POST,
-            data={"uid": 201, "value": "2026-09-24T10:36:09"},
+            data=[{"uid": 201, "value": "2026-09-24T10:36:09"}],
         )
     )
 
 
 async def test_read_only_button_is_unavailable(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
@@ -429,10 +439,10 @@ async def test_read_only_button_is_unavailable(
     assert state.state != STATE_UNAVAILABLE
     assert "readonly" not in state.attributes
 
-    await mock_appliance.entities["Test.Switch"].update({"access": "read"})
+    await update_entity(mock_appliance.entities["Test.Switch"], {"access": "read"})
     await hass.async_block_till_done()
     assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
 
-    await mock_appliance.entities["Test.Switch"].update({"access": "readWrite"})
+    await update_entity(mock_appliance.entities["Test.Switch"], {"access": "readWrite"})
     await hass.async_block_till_done()
     assert hass.states.get(entity_id).state != STATE_UNAVAILABLE

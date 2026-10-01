@@ -6,6 +6,7 @@ import logging
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
+from home_disconnect.entities import Program
 from homeassistant.components.sensor import SensorEntity
 
 from .entity import HCEntity
@@ -14,7 +15,7 @@ from .helpers import create_entities
 _LOGGER = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from home_disconnect import HomeAppliance
+    from home_disconnect import Appliance
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -33,7 +34,7 @@ _ACTIVE_PROGRAM_ENTITY = "BSH.Common.Root.ActiveProgram"
 _NO_ACTIVE_PROGRAM_TRIGGER_ENTITIES = (_ACTIVE_PROGRAM_ENTITY, _POWER_STATE_ENTITY)
 
 
-def _no_active_program_and_off(appliance: HomeAppliance) -> bool:
+def _no_active_program_and_off(appliance: Appliance) -> bool:
     """
     Whether nothing is running and the appliance has powered itself off.
 
@@ -183,6 +184,8 @@ class HCEventSensor(HCEntity, SensorEntity):
     def native_value(self) -> str:
         options = self.entity_description.options or []
         for entity, value in zip(self._entities, options, strict=False):
+            if isinstance(entity, Program):
+                continue
             if (entity.enum is not None and entity.value in {"Present", "Confirmed"}) or (
                 entity.enum is None and bool(entity.value)
             ):

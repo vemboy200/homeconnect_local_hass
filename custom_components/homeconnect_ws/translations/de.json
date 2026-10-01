@@ -4684,6 +4684,9 @@
     },
     "setup_cannot_connect_error": {
       "message": "Keine Verbindung zu {host} ({error}). Siehe {url}, falls sich das nicht von selbst behebt."
+    },
+    "invalid_profile": {
+      "message": "Das gespeicherte Geräteprofil kann nicht gelesen werden: {error}. Aktualisiere das Profil über das Menü „Neu konfigurieren“ der Integration."
     }
   }
 }

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
-from aiohttp import ClientConnectionError, ClientConnectorSSLError
+from aiohttp import ClientConnectionError
 from custom_components.homeconnect_ws import config_flow
 from custom_components.homeconnect_ws.const import (
     CONF_AES_IV,
@@ -15,7 +15,7 @@ from custom_components.homeconnect_ws.const import (
     CONF_PSK,
     DOMAIN,
 )
-from home_disconnect import ParserError
+from home_disconnect import AuthenticationError, ProfileError
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -41,7 +41,7 @@ async def test_reauth(
 ) -> None:
     """Test a reauthentication flow."""
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
 
     mock_process_profile_file.return_value[MOCK_AES_DEVICE_ID]["info"]["key"] = "New_AES_PSK_KEY"
     mock_process_profile_file.return_value[MOCK_AES_DEVICE_ID]["info"]["iv"] = "New_AES_IV"
@@ -86,7 +86,7 @@ async def test_reauth_appliance_not_in_profile(
 ) -> None:
     """Test a reauthentication flow when appliance not in profile."""
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
 
     mock_config = MockConfigEntry(
         domain=DOMAIN,
@@ -109,15 +109,15 @@ async def test_reauth_appliance_not_in_profile(
     mock_setup_entry.assert_not_awaited()
 
 
-async def test_reauth_auth_failed_ssl_error(
+async def test_reauth_auth_failed_wrong_key(
     hass: HomeAssistant,
     mock_process_profile_file: MagicMock,
     mock_setup_entry: AsyncMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test a reauthentication flow with ClientConnectorSSLError."""
+    """Test a reauthentication flow whose key the appliance rejects."""
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
 
     mock_config = MockConfigEntry(
         domain=DOMAIN,
@@ -126,7 +126,7 @@ async def test_reauth_auth_failed_ssl_error(
     )
     mock_config.add_to_hass(hass)
 
-    appliance._connect.side_effect = ClientConnectorSSLError(MagicMock(), MagicMock())
+    appliance._connect.side_effect = AuthenticationError("wrong key")
 
     result = await mock_config.start_reauth_flow(hass)
     result = await hass.config_entries.flow.async_configure(
@@ -153,7 +153,7 @@ async def test_reauth_auth_failed_binascii_error(
 ) -> None:
     """Test a reauthentication flow with BinasciiError."""
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
 
     mock_config = MockConfigEntry(
         domain=DOMAIN,
@@ -189,7 +189,7 @@ async def test_reauth_connection_failed_timeout(
 ) -> None:
     """Test a reauthentication flow with TimeoutError."""
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
 
     mock_config = MockConfigEntry(
         domain=DOMAIN,
@@ -228,7 +228,7 @@ async def test_reauth_connection_failed_connection_error(
 ) -> None:
     """Test a reauthentication flow with ClientConnectionError."""
     appliance = MockAppliance(MOCK_AES_DEVICE_INFO)
-    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    monkeypatch.setattr(config_flow, "Appliance", appliance)
 
     mock_config = MockConfigEntry(
         domain=DOMAIN,
@@ -272,7 +272,7 @@ async def test_reauth_invalid_config_parser(
     )
     mock_config.add_to_hass(hass)
 
-    mock_process_profile_file.side_effect = ParserError("Test Error")
+    mock_process_profile_file.side_effect = ProfileError("Test Error")
 
     result = await mock_config.start_reauth_flow(hass)
     result = await hass.config_entries.flow.async_configure(

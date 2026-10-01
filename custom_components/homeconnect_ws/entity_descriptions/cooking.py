@@ -28,13 +28,13 @@ from .descriptions_definitions import (
 )
 
 if TYPE_CHECKING:
-    from home_disconnect import HomeAppliance
+    from home_disconnect import Appliance
 
 _VENTING_PROGRAM = "Cooking.Common.Program.Hood.Venting"
 
 
 def _temperature_entity(
-    appliance: HomeAppliance,
+    appliance: Appliance,
     base: str,
 ) -> tuple[str, UnitOfTemperature] | None:
     """Return the first temperature entity present on the appliance."""
@@ -49,7 +49,7 @@ def _temperature_entity(
 
 
 def _meatprobe_entity(
-    appliance: HomeAppliance,
+    appliance: Appliance,
     cavity: str,
 ) -> tuple[str, UnitOfTemperature] | None:
     """Return the first meat-probe temperature entity present on the appliance."""
@@ -70,7 +70,7 @@ def _meatprobe_entity(
 _CAVITY_LAYOUT_FIELDS = frozenset({"CavityType", "State", "LengthX", "LengthY", "Position"})
 
 
-def _is_layout_only_cavity(appliance: HomeAppliance, cavity: str) -> bool:
+def _is_layout_only_cavity(appliance: Appliance, cavity: str) -> bool:
     """
     Whether a cavity reports nothing but its layout fields.
 
@@ -86,7 +86,7 @@ def _is_layout_only_cavity(appliance: HomeAppliance, cavity: str) -> bool:
     )
 
 
-def generate_oven_status(appliance: HomeAppliance) -> EntityDescriptions:
+def generate_oven_status(appliance: Appliance) -> EntityDescriptions:
     """Get Oven status descriptions."""
     pattern = re.compile(r"^Cooking\.Oven\.Status\.Cavity\.(\d+)\..*$")
     groups = get_groups_from_regex(appliance, pattern)
@@ -162,7 +162,7 @@ def generate_oven_status(appliance: HomeAppliance) -> EntityDescriptions:
     return descriptions
 
 
-def generate_oven_event(appliance: HomeAppliance) -> EntityDescriptions:
+def generate_oven_event(appliance: Appliance) -> EntityDescriptions:
     """Get Oven event descriptions."""
     pattern = re.compile(r"^Cooking\.Oven\.Event\.Cavity\.([0-9]*)\..*$")
     groups = get_groups_from_regex(appliance, pattern)
@@ -189,7 +189,7 @@ def generate_oven_event(appliance: HomeAppliance) -> EntityDescriptions:
     return descriptions
 
 
-def generate_oven_settings(appliance: HomeAppliance) -> EntityDescriptions:
+def generate_oven_settings(appliance: Appliance) -> EntityDescriptions:
     """Get Oven status descriptions."""
     pattern = re.compile(r"^Cooking\.Oven\.Setting\.Cavity\.([0-9]*)\..*$")
     groups = get_groups_from_regex(appliance, pattern)
@@ -224,16 +224,15 @@ HOOD_FAN_ENTITIES = [
 ]
 
 
-def generate_hood_fan(appliance: HomeAppliance) -> HCFanEntityDescription | None:
+def generate_hood_fan(appliance: Appliance) -> HCFanEntityDescription | None:
     """Get Hood Fan description."""
     if _VENTING_PROGRAM not in appliance.programs:
         return None
 
     venting = appliance.programs[_VENTING_PROGRAM]
-    # Program.options has no public accessor in the library yet.
     available_entities = [
         option.name
-        for option in venting._options  # noqa: SLF001
+        for option in venting.options
         if option.name in HOOD_FAN_ENTITIES and option.access == Access.READ_WRITE
     ]
     if not available_entities:
@@ -246,7 +245,7 @@ def generate_hood_fan(appliance: HomeAppliance) -> HCFanEntityDescription | None
     )
 
 
-def generate_hob_zones(appliance: HomeAppliance) -> EntityDescriptions:
+def generate_hob_zones(appliance: Appliance) -> EntityDescriptions:
     """Get Oven status descriptions."""
     pattern = re.compile(r"^Cooking\.Hob\.Status\.Zone\.([0-9]*)\..*$")
     groups = get_groups_from_regex(appliance, pattern)
@@ -410,7 +409,7 @@ def generate_hob_zones(appliance: HomeAppliance) -> EntityDescriptions:
     return descriptions
 
 
-def generate_hood_light(appliance: HomeAppliance) -> HCLightEntityDescription | None:
+def generate_hood_light(appliance: Appliance) -> HCLightEntityDescription | None:
     """Get Hood light descriptions."""
     # Some hoods declare ColorTemperaturePercent/LightingBrightness in their
     # profile but mark them unavailable (confirmed live on fork issue #15,
@@ -448,7 +447,7 @@ def generate_hood_light(appliance: HomeAppliance) -> HCLightEntityDescription | 
     return None
 
 
-def generate_hood_ambient_light(appliance: HomeAppliance) -> HCLightEntityDescription | None:
+def generate_hood_ambient_light(appliance: Appliance) -> HCLightEntityDescription | None:
     """Get Hood light descriptions."""
     if (
         "BSH.Common.Setting.AmbientLightCustomColor" in appliance.entities
@@ -477,7 +476,7 @@ def generate_hood_ambient_light(appliance: HomeAppliance) -> HCLightEntityDescri
     return None
 
 
-def generate_oven_cavity_light(appliance: HomeAppliance) -> HCLightEntityDescription | None:
+def generate_oven_cavity_light(appliance: Appliance) -> HCLightEntityDescription | None:
     """Get oven cavity light description."""
     if "Cooking.Oven.Setting.Light.Cavity.001.Power" not in appliance.entities:
         return None
