@@ -213,7 +213,7 @@ async def test_reauth_connection_failed_timeout(
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "host"
-    assert result["errors"]["base"] == "cannot_connect"
+    assert result["errors"]["base"] == "cannot_connect_automatic"
 
     appliance._close.assert_awaited_once()
     hass.config_entries.flow.async_abort(result["flow_id"])
@@ -252,7 +252,7 @@ async def test_reauth_connection_failed_connection_error(
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "host"
-    assert result["errors"]["base"] == "cannot_connect"
+    assert result["errors"]["base"] == "cannot_connect_automatic"
 
     appliance._close.assert_awaited_once()
     hass.config_entries.flow.async_abort(result["flow_id"])

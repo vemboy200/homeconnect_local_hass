@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from custom_components.homeconnect_ws import HCData
 from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitions import (
     HCSensorEntityDescription,
 )
-from custom_components.homeconnect_ws.sensor import HCActiveProgram, HCSensor, HCWiFI
+from custom_components.homeconnect_ws.sensor import (
+    HCActiveProgram,
+    HCIPv4Address,
+    HCIPv6Address,
+    HCSensor,
+    HCWiFI,
+)
 from homeassistant.components.sensor import ATTR_OPTIONS
 from homeassistant.const import ATTR_FRIENDLY_NAME
 from homeassistant.helpers.entity import Entity as HAEntity
@@ -200,24 +206,24 @@ async def test_update_active_program(
     assert state.state == "Named Favorite"
 
 
-async def test_wifi_update_skips_when_not_connected() -> None:
+async def test_wifi_update_handles_no_network_info() -> None:
     """
-    WiFi polling must not attempt a request before the appliance has connected.
+    WiFi update must not crash when the coordinator has nothing to give it yet.
 
-    Entities can be added (and HCWiFI's immediate poll-on-add fired) before the
-    appliance's first handshake completes, since setup doesn't block on a
-    successful connection. Polling anyway used to crash deep in
-    home_disconnect's message-ID counter, which is only initialized once the
-    handshake finishes.
+    The not-connected/not-yet-fetched case itself is handled by
+    HomeConnectCoordinator.async_get_network_info (see test_coordinator.py) -
+    this only checks that HCWiFI copes with that method returning None, e.g.
+    before the appliance's first handshake completes.
     """
     appliance = MagicMock()
     appliance.info = {"deviceID": "test_device_id"}
-    appliance.session.connected = False
+    coordinator = MagicMock()
+    coordinator.async_get_network_info = AsyncMock(return_value=None)
     runtime_data = HCData(
         appliance=appliance,
         device_info=MagicMock(),
         available_entity_descriptions=MagicMock(),
-        coordinator=MagicMock(),
+        coordinator=coordinator,
     )
     entity_description = HCSensorEntityDescription(key="sensor_wifi_signal_strength")
     entity = HCWiFI(entity_description, runtime_data)
@@ -225,7 +231,63 @@ async def test_wifi_update_skips_when_not_connected() -> None:
     await entity.async_update()
 
     assert entity.native_value is None
-    appliance.get_network_config.assert_not_called()
+
+
+async def test_ipv4_address_update() -> None:
+    """The ipv4 sensor reads ipV4.ipAddress and exposes the rest as attributes."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    coordinator = MagicMock()
+    coordinator.async_get_network_info = AsyncMock(
+        return_value=[
+            {
+                "ipV4": {
+                    "ipAddress": "192.168.1.50",
+                    "prefixSize": 24,
+                    "gateway": "192.168.1.1",
+                    "dnsServer": "192.168.1.1",
+                }
+            }
+        ]
+    )
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=coordinator,
+    )
+    entity_description = HCSensorEntityDescription(key="sensor_ipv4_address")
+    entity = HCIPv4Address(entity_description, runtime_data)
+
+    await entity.async_update()
+
+    assert entity.native_value == "192.168.1.50"
+    assert entity.extra_state_attributes == {
+        "prefix_size": 24,
+        "gateway": "192.168.1.1",
+        "dns_server": "192.168.1.1",
+    }
+
+
+async def test_ipv6_address_update_missing_interface() -> None:
+    """An appliance with no IPv6 address just clears the sensor, not an error."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    coordinator = MagicMock()
+    coordinator.async_get_network_info = AsyncMock(return_value=[{"ipV4": {"ipAddress": "x"}}])
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=coordinator,
+    )
+    entity_description = HCSensorEntityDescription(key="sensor_ipv6_address")
+    entity = HCIPv6Address(entity_description, runtime_data)
+
+    await entity.async_update()
+
+    assert entity.native_value is None
+    assert entity.extra_state_attributes == {}
 
 
 async def test_native_value_cleared_when_expected_offline() -> None:
@@ -386,3 +448,301 @@ async def test_active_program_not_cleared_when_not_expected_offline() -> None:
     entity = HCActiveProgram(entity_description, runtime_data)
 
     assert entity.native_value == "Test.Program"
+
+
+async def test_phase_forced_when_no_active_program_and_off() -> None:
+    """A program-phase sensor forces to its idle value once nothing is running and off."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    appliance.active_program = None
+    appliance.entities["Test.ProgramPhase"].value = "Drying"
+    appliance.entities["Test.ProgramPhase"].enum = {"0": "None", "1": "Drying"}
+    appliance.entities.get.return_value = MagicMock(value="Off")
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=False),
+    )
+    entity_description = HCSensorEntityDescription(
+        key="sensor_program_phase",
+        entity="Test.ProgramPhase",
+        has_state_translation=True,
+        force_value_when_no_active_program="none",
+    )
+    entity = HCSensor(entity_description, runtime_data)
+
+    assert entity.native_value == "none"
+
+
+async def test_phase_not_forced_when_active_program_present() -> None:
+    """The forced idle value doesn't apply while a program is actually running."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    appliance.entities["Test.ProgramPhase"].value = "Drying"
+    appliance.entities["Test.ProgramPhase"].enum = {"0": "None", "1": "Drying"}
+    appliance.entities.get.return_value = MagicMock(value="Off")
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=False),
+    )
+    entity_description = HCSensorEntityDescription(
+        key="sensor_program_phase",
+        entity="Test.ProgramPhase",
+        has_state_translation=True,
+        force_value_when_no_active_program="none",
+    )
+    entity = HCSensor(entity_description, runtime_data)
+
+    assert entity.native_value == "drying"
+
+
+async def test_phase_not_forced_when_powered_on() -> None:
+    """The forced idle value doesn't apply while the appliance is still powered on."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    appliance.active_program = None
+    appliance.entities["Test.ProgramPhase"].value = "Drying"
+    appliance.entities["Test.ProgramPhase"].enum = {"0": "None", "1": "Drying"}
+    appliance.entities.get.return_value = MagicMock(value="On")
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=False),
+    )
+    entity_description = HCSensorEntityDescription(
+        key="sensor_program_phase",
+        entity="Test.ProgramPhase",
+        has_state_translation=True,
+        force_value_when_no_active_program="none",
+    )
+    entity = HCSensor(entity_description, runtime_data)
+
+    assert entity.native_value == "drying"
+
+
+async def test_phase_not_forced_when_value_not_a_real_option() -> None:
+    """
+    A static entity description can't assume every appliance model has the forced value.
+
+    See test_power_state_not_forced_when_value_not_a_real_option above - same
+    guard, same reasoning, for the no-active-program trigger instead.
+    """
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    appliance.active_program = None
+    appliance.entities["Test.ProgramPhase"].value = "Drying"
+    appliance.entities["Test.ProgramPhase"].enum = {"0": "Idle", "1": "Drying"}
+    appliance.entities.get.return_value = MagicMock(value="Off")
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=False),
+    )
+    entity_description = HCSensorEntityDescription(
+        key="sensor_program_phase",
+        entity="Test.ProgramPhase",
+        has_state_translation=True,
+        force_value_when_no_active_program="none",
+    )
+    entity = HCSensor(entity_description, runtime_data)
+
+    assert entity.native_value == "drying"
+
+
+async def test_progress_unavailable_when_no_active_program_and_off() -> None:
+    """A progress sensor goes unavailable (matching Home Connect Cloud) once idle and off."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    appliance.active_program = None
+    appliance.session.connected = True
+    appliance.entities.get.return_value = MagicMock(value="Off")
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=False),
+    )
+    entity_description = HCSensorEntityDescription(
+        key="sensor_program_progress", unavailable_when_no_active_program=True
+    )
+    entity = HCSensor(entity_description, runtime_data)
+
+    assert entity.available is False
+
+
+async def test_progress_available_when_active_program_present() -> None:
+    """The progress sensor stays available while a program is actually running."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    appliance.session.connected = True
+    appliance.entities.get.return_value = MagicMock(value="Off")
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=False),
+    )
+    entity_description = HCSensorEntityDescription(
+        key="sensor_program_progress", unavailable_when_no_active_program=True
+    )
+    entity = HCSensor(entity_description, runtime_data)
+
+    assert entity.available is True
+
+
+async def test_flagged_sensor_also_listens_to_active_program_and_power_state() -> None:
+    """
+    A sensor stuck on its own stale value needs a different trigger to refresh.
+
+    The appliance never sends a fresh NOTIFY for program_phase/progress once
+    idle - that's the whole bug (issue #302). Without also registering for
+    ActiveProgram/PowerState callbacks, nothing would ever call
+    async_write_ha_state() again to make HA re-evaluate native_value/
+    available once the appliance actually goes idle and off.
+    """
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    active_program_entity = MagicMock()
+    power_state_entity = MagicMock()
+    appliance.entities = {
+        "Test.ProgramPhase": MagicMock(value="Drying", enum=None),
+        "BSH.Common.Root.ActiveProgram": active_program_entity,
+        "BSH.Common.Setting.PowerState": power_state_entity,
+    }
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=False),
+    )
+    entity_description = HCSensorEntityDescription(
+        key="sensor_program_phase",
+        entity="Test.ProgramPhase",
+        force_value_when_no_active_program="none",
+    )
+    entity = HCSensor(entity_description, runtime_data)
+
+    assert active_program_entity in entity._entities
+    assert power_state_entity in entity._entities
+
+
+async def test_unflagged_sensor_does_not_listen_to_active_program_or_power_state() -> None:
+    """A plain sensor without either flag has no reason to track these extra entities."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    active_program_entity = MagicMock()
+    power_state_entity = MagicMock()
+    appliance.entities = {
+        "Test.Sensor": MagicMock(value=1, enum=None),
+        "BSH.Common.Root.ActiveProgram": active_program_entity,
+        "BSH.Common.Setting.PowerState": power_state_entity,
+    }
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=False),
+    )
+    entity_description = HCSensorEntityDescription(key="sensor_plain", entity="Test.Sensor")
+    entity = HCSensor(entity_description, runtime_data)
+
+    assert active_program_entity not in entity._entities
+    assert power_state_entity not in entity._entities
+
+
+async def test_progress_available_when_powered_on() -> None:
+    """The progress sensor stays available while the appliance is powered on, even if idle."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    appliance.active_program = None
+    appliance.session.connected = True
+    appliance.entities.get.return_value = MagicMock(value="On")
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=False),
+    )
+    entity_description = HCSensorEntityDescription(
+        key="sensor_program_progress", unavailable_when_no_active_program=True
+    )
+    entity = HCSensor(entity_description, runtime_data)
+
+    assert entity.available is True
+
+
+def _elapsed_time_sensor(
+    *, active_program: object, value: int | None, connected: bool = True
+) -> HCSensor:
+    """Build an elapsed-time sensor whose Option the appliance reports as unavailable."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    appliance.active_program = active_program
+    appliance.session.connected = connected
+    appliance.entities = {
+        "Test.ElapsedProgramTime": MagicMock(value=value, enum=None, available=False),
+        "BSH.Common.Setting.PowerState": MagicMock(value="On"),
+    }
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=False),
+    )
+    entity_description = HCSensorEntityDescription(
+        key="sensor_elapsed_program_time",
+        entity="Test.ElapsedProgramTime",
+        available_while_program_active=True,
+    )
+    return HCSensor(entity_description, runtime_data)
+
+
+async def test_elapsed_time_available_while_program_active() -> None:
+    """
+    Shown while a program runs, even though the appliance flags it unavailable.
+
+    A Thermador PRG486WDH oven running top/bottom heating with no timer set
+    reports BSH.Common.Option.ElapsedProgramTime as available=false while its
+    value keeps counting up (2557s in the reporting diagnostics).
+    """
+    entity = _elapsed_time_sensor(active_program=MagicMock(), value=2557)
+
+    assert entity.available is True
+    assert entity.native_value == 2557
+
+
+async def test_elapsed_time_follows_appliance_flag_without_active_program() -> None:
+    """With nothing running, the appliance's own available=false still applies."""
+    entity = _elapsed_time_sensor(active_program=None, value=2557)
+
+    assert entity.available is False
+
+
+async def test_elapsed_time_unavailable_without_value() -> None:
+    """An active program alone isn't enough - there has to be a value to show."""
+    entity = _elapsed_time_sensor(active_program=MagicMock(), value=None)
+
+    assert entity.available is False
+
+
+async def test_elapsed_time_unavailable_when_disconnected() -> None:
+    """Ignoring the appliance's flag never overrides a lost connection."""
+    entity = _elapsed_time_sensor(active_program=MagicMock(), value=2557, connected=False)
+
+    assert entity.available is False
+
+
+async def test_elapsed_time_sensor_listens_to_active_program() -> None:
+    """It has to re-evaluate when a program starts or stops, not only on its own updates."""
+    entity = _elapsed_time_sensor(active_program=MagicMock(), value=2557)
+    active_program_entity = MagicMock()
+    entity._runtime_data.appliance.entities["BSH.Common.Root.ActiveProgram"] = active_program_entity
+
+    entity = HCSensor(entity.entity_description, entity._runtime_data)
+
+    assert active_program_entity in entity._entities

@@ -48,6 +48,7 @@ body:
       placeholder: "drag-and-drop the diagnostics file here"
       description: >-
         [Download the Integration Diagnostics](https://www.home-assistant.io/docs/configuration/troubleshooting/#download-diagnostics) and drag-and-drop that file into the textbox below.
+        Includes the current Appliance state plus the Device Description/Feature Mapping profile schema - no encryption key or other sensitive data, safe to attach as-is.
     validations:
       required: true
   - type: textarea

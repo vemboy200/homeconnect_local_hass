@@ -16,7 +16,7 @@ from custom_components.homeconnect_ws.const import (
     CONF_PSK,
     DOMAIN,
 )
-from home_disconnect import ParserError
+from home_disconnect import AuthenticationError, HCHandshakeError, ParserError
 from homeassistant.config_entries import SOURCE_IGNORE, SOURCE_USER
 from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE, CONF_DEVICE_ID, CONF_HOST, CONF_NAME
 from homeassistant.data_entry_flow import FlowResultType
@@ -400,7 +400,7 @@ async def test_user_set_host(
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "host"
-    assert result["errors"]["base"] == "cannot_connect"
+    assert result["errors"]["base"] == "cannot_connect_automatic"
 
     assert appliance.host == "Test_Brand-Test_TLS-010203040506070809"
 
@@ -480,7 +480,7 @@ async def test_user_auth_failed_ssl_error(
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "host"
-    assert result["errors"]["base"] == "cannot_connect"
+    assert result["errors"]["base"] == "cannot_connect_automatic"
 
     appliance._close.assert_awaited_once()
     hass.config_entries.flow.async_abort(result["flow_id"])
@@ -554,7 +554,7 @@ async def test_user_connection_failed_timeout(
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "host"
-    assert result["errors"]["base"] == "cannot_connect"
+    assert result["errors"]["base"] == "cannot_connect_automatic"
 
     appliance._close.assert_awaited_once()
     hass.config_entries.flow.async_abort(result["flow_id"])
@@ -592,10 +592,84 @@ async def test_user_connection_failed_connection_error(
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "host"
-    assert result["errors"]["base"] == "cannot_connect"
+    assert result["errors"]["base"] == "cannot_connect_automatic"
 
     appliance._close.assert_awaited_once()
     hass.config_entries.flow.async_abort(result["flow_id"])
+    mock_setup_entry.assert_not_awaited()
+
+
+async def test_user_connection_failed_handshake_error(
+    hass: HomeAssistant,
+    mock_process_profile_file: MagicMock,
+    mock_setup_entry: AsyncMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test a config flow with HCHandshakeError."""
+    appliance = MockAppliance(MOCK_TLS_DEVICE_INFO)
+    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    appliance._connect.side_effect = HCHandshakeError()
+
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "upload"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_FILE: UPLOADED_FILE,
+        },
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_DEVICE: MOCK_TLS_DEVICE_ID,
+        },
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "host"
+    assert result["errors"]["base"] == "cannot_connect_automatic"
+
+    appliance._close.assert_awaited_once()
+    hass.config_entries.flow.async_abort(result["flow_id"])
+    mock_setup_entry.assert_not_awaited()
+
+
+async def test_user_auth_failed_authentication_error(
+    hass: HomeAssistant,
+    mock_process_profile_file: MagicMock,
+    mock_setup_entry: AsyncMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test a config flow with AuthenticationError."""
+    appliance = MockAppliance(MOCK_TLS_DEVICE_INFO)
+    monkeypatch.setattr(config_flow, "HomeAppliance", appliance)
+    appliance._connect.side_effect = AuthenticationError()
+
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "upload"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_FILE: UPLOADED_FILE,
+        },
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_DEVICE: MOCK_TLS_DEVICE_ID,
+        },
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "auth_failed"
+
+    appliance._close.assert_awaited_once()
     mock_setup_entry.assert_not_awaited()
 
 

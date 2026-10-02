@@ -22,6 +22,7 @@ from homeassistant.const import (
     EntityCategory,
     UnitOfTime,
 )
+from homeassistant.util import dt as dt_util
 
 from .descriptions_definitions import (
     EntityDescriptions,
@@ -251,6 +252,24 @@ def generate_wifi(appliance: HomeAppliance) -> HCSensorEntityDescription:  # noq
     )
 
 
+def generate_ipv4(appliance: HomeAppliance) -> HCSensorEntityDescription:  # noqa: ARG001
+    """Get IPv4 address sensor description. Polled the same way as generate_wifi."""
+    return HCSensorEntityDescription(
+        key="sensor_ipv4_address",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    )
+
+
+def generate_ipv6(appliance: HomeAppliance) -> HCSensorEntityDescription:  # noqa: ARG001
+    """Get IPv6 address sensor description. Polled the same way as generate_wifi."""
+    return HCSensorEntityDescription(
+        key="sensor_ipv6_address",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    )
+
+
 def generate_temperature_unit(appliance: HomeAppliance) -> HCSelectEntityDescription | None:
     """Get Temperature unit description."""
     entity = appliance.entities.get("BSH.Common.Setting.TemperatureUnit")
@@ -318,6 +337,18 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             key="button_mains_power_off",
             entity="BSH.Common.Command.MainsPowerOff",
         ),
+        HCButtonEntityDescription(
+            key="button_sync_time",
+            entity="BSH.Common.Setting.ApplianceDateTime",
+            entity_category=EntityCategory.CONFIG,
+            # Only useful with "Synchronize time with server" off, which is
+            # itself disabled by default, so follow it.
+            entity_registry_enabled_default=False,
+            # The appliance reports and expects a naive ISO-8601 local
+            # timestamp ("2026-09-24T10:36:09"), so drop the offset that
+            # dt_util.now() carries rather than sending it along.
+            press_value_fn=lambda: dt_util.now().replace(tzinfo=None).isoformat(timespec="seconds"),
+        ),
     ],
     "binary_sensor": [
         HCBinarySensorEntityDescription(
@@ -373,6 +404,18 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
         HCBinarySensorEntityDescription(
             key="binary_sensor_alarm_clock_elapsed",
             entity="BSH.Common.Event.AlarmClockElapsed",
+            value_on={"Present", "Confirmed"},
+            value_off={"Off"},
+        ),
+        HCBinarySensorEntityDescription(
+            key="binary_sensor_favorite_001",
+            entity="BSH.Common.Event.Favorite.001.ExternalTrigger",
+            value_on={"Present", "Confirmed"},
+            value_off={"Off"},
+        ),
+        HCBinarySensorEntityDescription(
+            key="binary_sensor_favorite_002",
+            entity="BSH.Common.Event.Favorite.002.ExternalTrigger",
             value_on={"Present", "Confirmed"},
             value_off={"Off"},
         ),
@@ -435,12 +478,14 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             native_unit_of_measurement=UnitOfTime.SECONDS,
             suggested_unit_of_measurement=UnitOfTime.HOURS,
             clear_on_expected_offline=True,
+            available_while_program_active=True,
         ),
         HCSensorEntityDescription(
             key="sensor_program_progress",
             entity="BSH.Common.Option.ProgramProgress",
             native_unit_of_measurement=PERCENTAGE,
             clear_on_expected_offline=True,
+            unavailable_when_no_active_program=True,
         ),
         HCSensorEntityDescription(
             key="sensor_water_forecast",
@@ -593,6 +638,8 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
         ),
     ],
     "wifi": [generate_wifi],
+    "ipv4": [generate_ipv4],
+    "ipv6": [generate_ipv6],
     "update": [generate_software_download_update, generate_software_update],
     "dynamic": [generate_power_switch, generate_program],
 }

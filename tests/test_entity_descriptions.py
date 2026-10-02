@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import re
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
+from zoneinfo import ZoneInfo
 
 from custom_components.homeconnect_ws import HCData, entity_descriptions
 from custom_components.homeconnect_ws.entity_descriptions import (
@@ -17,6 +20,7 @@ from custom_components.homeconnect_ws.entity_descriptions import (
     HCSwitchEntityDescription,
 )
 from custom_components.homeconnect_ws.entity_descriptions.common import (
+    COMMON_ENTITY_DESCRIPTIONS,
     generate_power_switch,
     generate_program,
     generate_start_button,
@@ -587,6 +591,8 @@ TRANSLATION_DOMAINS = {
     "switch": "switch",
     "update": "update",
     "wifi": "sensor",
+    "ipv4": "sensor",
+    "ipv6": "sensor",
 }
 
 
@@ -609,3 +615,92 @@ def test_descriptions_have_english_name() -> None:
                 missing.append(f"{domain}.{key}")
 
     assert sorted(set(missing)) == []
+
+
+def test_translation_placeholders_match_descriptions() -> None:
+    """
+    Every translated name uses exactly the placeholders its description passes.
+
+    sensor_oven_water_tank (the oven-wide water tank, as opposed to the
+    per-cavity sensor_oven_water_tank_group) had "{group_name}" in its en, de
+    and zh-Hans name without passing a group_name, and Home Assistant logged
+    "has translation placeholders '{}' which do not match the name" (#112).
+    The oven-wide sensor_oven_current_temperature had the same slip in pl and
+    zh-Hans.
+    """
+    translations_dir = Path("custom_components/homeconnect_ws/translations")
+    translations = {
+        path.name: json.loads(path.read_text(encoding="utf-8"))["entity"]
+        for path in sorted(translations_dir.glob("*.json"))
+    }
+
+    mismatched = []
+    for description_type, descriptions in entity_descriptions.get_all_entity_description().items():
+        if description_type == "dynamic":
+            continue
+        domain = TRANSLATION_DOMAINS[description_type]
+        for description in descriptions:
+            if callable(description):
+                continue
+            key = description.translation_key or description.key
+            expected = set(description.translation_placeholders or {})
+            for language, entities in translations.items():
+                name = entities.get(domain, {}).get(key, {}).get("name")
+                if name is None:
+                    continue
+                used = set(re.findall(r"{(\w+)}", name))
+                if used != expected:
+                    mismatched.append(f"{language}: {domain}.{key} uses {sorted(used)}")
+
+    assert mismatched == []
+
+
+def test_german_translation_complete() -> None:
+    """
+    de.json has every key en.json has.
+
+    German is a required locale next to English: Germany has the most Home
+    Assistant installations and is BSH's home market. Other languages are
+    optional.
+    """
+
+    def flatten(node: dict, prefix: str = "") -> set[str]:
+        keys = set()
+        for key, value in node.items():
+            if isinstance(value, dict):
+                keys |= flatten(value, f"{prefix}{key}.")
+            else:
+                keys.add(f"{prefix}{key}")
+        return keys
+
+    translations_dir = Path("custom_components/homeconnect_ws/translations")
+    english = json.loads((translations_dir / "en.json").read_text(encoding="utf-8"))
+    german = json.loads((translations_dir / "de.json").read_text(encoding="utf-8"))
+
+    assert sorted(flatten(english) - flatten(german)) == []
+
+
+def test_sync_time_button_writes_naive_local_timestamp() -> None:
+    """
+    The clock button sends local time without a UTC offset.
+
+    A Siemens HB876G8B6 oven reports BSH.Common.Setting.ApplianceDateTime as
+    "2026-09-24T10:36:09" - no offset, local time. dt_util.now() is timezone
+    aware, so the offset has to be dropped rather than sent along.
+    """
+    description = next(
+        entity_description
+        for entity_description in COMMON_ENTITY_DESCRIPTIONS["button"]
+        if getattr(entity_description, "key", None) == "button_sync_time"
+    )
+    # No isinstance() check here - HA clones these classes at runtime, see
+    # _resolve_description in entity_descriptions/__init__.py.
+    assert description.entity == "BSH.Common.Setting.ApplianceDateTime"
+    assert description.press_value_fn is not None
+
+    local_now = datetime(2026, 9, 24, 10, 36, 9, 123456, tzinfo=ZoneInfo("Europe/Berlin"))
+    with patch(
+        "custom_components.homeconnect_ws.entity_descriptions.common.dt_util.now",
+        return_value=local_now,
+    ):
+        assert description.press_value_fn() == "2026-09-24T10:36:09"

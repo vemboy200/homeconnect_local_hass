@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import call
 
 from home_disconnect.message import Action, Message
 from homeassistant.components.light import (
@@ -12,6 +13,7 @@ from homeassistant.components.light import (
     ATTR_COLOR_TEMP_KELVIN,
     ATTR_RGB_COLOR,
     ATTR_SUPPORTED_COLOR_MODES,
+    SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
     ColorMode,
 )
@@ -120,7 +122,34 @@ async def test_on(
             data=[{"uid": 108, "value": True}],
         )
     )
-    mock_appliance.session.send_sync.reset_mock()
+
+
+async def test_off(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """Test Set Off."""
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.Lighting"].update({"value": True})
+    await hass.async_block_till_done()
+
+    await hass.services.async_call(
+        LIGHT_DOMAIN,
+        SERVICE_TURN_OFF,
+        {
+            ATTR_ENTITY_ID: "light.fake_brand_homeappliance_light_1",
+        },
+        blocking=True,
+    )
+
+    mock_appliance.session.send_sync.assert_awaited_once_with(
+        Message(
+            resource="/ro/values",
+            action=Action.POST,
+            data={"uid": 108, "value": False},
+        )
+    )
 
 
 async def test_update_brightness(
@@ -403,16 +432,26 @@ async def test_set_brightness_color_temp(
         blocking=True,
     )
 
-    mock_appliance.session.send_sync.assert_awaited_once_with(
-        Message(
-            resource="/ro/values",
-            action=Action.POST,
-            data=[
-                {"uid": 109, "value": 100},
-                {"uid": 110, "value": 100},
-                {"uid": 108, "value": True},
-            ],
-        )
+    mock_appliance.session.send_sync.assert_has_awaits(
+        [
+            call(
+                Message(
+                    resource="/ro/values",
+                    action=Action.POST,
+                    data=[{"uid": 108, "value": True}],
+                )
+            ),
+            call(
+                Message(
+                    resource="/ro/values",
+                    action=Action.POST,
+                    data=[
+                        {"uid": 109, "value": 100},
+                        {"uid": 110, "value": 100},
+                    ],
+                )
+            ),
+        ]
     )
     mock_appliance.session.send_sync.reset_mock()
 
@@ -499,7 +538,7 @@ async def test_set_color_temp_inverted(
         Message(
             resource="/ro/values",
             action=Action.POST,
-            data=[{"uid": 110, "value": 0}],
+            data=[{"uid": 113, "value": 0}, {"uid": 110, "value": 0}],
         )
     )
     mock_appliance.session.send_sync.reset_mock()
@@ -518,7 +557,7 @@ async def test_set_color_temp_inverted(
         Message(
             resource="/ro/values",
             action=Action.POST,
-            data=[{"uid": 110, "value": 100}],
+            data=[{"uid": 113, "value": 0}, {"uid": 110, "value": 100}],
         )
     )
     mock_appliance.session.send_sync.reset_mock()
@@ -537,7 +576,7 @@ async def test_set_color_temp_inverted(
         Message(
             resource="/ro/values",
             action=Action.POST,
-            data=[{"uid": 110, "value": 50}],
+            data=[{"uid": 113, "value": 0}, {"uid": 110, "value": 50}],
         )
     )
     mock_appliance.session.send_sync.reset_mock()
@@ -566,16 +605,27 @@ async def test_set_brightness_color_temp_inverted(
         blocking=True,
     )
 
-    mock_appliance.session.send_sync.assert_awaited_once_with(
-        Message(
-            resource="/ro/values",
-            action=Action.POST,
-            data=[
-                {"uid": 109, "value": 100},
-                {"uid": 110, "value": 0},
-                {"uid": 108, "value": True},
-            ],
-        )
+    mock_appliance.session.send_sync.assert_has_awaits(
+        [
+            call(
+                Message(
+                    resource="/ro/values",
+                    action=Action.POST,
+                    data=[{"uid": 108, "value": True}],
+                )
+            ),
+            call(
+                Message(
+                    resource="/ro/values",
+                    action=Action.POST,
+                    data=[
+                        {"uid": 109, "value": 100},
+                        {"uid": 113, "value": 0},
+                        {"uid": 110, "value": 0},
+                    ],
+                )
+            ),
+        ]
     )
     mock_appliance.session.send_sync.reset_mock()
 
@@ -601,6 +651,7 @@ async def test_set_brightness_color_temp_inverted(
             action=Action.POST,
             data=[
                 {"uid": 109, "value": 2},
+                {"uid": 113, "value": 0},
                 {"uid": 110, "value": 100},
             ],
         )
@@ -746,6 +797,46 @@ async def test_set_color(
     mock_appliance.session.send_sync.reset_mock()
 
 
+async def test_turn_on_skips_color_write_when_color_setting_unavailable(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """
+    A color write must not be attempted while the color Setting is unavailable.
+
+    Confirmed on upstream issue #477 (Siemens LC91KWW60 ambient light):
+    the color Setting is only reported available while the light itself is
+    on, so writing a color before that - e.g. the light's very first
+    turn_on - hits a Setting the appliance rejects with WriteRequest
+    NotAvailable. Turning the light on should still work, just without a
+    color write, rather than raising or errouring against the appliance.
+    """
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.Lighting"].update({"value": False})
+    await mock_appliance.entities["Test.LightingCustomColor"].update({"available": False})
+    await hass.async_block_till_done()
+
+    await hass.services.async_call(
+        LIGHT_DOMAIN,
+        SERVICE_TURN_ON,
+        {
+            ATTR_ENTITY_ID: "light.fake_brand_homeappliance_light_4",
+            ATTR_RGB_COLOR: (0, 255, 0),
+            ATTR_BRIGHTNESS: 127,
+        },
+        blocking=True,
+    )
+
+    mock_appliance.session.send_sync.assert_awaited_once_with(
+        Message(
+            resource="/ro/values",
+            action=Action.POST,
+            data=[{"uid": 108, "value": True}],
+        )
+    )
+
+
 async def test_turn_on_when_brightness_has_no_value(
     hass: HomeAssistant,
     mock_appliance: MockAppliance,
@@ -773,11 +864,71 @@ async def test_turn_on_when_brightness_has_no_value(
         },
         blocking=True,
     )
-    mock_appliance.session.send_sync.assert_awaited_once_with(
-        Message(
-            resource="/ro/values",
-            action=Action.POST,
-            data=[{"uid": 109, "value": 100}, {"uid": 108, "value": True}],
-        )
+    mock_appliance.session.send_sync.assert_has_awaits(
+        [
+            call(
+                Message(
+                    resource="/ro/values",
+                    action=Action.POST,
+                    data=[{"uid": 108, "value": True}],
+                )
+            ),
+            call(
+                Message(
+                    resource="/ro/values",
+                    action=Action.POST,
+                    data=[{"uid": 109, "value": 100}],
+                )
+            ),
+        ]
     )
     mock_appliance.session.send_sync.reset_mock()
+
+
+async def test_turn_on_sends_power_and_color_as_separate_messages(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """
+    Power-on must not be bundled into the same write as color/brightness.
+
+    Confirmed on upstream issue #477 (Siemens LC91KWW60/04 ambient light):
+    the appliance accepts a bare power-on write but rejects the combined
+    form with WriteRequest NotAvailable, so the whole turn_on fails - not
+    just the color part.
+    """
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.Lighting"].update({"value": False})
+    await mock_appliance.entities["Test.LightingColor"].update({"value": 1})
+    await hass.async_block_till_done()
+
+    await hass.services.async_call(
+        LIGHT_DOMAIN,
+        SERVICE_TURN_ON,
+        {
+            ATTR_ENTITY_ID: "light.fake_brand_homeappliance_light_4",
+            ATTR_RGB_COLOR: (0, 255, 0),
+            ATTR_BRIGHTNESS: 255,
+        },
+        blocking=True,
+    )
+
+    mock_appliance.session.send_sync.assert_has_awaits(
+        [
+            call(
+                Message(
+                    resource="/ro/values",
+                    action=Action.POST,
+                    data=[{"uid": 108, "value": True}],
+                )
+            ),
+            call(
+                Message(
+                    resource="/ro/values",
+                    action=Action.POST,
+                    data=[{"uid": 111, "value": "#00ff00"}],
+                )
+            ),
+        ]
+    )

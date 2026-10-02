@@ -27,7 +27,7 @@ from homeassistant.util.color import (
 from homeassistant.util.scaling import scale_ranged_value_to_int_range
 
 from .entity import HCEntity
-from .helpers import create_entities, error_decorator
+from .helpers import create_entities, entity_is_available, error_decorator
 
 if TYPE_CHECKING:
     from home_disconnect.entities import Entity as HcEntity
@@ -58,7 +58,7 @@ class HCLight(HCEntity, LightEntity):
     _color_temperature_entity: HcEntity | None = None
     _color_entity: HcEntity | None = None
     _color_mode_entity: HcEntity | None = None
-    _color_temp_inverted: bool = False
+    _color_temp_presets_entity: HcEntity | None = None
 
     def __init__(
         self,
@@ -77,8 +77,8 @@ class HCLight(HCEntity, LightEntity):
                 entity_description.color_temperature_entity
             ]
             self._entities.append(self._color_temperature_entity)
-            self._color_temp_inverted = (
-                "Cooking.Hood.Setting.ColorTemperature" in self._runtime_data.appliance.entities
+            self._color_temp_presets_entity = self._runtime_data.appliance.entities.get(
+                "Cooking.Hood.Setting.ColorTemperature"
             )
 
         if entity_description.color_entity is not None:
@@ -136,7 +136,7 @@ class HCLight(HCEntity, LightEntity):
             and self._color_temperature_entity.value is not None
         ):
             color_temp_value = cast("float", self._color_temperature_entity.value)
-            if self._color_temp_inverted:
+            if self._color_temp_presets_entity:
                 return scale_ranged_value_to_int_range(
                     (101, 0),
                     (DEFAULT_MIN_KELVIN + 1, DEFAULT_MAX_KELVIN),
@@ -157,6 +157,19 @@ class HCLight(HCEntity, LightEntity):
             return cast("tuple[int, int, int]", match_max_scale((255,), tuple(rgb)))
         return None
 
+    @property
+    def _rgb_usable(self) -> bool:
+        """
+        Whether the appliance currently offers the color Setting.
+
+        Ambient lights report their color Setting as unavailable while the
+        light is off, so writing a color then would hit a Setting the
+        appliance rejects with WriteRequest NotAvailable (upstream #477).
+        """
+        if self._color_entity is None:
+            return False
+        return entity_is_available(self._color_entity, self.entity_description.available_access)
+
     @error_decorator
     async def async_turn_on(self, **kwargs: Any) -> None:
         message_data: list[dict[str, Any]] = []
@@ -166,7 +179,12 @@ class HCLight(HCEntity, LightEntity):
         # _attr_color_mode is only ever RGB when _color_entity was set in
         # __init__, and only ever BRIGHTNESS/COLOR_TEMP when _brightness_entity
         # was set there too - both entities are guaranteed non-None below.
-        if self._attr_color_mode == ColorMode.RGB and rgb is not None and brightness is not None:
+        if (
+            self._attr_color_mode == ColorMode.RGB
+            and self._rgb_usable
+            and rgb is not None
+            and brightness is not None
+        ):
             color_entity = cast("HcEntity", self._color_entity)
             rgb_with_brightness = tuple(color * brightness // 255 for color in rgb)
             message_data.append(
@@ -197,7 +215,7 @@ class HCLight(HCEntity, LightEntity):
             message_data.append({"uid": brightness_entity.uid, "value": value_in_range})
 
         if ATTR_COLOR_TEMP_KELVIN in kwargs and self._color_temperature_entity is not None:
-            if self._color_temp_inverted:
+            if self._color_temp_presets_entity:
                 value_in_range = int(
                     scale_ranged_value_to_int_range(
                         (DEFAULT_MIN_KELVIN + 1, DEFAULT_MAX_KELVIN),
@@ -205,6 +223,7 @@ class HCLight(HCEntity, LightEntity):
                         kwargs[ATTR_COLOR_TEMP_KELVIN],
                     )
                 )
+                message_data.append({"uid": self._color_temp_presets_entity.uid, "value": 0})
             else:
                 value_in_range = int(
                     scale_ranged_value_to_int_range(
@@ -218,14 +237,26 @@ class HCLight(HCEntity, LightEntity):
             )
 
         if self._entity is not None and self._entity.value is not True:
-            message_data.append({"uid": self._entity.uid, "value": True})
+            # Sent as its own write, before any color/brightness/color-temp
+            # data, rather than bundled into one combined message - some
+            # appliances reject the combined form outright (confirmed live on
+            # upstream #477, a Siemens LC91KWW60/04 ambient light: a bare
+            # power-on write succeeds, one that also carries a color value
+            # gets the whole message rejected with WriteRequest NotAvailable).
+            power_message = HC_Message(
+                resource="/ro/values",
+                action=Action.POST,
+                data=[{"uid": self._entity.uid, "value": True}],
+            )
+            await self._runtime_data.appliance.session.send_sync(power_message)
 
-        message = HC_Message(
-            resource="/ro/values",
-            action=Action.POST,
-            data=message_data,
-        )
-        await self._runtime_data.appliance.session.send_sync(message)
+        if message_data:
+            message = HC_Message(
+                resource="/ro/values",
+                action=Action.POST,
+                data=message_data,
+            )
+            await self._runtime_data.appliance.session.send_sync(message)
 
     @error_decorator
     async def async_turn_off(self, **kwargs: Any) -> None:

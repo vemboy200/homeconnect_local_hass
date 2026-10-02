@@ -270,9 +270,6 @@
       "switch_refrigerator_door_assistant_fridge": {
         "name": "Asystent drzwi chłodziarki"
       },
-      "switch_refrigeration_light_internal": {
-        "name": "Oświetlenie wewnętrzne"
-      },
       "switch_refrigeration_light_theater_mode": {
         "name": "Oświetlenie wewnętrzne – tryb teatralny"
       },
@@ -1774,7 +1771,7 @@
         "name": "Szacowany całkowity czas programu"
       },
       "sensor_oven_water_tank": {
-        "name": "Zbiornik wody{group_name}",
+        "name": "Zbiornik wody",
         "state": {
           "ok": "ok",
           "empty": "pusty",
@@ -1782,7 +1779,7 @@
         }
       },
       "sensor_oven_current_temperature": {
-        "name": "Bieżąca temperatura{group_name}"
+        "name": "Bieżąca temperatura"
       },
       "sensor_oven_current_meatprobe_temperature": {
         "name": "Bieżąca temperatura sondy mięsnej"
@@ -3892,6 +3889,9 @@
       },
       "number_hood_delayed_shutoff_time": {
         "name": "Czas opóźnionego wyłączenia"
+      },
+      "number_hood_boost_time": {
+        "name": "Czas trwania trybu intensywnego"
       },
       "number_refrigerator_door_assistant_freezer_timeout": {
         "name": "Czas asystenta drzwi zamrażarki"

@@ -11,15 +11,20 @@ Fields common to every entity type:
 - `entity`: the name of the HC entity, e.g. `"BSH.Common.Status.DoorState"`
 - `entities`: for entity types that watch more than one HC entity
 - `available_access`: which `Access` values (`READ`, `READ_WRITE`, `WRITE_ONLY`) count as "available"; each platform sets its own sensible default
+
+  There's one automatic exception to this: an `Option`, `Setting` or `SelectedProgram` entity whose access is currently `READ` is always shown as available, and its platform's write action (`switch`/`select`/`number`) raises a clear `ServiceValidationError` instead of attempting a write it would reject. Home Connect appliances lock some Options and Settings to read-only while a program runs, and lock `SelectedProgram` itself while a delayed start is armed, rather than making them unavailable - the official app shows them as visible-but-disabled, not hidden - confirmed live on fork issue #59, for a locked Option (an iDos dosing switch), for `SelectedProgram` (a Bosch WGB244A0BY's own debug log shows its access flip `READ_WRITE` -> `READ` the moment a delayed start is armed and back once the wash actually starts) and for a `Setting` (a Bosch WQB245A0BY dryer's fine-adjust settings are `READ` for the whole time a program runs and `READ_WRITE` again once it ends). This only applies to `Access.READ`, not `Access.NONE` (which means "not applicable at all right now" and should stay genuinely unavailable), and it's automatic based on the underlying HC entity's own class - no entity description field controls it.
+
+  Every `Option`-, `Setting`- or `SelectedProgram`-backed entity also always carries a `readonly` extra state attribute (`true`/`false`) reflecting this, whether or not it's currently locked - not just when `true` - so a template or custom card can rely on it existing rather than treating a missing attribute as "not readonly" (feedback from issue #59). Entities that could never be any of those types (a `Status`-backed sensor, a button, etc.) don't get the attribute at all, since the concept doesn't apply to them.
+
 - `extra_attributes`: list of dicts mapping an attribute `name` to an HC `entity` (and optionally a `value_fn`) to expose as extra state attributes, e.g.
 
   ```python
-  extra_attributes=[
+  extra_attributes = [
       {
           "name": "Is Estimated",
           "entity": "BSH.Common.Option.RemainingProgramTimeIsEstimated",
       }
-  ],
+  ]
   ```
 
 - `clear_on_expected_offline`: for laundry appliances only — clears the entity's value to `None` instead of showing a stale reading while the appliance is in its expected-offline window (see [Known Limitations](../integration/support-and-troubleshooting.md#known-limitations) on the code-1000 clean-disconnect behavior)
@@ -67,12 +72,12 @@ No HC-specific extra fields — use HA's own inherited `NumberEntityDescription`
 
 ## Button, Event Sensor, and other types
 
-- **Button** (`HCButtonEntityDescription`): no extra fields beyond the base ones.
+- **Button** (`HCButtonEntityDescription`): `press_value_fn` — a callable returning the value to write when the button is pressed. Without it the button writes `True` to its `Command`, which is what a command-backed button needs. A button backed by a `Setting` sets this instead, and it is evaluated on press, so the value can depend on the current state (the clock button sends the current time this way).
 - **Event Sensor**: turns multiple HC events into a single sensor. Required fields: `entities` (list of event entities, evaluated top to bottom until one is set) and `options` (list of display values, one more than the number of `entities` — the last option is the fallback when none are set).
 
 ## Development Options
 
-This integration has development-only options for use with the [HomeConnect Websocket Simulator](https://github.com/chris-mc1/homeconnect_ws_sim/). Set these in `configuration.yaml`:
+This integration has development-only options for use with the [HomeConnect Websocket Simulator](https://github.com/vemboy200/homeconnect_ws_sim/) (a fork retargeted to depend on this project's [home-disconnect](https://github.com/vemboy200/home-disconnect) library instead of the unmaintained original). Set these in `configuration.yaml`:
 
 ```yaml
 homeconnect_ws:

@@ -86,6 +86,27 @@ class HCSensorEntityDescription(
     # race, but for a read-only enum sensor instead of the select.
     force_option_when_expected_offline: str | None = None
     mapping: dict[str, str] | None = None
+    # Some appliances stop reporting an Option-based status (phase, progress)
+    # once a program finishes instead of resetting it themselves - it stays
+    # frozen on its last in-progress-looking value even though active_program
+    # has already gone None and the appliance is powered off (confirmed live
+    # on a Bosch dishwasher, issue #302: program_phase stuck on "Drying" at
+    # 0% remaining time for as long as the appliance sat idle and off).
+    # Forces this enum sensor to a specific value in that state instead -
+    # only while both conditions hold, and only to a value this appliance's
+    # own enum actually has (see force_option_when_expected_offline above).
+    force_value_when_no_active_program: str | None = None
+    # Same trigger as force_value_when_no_active_program, but for a sensor
+    # with no sensible idle value of its own (e.g. program_progress) - goes
+    # unavailable instead, matching how the Home Connect Cloud app itself
+    # handles progress once there's nothing in progress.
+    unavailable_when_no_active_program: bool = False
+    # Some appliances flag an Option unavailable while still counting it: a
+    # Thermador PRG486WDH oven running a heating mode with no timer set
+    # reports ElapsedProgramTime as available=false while its value keeps
+    # going up. Shows the value anyway while a program is active (and there
+    # is a value), falling back to the appliance's own flag otherwise.
+    available_while_program_active: bool = False
 
 
 class HCBinarySensorEntityDescription(
@@ -106,6 +127,10 @@ class HCButtonEntityDescription(
     """Description for Button Entity."""
 
     available_access: tuple[Access, ...] = (Access.READ_WRITE, Access.WRITE_ONLY)
+    # A button writes True to its Command by default. A button backed by a
+    # Setting instead supplies the value to write here, evaluated on press so
+    # it can depend on the current state (e.g. the current time).
+    press_value_fn: Callable[[], str | int | bool] | None = None
 
 
 class HCNumberEntityDescription(
@@ -156,6 +181,8 @@ class EntityDescriptions(TypedDict, total=False):
     start_button: list[HCButtonEntityDescription]
     switch: list[HCSwitchEntityDescription]
     wifi: list[HCSensorEntityDescription]
+    ipv4: list[HCSensorEntityDescription]
+    ipv6: list[HCSensorEntityDescription]
     light: list[HCLightEntityDescription]
     fan: list[HCFanEntityDescription]
     update: list[HCUpdateEntityDescription]
@@ -174,6 +201,8 @@ _EntityDescriptionsDefinitionsType = dict[
         "start_button",
         "switch",
         "wifi",
+        "ipv4",
+        "ipv6",
         "light",
         "fan",
         "update",
@@ -198,6 +227,8 @@ _EntityDescriptionsType = dict[
         "start_button",
         "switch",
         "wifi",
+        "ipv4",
+        "ipv6",
         "light",
         "fan",
         "update",

@@ -54,3 +54,7 @@ Any Home Connect device that
 - **[Support & Troubleshooting](docs/integration/support-and-troubleshooting.md)** — known limitations, requesting a feature, debug logging
 - **[Other stuff](docs/integration/other-stuff.md)** — profile export, data updates, actions, integration removal
 - **[Important terms](docs/important-terms.md)**
+
+## AI Use Disclaimer
+
+The current maintainer uses AI assistance in development (see [CONTRIBUTING.md](CONTRIBUTING.md#ai-notice)); all changes are tested against real or simulated hardware before a stable release.

@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import Mock, patch
 
 import pytest
+from custom_components import homeconnect_ws
+from custom_components.homeconnect_ws import entity_descriptions
+from custom_components.homeconnect_ws.entity_descriptions import HCButtonEntityDescription
+from home_disconnect.entities import Program
 from home_disconnect.message import Action, Message
 from homeassistant.components.button import DOMAIN as BUTTON_DOMAIN
 from homeassistant.components.button import SERVICE_PRESS
@@ -12,7 +17,7 @@ from homeassistant.const import ATTR_ENTITY_ID, ATTR_FRIENDLY_NAME
 from homeassistant.exceptions import HomeAssistantError
 
 from . import setup_config_entry
-from .const import MOCK_CONFIG_DATA
+from .const import ENTITY_DESCRIPTIONS, MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
     from home_disconnect.testutils import MockAppliance
@@ -62,7 +67,127 @@ async def test_start(
             action=Action.POST,
             data={
                 "program": 500,
-                "options": [{"uid": 401, "value": None}, {"uid": 402, "value": None}],
+                # No option has a reported value yet, so none goes out -
+                # the appliance rejects {"value": null} entries with 400.
+                "options": [],
+            },
+        )
+    )
+
+
+async def test_start_full_option_set(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """
+    Pressing start builds a well-formed option set for appliances that need one.
+
+    Confirmed live on a Siemens CoffeeMaker and a NEFF oven: sending the raw
+    (possibly None) shadow value of every option, like the plain start() call
+    above does, gets rejected with a 400. Options with no value and no min
+    (like these) are dropped entirely instead of sent as null.
+    """
+    entity_id = "button.fake_brand_homeappliance_activeprogram"
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.SelectedProgram"].update({"value": 500})
+    await hass.async_block_till_done()
+
+    with patch.object(Program, "full_option_set", new=True, create=True):
+        await hass.services.async_call(
+            domain=BUTTON_DOMAIN,
+            service=SERVICE_PRESS,
+            service_data={ATTR_ENTITY_ID: entity_id},
+            blocking=True,
+        )
+
+    mock_appliance.session.send_sync.assert_awaited_once_with(
+        Message(
+            resource="/ro/activeProgram",
+            action=Action.POST,
+            data={
+                "program": 500,
+                "options": [],
+            },
+        )
+    )
+
+
+async def test_start_sends_known_values_but_skips_unavailable_options(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """
+    Pressing start sends the options' known values, minus unavailable ones.
+
+    Option1 has a reported value and goes out (a hood's Venting program needs
+    its level, fork issue #14). Option2 has a value too, but the appliance has
+    withdrawn it for this program (available: false) - a value for an option
+    the appliance does not offer makes it reject the whole write with 400
+    (Siemens EQ.9 CoffeeMaker, fork issue #97).
+    """
+    entity_id = "button.fake_brand_homeappliance_activeprogram"
+    await mock_appliance.entities["Test.Option1"].update({"value": 1})
+    await mock_appliance.entities["Test.Option2"].update({"value": 2, "available": False})
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.SelectedProgram"].update({"value": 500})
+    await hass.async_block_till_done()
+
+    await hass.services.async_call(
+        domain=BUTTON_DOMAIN,
+        service=SERVICE_PRESS,
+        service_data={ATTR_ENTITY_ID: entity_id},
+        blocking=True,
+    )
+
+    mock_appliance.session.send_sync.assert_awaited_once_with(
+        Message(
+            resource="/ro/activeProgram",
+            action=Action.POST,
+            data={
+                "program": 500,
+                "options": [{"uid": 401, "value": 1}],
+            },
+        )
+    )
+
+
+async def test_start_full_option_set_skips_unavailable_options(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """
+    The full option set leaves out options the appliance does not offer.
+
+    Confirmed live on a Siemens EQ.9 CoffeeMaker (fork issue #97): DisplayName
+    is listed on every beverage program with a min, but never reported or made
+    available. Filling it from min like the other valueless options made the
+    appliance reject every start with 400; without it the same write succeeds.
+    """
+    entity_id = "button.fake_brand_homeappliance_activeprogram"
+    await mock_appliance.entities["Test.Option1"].update({"min": 5})
+    await mock_appliance.entities["Test.Option2"].update({"min": 1, "available": False})
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.SelectedProgram"].update({"value": 500})
+    await hass.async_block_till_done()
+
+    with patch.object(Program, "full_option_set", new=True, create=True):
+        await hass.services.async_call(
+            domain=BUTTON_DOMAIN,
+            service=SERVICE_PRESS,
+            service_data={ATTR_ENTITY_ID: entity_id},
+            blocking=True,
+        )
+
+    mock_appliance.session.send_sync.assert_awaited_once_with(
+        Message(
+            resource="/ro/activeProgram",
+            action=Action.POST,
+            data={
+                "program": 500,
+                "options": [{"uid": 401, "value": 5}],
             },
         )
     )
@@ -102,7 +227,9 @@ async def test_start_available_for_select_only_program(
             action=Action.POST,
             data={
                 "program": 506,
-                "options": [{"uid": 401, "value": None}, {"uid": 402, "value": None}],
+                # No option has a reported value yet, so none goes out -
+                # the appliance rejects {"value": null} entries with 400.
+                "options": [],
             },
         )
     )
@@ -221,5 +348,49 @@ async def test_abort(
             resource="/ro/values",
             action=Action.POST,
             data={"uid": 300, "value": True},
+        )
+    )
+
+
+async def test_press_writes_value_from_press_value_fn(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    A button backed by a Setting writes its own value instead of True.
+
+    Commands take a bare True, but a Setting-backed button (BSH.Common.Setting
+    .ApplianceDateTime, the appliance clock) has to send an actual value, and
+    one that is computed when the button is pressed rather than when the
+    entity description is built.
+    """
+    descriptions = {
+        **ENTITY_DESCRIPTIONS,
+        "button": [
+            HCButtonEntityDescription(
+                key="Test.Switch",
+                name="ValueButton",
+                entity="Test.Switch",
+                press_value_fn=lambda: "2026-09-24T10:36:09",
+            )
+        ],
+    }
+    for module in (entity_descriptions, homeconnect_ws):
+        monkeypatch.setattr(module, "get_available_entities", Mock(return_value=descriptions))
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+
+    await hass.services.async_call(
+        domain=BUTTON_DOMAIN,
+        service=SERVICE_PRESS,
+        service_data={ATTR_ENTITY_ID: "button.fake_brand_homeappliance_valuebutton"},
+        blocking=True,
+    )
+
+    mock_appliance.session.send_sync.assert_awaited_once_with(
+        Message(
+            resource="/ro/values",
+            action=Action.POST,
+            data={"uid": 201, "value": "2026-09-24T10:36:09"},
         )
     )

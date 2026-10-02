@@ -12,6 +12,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from .const import MOCK_TLS_DEVICE_INFO
 
 if TYPE_CHECKING:
+    import logging
     from collections.abc import Awaitable, Callable
 
     from homeassistant.core import HomeAssistant
@@ -36,6 +37,7 @@ class MockAppliance:
         psk64: str,
         iv64: str | None = None,
         *,
+        logger: logging.Logger | None = None,
         connection_callback: Callable[[ConnectionState], Awaitable[None]] | None = None,
     ) -> Self:
         self.description = description
@@ -44,6 +46,7 @@ class MockAppliance:
         self.app_id = app_id
         self.psk64 = psk64
         self.iv64 = iv64
+        self.logger = logger
         self.connection_callback = connection_callback
         return self
 

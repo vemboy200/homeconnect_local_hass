@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout base branch (not the PR head - see security note above)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Review with Claude
         uses: anthropics/claude-code-action@v1

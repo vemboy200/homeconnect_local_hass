@@ -7,13 +7,24 @@
         "pep621",
         "github-actions",
         "pre-commit",
-        "homeassistant-manifest"
+        "homeassistant-manifest",
+        "custom.regex"
     ],
     "minimumReleaseAge": "3 days",
     "osvVulnerabilityAlerts": true,
     "dependencyDashboardOSVVulnerabilitySummary": "all",
     "timezone": "America/Los_Angeles",
-    "customManagers": [],
+    "customManagers": [
+        {
+            "customType": "regex",
+            "managerFilePatterns": [
+                "/^\\.github/workflows/test\\.yaml$/"
+            ],
+            "matchStrings": [
+                "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+ha-version: \"homeassistant==(?<currentValue>[^\"]+)\""
+            ]
+        }
+    ],
     "packageRules": [
         {
             "matchPackageNames": [
@@ -29,6 +40,16 @@
             "automerge": true,
             "automergeType": "pr",
             "platformAutomerge": true
+        },
+        {
+            "matchManagers": [
+                "custom.regex"
+            ],
+            "matchPackageNames": [
+                "homeassistant"
+            ],
+            "enabled": true,
+            "automerge": false
         }
     ],
     "pre-commit": {

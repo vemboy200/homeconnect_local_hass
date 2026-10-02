@@ -5,12 +5,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+import pytest
 from custom_components.homeconnect_ws import HCData
 from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitions import (
     HCSelectEntityDescription,
 )
 from custom_components.homeconnect_ws.select import HCSelect
-from home_disconnect.entities import Access, Execution, Program
+from home_disconnect.entities import Access, Execution, Program, SelectedProgram
 from home_disconnect.message import Action, Message
 from homeassistant.components.select import (
     ATTR_OPTION,
@@ -18,7 +19,13 @@ from homeassistant.components.select import (
     SERVICE_SELECT_OPTION,
 )
 from homeassistant.components.select import DOMAIN as SELECT_DOMAIN
-from homeassistant.const import ATTR_ENTITY_ID, ATTR_FRIENDLY_NAME, STATE_UNKNOWN
+from homeassistant.const import (
+    ATTR_ENTITY_ID,
+    ATTR_FRIENDLY_NAME,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+)
+from homeassistant.exceptions import ServiceValidationError
 
 from . import setup_config_entry
 from .const import MOCK_CONFIG_DATA
@@ -101,6 +108,52 @@ async def test_update(
 
     state = hass.states.get(entity_id_options)
     assert state.state == "option2"
+
+
+async def test_select_available_and_readonly_when_setting_locked(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """
+    Test a select backed by a read-locked Setting stays available and rejects writes.
+
+    Confirmed live on fork issue #59 via a Bosch WQB245A0BY dryer's debug log:
+    its fine-adjust selects are Settings that go READ for the whole time a
+    program runs and READ_WRITE again once it ends - they should stay visible
+    with their current value the whole time, not go unavailable.
+    """
+    entity_id = "select.fake_brand_homeappliance_select"
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.Select"].update({"access": "readwrite"})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state != STATE_UNAVAILABLE
+    assert state.attributes["readonly"] is False
+
+    await mock_appliance.entities["Test.Select"].update({"access": "read"})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state != STATE_UNAVAILABLE
+    assert state.attributes["readonly"] is True
+
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            SELECT_DOMAIN,
+            SERVICE_SELECT_OPTION,
+            {ATTR_ENTITY_ID: entity_id, ATTR_OPTION: "Option3"},
+            blocking=True,
+        )
+    mock_appliance.session.send_sync.assert_not_awaited()
+
+    await mock_appliance.entities["Test.Select"].update({"access": "readwrite"})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state != STATE_UNAVAILABLE
+    assert state.attributes["readonly"] is False
 
 
 async def test_select(
@@ -246,10 +299,71 @@ async def test_start_only_program_available_with_read_only_selected_program(
             action=Action.POST,
             data={
                 "program": 501,
-                "options": [{"uid": 401, "value": None}, {"uid": 402, "value": None}],
+                # No option has a reported value yet, so none goes out -
+                # the appliance rejects {"value": null} entries with 400.
+                "options": [],
             },
         )
     )
+
+
+async def test_selected_program_available_and_readonly_when_read_locked(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """
+    Test the program select stays available with its value while SelectedProgram is read-locked.
+
+    Confirmed live on fork issue #59 via a Bosch WGB244A0BY's own debug log:
+    SelectedProgram's access flips READ_WRITE -> READ the instant a delayed
+    start is armed, and back once the wash actually starts running - the
+    select should keep showing the chosen program through that whole window
+    instead of going unavailable, matching the same treatment already given
+    to a locked Option.
+    """
+    entity_id = "select.fake_brand_homeappliance_selectedprogram"
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.SelectedProgram"].update(
+        {"value": 500, "access": "readwrite"}
+    )
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == "test_program_program1"
+    assert state.attributes["readonly"] is False
+
+    await mock_appliance.entities["Test.SelectedProgram"].update({"access": "read"})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == "test_program_program1"
+    assert state.attributes["readonly"] is True
+
+
+async def test_select_program_raises_when_selected_program_read_locked(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """Test picking a program raises a clear error instead of a silent/opaque failure."""
+    entity_id = "select.fake_brand_homeappliance_selectedprogram"
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.SelectedProgram"].update({"value": 500, "access": "read"})
+    await hass.async_block_till_done()
+
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            SELECT_DOMAIN,
+            SERVICE_SELECT_OPTION,
+            {
+                ATTR_ENTITY_ID: entity_id,
+                ATTR_OPTION: "test_program_program2",
+            },
+            blocking=True,
+        )
+
+    mock_appliance.session.send_sync.assert_not_awaited()
 
 
 async def test_select_program(
@@ -303,7 +417,9 @@ async def test_select_program(
             action=Action.POST,
             data={
                 "program": 502,
-                "options": [{"uid": 401, "value": None}, {"uid": 402, "value": None}],
+                # No option has a reported value yet, so none goes out -
+                # the appliance rejects {"value": null} entries with 400.
+                "options": [],
             },
         )
     )
@@ -342,7 +458,9 @@ async def test_start_only_program_sends_known_option_values(
             action=Action.POST,
             data={
                 "program": 502,
-                "options": [{"uid": 401, "value": 1}, {"uid": 402, "value": None}],
+                # Option1 has a known value and goes out; Option2 has none
+                # and is left out instead of being sent as null.
+                "options": [{"uid": 401, "value": 1}],
             },
         )
     )
@@ -361,12 +479,16 @@ async def test_full_option_set_program_sends_complete_options(
     option sent as null - every one of its programs failed to select with a
     400. Test.Option2 has no value anywhere, so it is left out of the write
     entirely rather than sent as null.
+
+    The flag is patched onto SelectedProgram, the resource this branch keys
+    off - see test_active_program_only_full_option_set_still_selects for an
+    appliance that flags ActiveProgram instead and must not end up here.
     """
     entity_id = "select.fake_brand_homeappliance_selectedprogram"
     await mock_appliance.entities["Test.Option1"].update({"value": 1})
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
 
-    with patch.object(Program, "full_option_set", new=True, create=True):
+    with patch.object(SelectedProgram, "full_option_set", new=True):
         await hass.services.async_call(
             SELECT_DOMAIN,
             SERVICE_SELECT_OPTION,
@@ -389,6 +511,50 @@ async def test_full_option_set_program_sends_complete_options(
     )
 
 
+async def test_active_program_only_full_option_set_still_selects(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """
+    Selecting stays a SelectedProgram write when only ActiveProgram is flagged.
+
+    A Siemens EQ.9 CoffeeMaker declares
+
+        <selectedProgram fullOptionSet="false" access="readwrite" />
+        <activeProgram   fullOptionSet="true"  access="read" />
+
+    Program.full_option_set falls back to the appliance-wide value, which is
+    true as soon as either resource says so. Keying the branch off that sent
+    the selection to /ro/activeProgram instead - and since every beverage
+    defaults to SELECT_AND_START, picking a drink in the UI started brewing it
+    on the spot.
+    """
+    entity_id = "select.fake_brand_homeappliance_selectedprogram"
+    await mock_appliance.entities["Test.Option1"].update({"value": 1})
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+
+    # Program.full_option_set true (appliance-wide), SelectedProgram's own false.
+    with patch.object(Program, "full_option_set", new=True, create=True):
+        await hass.services.async_call(
+            SELECT_DOMAIN,
+            SERVICE_SELECT_OPTION,
+            {
+                ATTR_ENTITY_ID: entity_id,
+                ATTR_OPTION: "test_program_program2",
+            },
+            blocking=True,
+        )
+
+    mock_appliance.session.send_sync.assert_awaited_once_with(
+        Message(
+            resource="/ro/selectedProgram",
+            action=Action.POST,
+            data={"program": 501, "options": []},
+        )
+    )
+
+
 async def test_full_option_set_select_only_program_stays_on_selected_program(
     hass: HomeAssistant,
     mock_appliance: MockAppliance,
@@ -402,7 +568,7 @@ async def test_full_option_set_select_only_program_stays_on_selected_program(
     )
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
 
-    with patch.object(Program, "full_option_set", new=True, create=True):
+    with patch.object(SelectedProgram, "full_option_set", new=True):
         await hass.services.async_call(
             SELECT_DOMAIN,
             SERVICE_SELECT_OPTION,

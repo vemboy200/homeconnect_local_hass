@@ -276,6 +276,11 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity="Refrigeration.Common.Command.Dispenser.WaterFilterReset",
             entity_category=EntityCategory.CONFIG,
         ),
+        HCButtonEntityDescription(
+            key="button_refrigerator_open_door",
+            entity="BSH.Common.Command.OpenDoor",
+            entity_registry_enabled_default=False,
+        ),
     ],
     "sensor": [
         HCSensorEntityDescription(
@@ -295,6 +300,12 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity="Refrigeration.Common.Status.TemperatureAmbient",
             device_class=SensorDeviceClass.TEMPERATURE,
             native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_water_filter_saturation",
+            entity="Refrigeration.Common.Status.Dispenser.WaterFilterSaturation",
+            native_unit_of_measurement=PERCENTAGE,
+            state_class=SensorStateClass.MEASUREMENT,
         ),
         HCSensorEntityDescription(
             key="sensor_temperature_memory_freezer",
@@ -468,12 +479,6 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity="Refrigeration.Common.Setting.Door.AssistantFridge",
             device_class=SwitchDeviceClass.SWITCH,
             entity_category=EntityCategory.CONFIG,
-        ),
-        HCSwitchEntityDescription(
-            key="switch_refrigeration_light_internal",
-            entity="Refrigeration.Common.Setting.Light.Internal.Power",
-            device_class=SwitchDeviceClass.SWITCH,
-            entity_registry_enabled_default=False,
         ),
         HCSwitchEntityDescription(
             key="switch_refrigeration_light_theater_mode",

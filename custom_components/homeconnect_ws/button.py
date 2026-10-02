@@ -10,10 +10,16 @@ from homeassistant.exceptions import HomeAssistantError
 
 from .const import DOMAIN
 from .entity import HCEntity
-from .helpers import create_entities, error_decorator
+from .helpers import (
+    build_full_option_set,
+    build_known_option_set,
+    create_entities,
+    error_decorator,
+    needs_full_option_set,
+)
 
 if TYPE_CHECKING:
-    from home_disconnect.entities import ActiveProgram, Command
+    from home_disconnect.entities import ActiveProgram, Command, Setting
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -36,13 +42,16 @@ async def async_setup_entry(
 
 
 class HCButton(HCEntity, ButtonEntity):
-    """Abort Button Entity."""
+    """Button Entity."""
 
-    _entity: Command
+    _entity: Command | Setting
     entity_description: HCButtonEntityDescription
 
+    @error_decorator
     async def async_press(self) -> None:
-        await self._entity.set_value(True)
+        press_value_fn = self.entity_description.press_value_fn
+        value = True if press_value_fn is None else press_value_fn()
+        await self._entity.set_value(value)
 
 
 class HCStartButton(HCEntity, ButtonEntity):
@@ -97,4 +106,22 @@ class HCStartButton(HCEntity, ButtonEntity):
                 translation_key="remote_start_not_allowed",
                 translation_placeholders={"device_name": device_name},
             )
-        await selected_program.start()
+        if needs_full_option_set(selected_program):
+            # This appliance validates a program write against the program's
+            # complete option set and rejects anything less with a 400
+            # (confirmed on a Siemens CoffeeMaker and a NEFF oven) - the
+            # default merge behaviour below blindly resends every option's
+            # raw shadow value, which can still be None for one the
+            # appliance hasn't reported yet. Mirrors HCProgram's own
+            # _select_with_full_option_set in select.py.
+            options = build_full_option_set(self._runtime_data.appliance, selected_program)
+            await selected_program.start(options, override_options=True)
+        else:
+            # The library's default merge resends every READ_WRITE option's
+            # raw shadow value, and one the appliance never reported goes out
+            # as {"value": null}, which the appliance rejects with 400 for the
+            # whole write (seen on a Siemens EQ.9 CoffeeMaker with 1.7.1, where
+            # this branch ran). Send the known values only - a hood's Venting
+            # program still needs its real level (fork issue #14).
+            options = build_known_option_set(self._runtime_data.appliance, selected_program)
+            await selected_program.start(options, override_options=True)

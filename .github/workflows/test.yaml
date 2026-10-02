@@ -6,11 +6,17 @@ on:
 
 jobs:
   test:
+    name: test (${{ matrix.ha-label }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        ha-version: ["homeassistant==2026.4.0", "homeassistant==2026.8.1"]
+        include:
+          - ha-label: oldest
+            ha-version: "homeassistant==2026.4.0"
+          - ha-label: latest
+            # renovate: datasource=pypi depName=homeassistant
+            ha-version: "homeassistant==2026.9.4"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9

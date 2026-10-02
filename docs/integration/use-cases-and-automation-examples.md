@@ -145,3 +145,41 @@ actions:
           program: "dishcare_dishwasher_program_eco_50"
 ```
 </details>
+
+
+### Keep the appliance clock right without internet access
+
+An appliance cut off from the internet (e.g. blocked at the router) can't sync its clock and drifts by a few seconds a day. This automation sets the clock from Home Assistant once a night, so it stays right and picks up DST changes on its own. Both the button and the "Synchronize time with server" switch are disabled by default, so enable them on the device page first:
+
+- **Trigger**: `time` trigger at `"04:00:00"` - after the DST switch, so the clock is right by morning.
+- **Conditions**: the appliance's "Synchronize time with server" switch is off. While it's on, the appliance locks its clock (the button shows `readonly: true` and refuses to press).
+- **Actions**: press the "Sync time from Home Assistant" button.
+
+<details>
+<summary>YAML example for keeping the appliance clock in sync</summary>
+<br>
+
+```yaml
+alias: Keep the oven clock in sync with Home Assistant
+description: >-
+  Sets the appliance's clock to Home Assistant's local time once a night.
+  Works fully offline and keeps DST changes right, since Home Assistant
+  knows the time zone.
+triggers:
+  - trigger: time
+    at: "04:00:00"
+conditions:
+  - condition: state
+    # Replace with your appliance's "Synchronize time with server" entity -
+    # the appliance won't accept a clock write while this is on
+    entity_id: switch.oven_synchronize_time_with_server
+    state: "off"
+actions:
+  - action: button.press
+    target:
+      # Replace with your appliance's "Sync time from Home Assistant" entity
+      entity_id: button.oven_sync_time_from_home_assistant
+mode: single
+```
+
+</details>

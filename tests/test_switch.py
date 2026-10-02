@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
+import pytest
 from custom_components.homeconnect_ws import HCData
 from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitions import (
     HCSwitchEntityDescription,
@@ -21,6 +22,7 @@ from homeassistant.const import (
     STATE_ON,
     STATE_UNKNOWN,
 )
+from homeassistant.exceptions import ServiceValidationError
 
 from . import setup_config_entry
 from .const import MOCK_CONFIG_DATA
@@ -235,3 +237,118 @@ async def test_is_on_not_forced_when_not_expected_offline() -> None:
     entity = HCSwitch(entity_description, runtime_data)
 
     assert entity.is_on is None
+
+
+async def test_available_and_readonly_when_option_locked(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """
+    Test a switch backed by a read-locked Option stays available with its value.
+
+    Confirmed live on fork issue #59: Home Connect locks some Options (e.g.
+    iDos1) to read-only while a program runs rather than making them
+    unavailable - the entity should keep showing its current state and flag
+    itself as readonly, not disappear. `readonly` is always present (as
+    False) on an Option-backed entity, not just when it's actually locked -
+    per feedback on #59, a custom card/template shouldn't have to treat a
+    missing attribute as meaning "not readonly".
+    """
+    entity_id = "switch.fake_brand_homeappliance_switch_option"
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.Option1"].update({"value": True, "access": "readwrite"})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == STATE_ON
+    assert state.attributes["readonly"] is False
+
+    await mock_appliance.entities["Test.Option1"].update({"access": "read"})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == STATE_ON
+    assert state.attributes["readonly"] is True
+
+
+async def test_turn_on_raises_when_option_locked(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """Test turning on raises a clear error instead of a silent/opaque failure."""
+    entity_id = "switch.fake_brand_homeappliance_switch_option"
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.Option1"].update({"value": False, "access": "read"})
+    await hass.async_block_till_done()
+
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            SWITCH_DOMAIN,
+            SERVICE_TURN_ON,
+            {ATTR_ENTITY_ID: entity_id},
+            blocking=True,
+        )
+
+    mock_appliance.session.send_sync.assert_not_awaited()
+
+
+async def test_available_and_readonly_when_setting_locked(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """
+    Test a switch backed by a read-locked Setting stays available with its value.
+
+    Confirmed live on fork issue #59 via a Bosch WQB245A0BY dryer's debug log:
+    some Settings (e.g. the dryer's fine-adjust ones) are read-only for the
+    whole time a program runs, then writable again once it ends - same
+    visible-but-disabled treatment as a locked Option, and back to
+    `readonly: false` once unlocked.
+    """
+    entity_id = "switch.fake_brand_homeappliance_switch"
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.Switch"].update({"value": True, "access": "readwrite"})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == STATE_ON
+    assert state.attributes["readonly"] is False
+
+    await mock_appliance.entities["Test.Switch"].update({"access": "read"})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == STATE_ON
+    assert state.attributes["readonly"] is True
+
+    await mock_appliance.entities["Test.Switch"].update({"access": "readwrite"})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == STATE_ON
+    assert state.attributes["readonly"] is False
+
+
+async def test_turn_on_raises_when_setting_locked(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """Test turning on a locked Setting raises a clear error instead of a silent failure."""
+    entity_id = "switch.fake_brand_homeappliance_switch"
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.Switch"].update({"value": False, "access": "read"})
+    await hass.async_block_till_done()
+
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            SWITCH_DOMAIN,
+            SERVICE_TURN_ON,
+            {ATTR_ENTITY_ID: entity_id},
+            blocking=True,
+        )
+
+    mock_appliance.session.send_sync.assert_not_awaited()

@@ -22,11 +22,12 @@ The following entities are available. Which ones appear depends on the appliance
 | Allow Cloud Connection | Switch | Enable or disable the appliance's connection to the Home Connect cloud |
 | Allow Consumer Insights | Switch | Enable or disable usage data collection by the Home Connect cloud |
 | Synchronize Time with Server | Switch | Whether the appliance keeps its clock in sync with a time server |
+| Sync time from Home Assistant | Button | Sets the appliance's own clock to Home Assistant's local time, including DST changes. Only works while "Synchronize Time with Server" is off. Meant for appliances without internet access - if yours keeps internet access, that switch already keeps the clock right and this button isn't needed. Disabled by default, like the switch |
 | Time Format | Select | 12-hour or 24-hour clock display |
 | Software Update | Update | Tracks/triggers installing an available firmware update |
 | Software Download | Update | Tracks/triggers downloading an available firmware update (only on appliances that support a separate download stage) |
 
-A few additional diagnostic entities (Local Control Active, Remote Control Active) are also available, disabled by default.
+A few additional diagnostic entities (Local Control Active, Remote Control Active, IPv4 Address, IPv6 Address) are also available, disabled by default. The IPv4/IPv6 Address sensors are polled the same way as Wi-Fi Signal Strength above, and carry the subnet prefix size, gateway, and DNS server as attributes.
 
 The Home Connect protocol only signals that a firmware update exists, not which version it is, so the Update entities show a generic "New Version" placeholder rather than a real version number when one is available. Also, as mentioned before, if you disabled cloud access for your appliance, or it cannot reach the Home Connect Cloud, then it cannot get new firmware updates.
 
@@ -96,6 +97,8 @@ Some entites are excluded from this integration on purpose, even though the Home
   - Controls/reports the telescopic rack rail
 - Brand logo display
   - Toggle whether the brand logo shows on the display
+- Cavity light
+  - Turn the oven's interior light on and off
 
 ## Hob
 
@@ -128,6 +131,7 @@ Some entites are excluded from this integration on purpose, even though the Home
 
 - Hood fan speed control
   - Set the fan speed/stage
+  - Boost mode
 - Ambient and work lighting
   - Control the hood's ambient and work lights
 - Automatic shutoff delay

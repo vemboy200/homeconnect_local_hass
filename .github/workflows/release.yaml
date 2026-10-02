@@ -4,7 +4,7 @@ on:
     types: [published]
 jobs:
   release_zip_file:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     permissions:
       contents: write
     steps:
@@ -19,6 +19,8 @@ jobs:
       - run: |
           cd ${{ github.workspace }}/custom_components/homeconnect_ws
           zip homeconnect_ws.zip -r ./
-      - uses: softprops/action-gh-release@v2.5.0
-        with:
-          files: ${{ github.workspace }}/custom_components/homeconnect_ws/homeconnect_ws.zip
+      - name: Upload release asset
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$RELEASE_TAG" "${{ github.workspace }}/custom_components/homeconnect_ws/homeconnect_ws.zip"

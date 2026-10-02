@@ -25,7 +25,7 @@ from home_disconnect.entities import (
     OptionDescription,
 )
 from homeassistant.components.sensor import SensorDeviceClass
-from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE_ID, CONF_HOST, CONF_NAME
+from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE_ID, CONF_HOST, CONF_MODE, CONF_NAME
 
 MOCK_APPLIANCE_INFO = {
     "brand": "Fake_Brand",
@@ -37,6 +37,7 @@ MOCK_APPLIANCE_INFO = {
     "swVersion": "3.3",
     "mac": "78-43-F2-23-C8-D7",
     "serialNumber": "Fake_serialNumber",
+    "model": "Fake_vib",
 }
 
 MOCK_TLS_DEVICE_ID = "010203040506070809"
@@ -173,6 +174,12 @@ ENTITY_DESCRIPTIONS: _EntityDescriptionsType = {
             name="Switch.Enum",
             entity="Test.Switch.Enum",
             value_mapping=("On", "Off"),
+        ),
+        # Backed by an actual Option (unlike the two above, which are
+        # Settings) - covers the locked-read-only behavior for the Option
+        # entity type specifically, alongside the Setting-backed ones above.
+        HCSwitchEntityDescription(
+            key="Test.Switch.Option", name="Switch.Option", entity="Test.Option1"
         ),
     ],
     "fan": [
@@ -521,6 +528,7 @@ DEVICE_DESCRIPTION = DeviceDescription(
 MOCK_CONFIG_DATA = {
     CONF_DESCRIPTION: DEVICE_DESCRIPTION,
     CONF_HOST: "1.2.3.4",
+    CONF_MODE: "AES",
     CONF_PSK: "PSK_KEY",
     CONF_AES_IV: "AES_IV",
     CONF_DEVICE_ID: "Test_Device_ID",

@@ -18,15 +18,23 @@ import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from aiohttp import ClientConnectionError, ClientConnectorSSLError
 from home_disconnect import (
+    AuthenticationError,
     ConnectionFailedError,
     ConnectionState,
+    HCHandshakeError,
     HomeAppliance,
     ParserError,
     parse_device_description,
 )
+from homeassistant.components import zeroconf
 from homeassistant.components.file_upload import process_uploaded_file
-from homeassistant.components.http.auth import async_sign_path
-from homeassistant.config_entries import SOURCE_IGNORE, ConfigEntryState, ConfigFlow, OptionsFlow
+from homeassistant.config_entries import (
+    SOURCE_IGNORE,
+    SOURCE_RECONFIGURE,
+    ConfigEntryState,
+    ConfigFlow,
+    OptionsFlow,
+)
 from homeassistant.const import (
     CONF_DESCRIPTION,
     CONF_DEVICE,
@@ -36,7 +44,6 @@ from homeassistant.const import (
     CONF_NAME,
 )
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.network import get_url
 from homeassistant.helpers.selector import (
     FileSelector,
     FileSelectorConfig,
@@ -44,8 +51,11 @@ from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
 )
+from homeassistant.util import dt as dt_util
+from zeroconf import IPVersion
+from zeroconf.asyncio import AsyncServiceInfo
 
-from . import HC_KEY, HCConfig
+from . import HC_KEY, HCConfig, LegacyOAuthCache
 from .const import (
     CONF_AES_IV,
     CONF_FILE,
@@ -65,6 +75,12 @@ from .hc_legacy_oauth import generate_code_verifier as legacy_generate_code_veri
 from .hc_legacy_oauth import generate_state as legacy_generate_state
 
 CONF_LEGACY_REDIRECT_URL = "legacy_redirect_url"
+HC_SERVICE_TYPE = "_homeconnect._tcp.local."
+MDNS_LOOKUP_TIMEOUT_MS = 3000
+# BSH's token response is expected to carry its own expires_in, but fall
+# back to a short, conservative window if it's ever missing rather than not
+# caching at all.
+_LEGACY_OAUTH_CACHE_FALLBACK_SECONDS = 300
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigFlowResult
@@ -207,10 +223,44 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         self.global_config = self.hass.data.get(HC_KEY)
         return self.async_show_menu(step_id="user", menu_options=["legacy_oauth_region", "upload"])
 
+    async def _async_step_appliances_fetched(self) -> ConfigFlowResult:
+        """Appliances is now populated (either freshly or from a cached token) - route onward."""
+        if self.unique_id:
+            # Reauth/reconfigure already know which Appliance this is -
+            # device_select is for picking a *new* one and would filter
+            # this one out as already configured.
+            return await self.async_step_set_data()
+        return await self.async_step_device_select()
+
     async def async_step_legacy_oauth_region(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Ask which Home Connect account region to use, then show the authorize URL."""
+        if user_input is None:
+            cache = self.global_config.legacy_oauth_cache if self.global_config else None
+            if cache is not None and cache.expires_at > dt_util.utcnow():
+                # A previous sign-in this HA session is still good - skip the
+                # whole browser round-trip and re-fetch a fresh appliance
+                # list with the cached token (adding a second/third
+                # Appliance from the same account no longer means redoing
+                # the OAuth dance every time).
+                session = async_get_clientsession(self.hass)
+                try:
+                    self.appliances = await async_fetch_appliances(
+                        session, cache.access_token, cache.region
+                    )
+                except Exception as err:  # noqa: BLE001 - falls back to a fresh sign-in below
+                    # The cached token turned out to be no good despite our
+                    # own expiry bookkeeping (e.g. revoked early) - clear it
+                    # and fall through to a fresh sign-in below instead of
+                    # erroring the whole flow.
+                    _LOGGER.debug("Cached legacy OAuth token rejected: %s", err)
+                    if self.global_config:
+                        self.global_config.legacy_oauth_cache = None
+                else:
+                    self._region = cache.region
+                    return await self._async_step_appliances_fetched()
+
         if user_input is not None:
             self._region = user_input[CONF_REGION]
             self._legacy_code_verifier = legacy_generate_code_verifier()
@@ -233,16 +283,34 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
                 code = legacy_extract_code_from_redirect(
                     user_input[CONF_LEGACY_REDIRECT_URL], self._legacy_state
                 )
-                access_token = await legacy_async_exchange_code_for_token(
+                token = await legacy_async_exchange_code_for_token(
                     session, self._region, code, self._legacy_code_verifier
                 )
-                self.appliances = await async_fetch_appliances(session, access_token, self._region)
+                self.appliances = await async_fetch_appliances(
+                    session, token.access_token, self._region
+                )
             except (HCLegacyOAuthError, HCCloudApiError) as err:
                 _LOGGER.debug("Legacy OAuth flow failed: %s", err)
                 return self.async_abort(
                     reason="oauth_fetch_failed", description_placeholders={"error": str(err)}
                 )
-            return await self.async_step_device_select()
+            except Exception as err:
+                # A genuinely unexpected failure here (a cloud API response
+                # shape neither of the above expects, a library bug, ...)
+                # would otherwise reach the user as HA's generic "Unknown
+                # error" with no way to tell what actually happened.
+                _LOGGER.exception("Unexpected error during legacy OAuth flow")
+                return self.async_abort(
+                    reason="oauth_fetch_failed", description_placeholders={"error": str(err)}
+                )
+            if self.global_config:
+                self.global_config.legacy_oauth_cache = LegacyOAuthCache(
+                    region=self._region,
+                    access_token=token.access_token,
+                    expires_at=dt_util.utcnow()
+                    + timedelta(seconds=token.expires_in or _LEGACY_OAUTH_CACHE_FALLBACK_SECONDS),
+                )
+            return await self._async_step_appliances_fetched()
 
         authorize_url = legacy_build_authorize_url(
             self._region, self._legacy_code_verifier, self._legacy_state
@@ -368,11 +436,19 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
             psk64=self.data[CONF_PSK],
             iv64=self.data.get(CONF_AES_IV, None),
             connection_callback=connection_callback,
+            # Same reason as coordinator.py: keep socket/session logs under
+            # this integration's logger so HA's homeconnect_ws log filter
+            # includes them.
+            logger=_LOGGER,
         )
         try:
             await appliance.connect()
             await wait_for(event.wait(), timeout=20)
             self.data[CONF_DESCRIPTION]["info"].update(appliance.info)
+            if self.unique_id is None:
+                # The setup-from-dump path skips async_step_device_select,
+                # the only other place a unique_id gets set.
+                await self.async_set_unique_id(appliance.info["deviceID"])
 
         except ClientConnectorSSLError as ex:
             _LOGGER.debug("validate_config failed: %s", ex)
@@ -383,12 +459,23 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         except BinasciiError as ex:
             _LOGGER.debug("validate_config failed: %s", ex)
             return self.async_abort(reason="auth_failed")
-        except (TimeoutError, ClientConnectionError, ConnectionFailedError) as ex:
+        except AuthenticationError as ex:
+            _LOGGER.debug("validate_config failed: %s", ex)
+            return self.async_abort(reason="auth_failed")
+        except (TimeoutError, ClientConnectionError, ConnectionFailedError, HCHandshakeError) as ex:
             _LOGGER.debug("validate_config failed: %s", ex)
             self.errors["base"] = "cannot_connect"
         finally:
             await appliance.close()
         if self.errors:
+            if not self.data.get(CONF_MANUAL_HOST, False):
+                # This attempt used the automatically-guessed mDNS-style
+                # host (initial setup's own guess, or async_step_
+                # reconfigure_connection's), not one the user actually
+                # typed in - say so, rather than implying they entered
+                # something wrong when they haven't been asked for
+                # anything yet.
+                self.errors["base"] = "cannot_connect_automatic"
             _LOGGER.debug("Connection error, showing host step")
             return await self.async_step_host()
         _LOGGER.debug("config vaild, adding config entry")
@@ -413,10 +500,15 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_create_entry(self, data: dict[str, Any]) -> ConfigFlowResult:
-        """Create an config entry or update existing entry for reauth."""
+        """Create an config entry or update existing entry for reauth/reconfigure."""
         if self.reauth_entry:
             return self.async_update_reload_and_abort(
                 self.reauth_entry,
+                data_updates=data,
+            )
+        if self.source == SOURCE_RECONFIGURE:
+            return self.async_update_reload_and_abort(
+                self._get_reconfigure_entry(),
                 data_updates=data,
             )
         return self.async_create_entry(title=data[CONF_NAME], data=data)
@@ -429,6 +521,95 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="reauth_entry_not_found")
         self.data[CONF_HOST] = self.reauth_entry.data[CONF_HOST]
         return await self.async_step_user()
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle a reconfigure flow, initiated from the config entry's own menu."""
+        self.global_config = self.hass.data.get(HC_KEY)
+        return self.async_show_menu(
+            step_id="reconfigure",
+            menu_options=["reconfigure_connection", "reconfigure_profile"],
+        )
+
+    def _auto_host(self) -> str:
+        """Derive this Appliance's mDNS-resolvable name, the same way initial setup does."""
+        info = self.data[CONF_DESCRIPTION]["info"]
+        if self.data[CONF_MODE] == "TLS":
+            return f"{info['brand']}-{info['type']}-{info['deviceID']}"
+        return cast("str", info["deviceID"])
+
+    async def _async_lookup_host(self) -> str | None:
+        """
+        Resolve the name _auto_host guesses through Home Assistant's own mDNS.
+
+        The name is right - it's exactly the hostname the Appliance
+        advertises - but handing it to the connection as-is leaves resolving
+        it to the operating system, which doesn't do mDNS: a bare name only
+        resolves if the router happens to register DHCP hostnames in its DNS,
+        and even a ".local" one doesn't from inside a container. Looking it
+        up through Home Assistant's zeroconf instead is where the discovery
+        flow already gets its host from.
+        """
+        hostname = f"{self._auto_host()}.local.".lower()
+        async_zeroconf = await zeroconf.async_get_async_instance(self.hass)
+        zc = async_zeroconf.zeroconf
+        for record in zc.cache.async_entries_with_name(HC_SERVICE_TYPE):
+            alias = getattr(record, "alias", None)
+            if alias is None:
+                continue
+            service_info = AsyncServiceInfo(HC_SERVICE_TYPE, alias)
+            if not await service_info.async_request(zc, MDNS_LOOKUP_TIMEOUT_MS):
+                continue
+            if (service_info.server or "").lower() != hostname:
+                continue
+            addresses = service_info.parsed_addresses(IPVersion.V4Only)
+            if addresses:
+                return addresses[0]
+        return None
+
+    async def async_step_reconfigure_connection(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """
+        Switch between automatic (mDNS) discovery and a fixed IP address.
+
+        Tries automatic discovery first and only asks for a fixed IP-Address
+        on failure, exactly like initial setup - async_step_test_connection
+        already falls back to async_step_host for that. There's deliberately
+        no "manual anyway, even though automatic would work" option here,
+        matching initial setup's own behavior.
+        """
+        reconfigure_entry = self._get_reconfigure_entry()
+        self.data = deepcopy(dict(reconfigure_entry.data))
+        self.data[CONF_MANUAL_HOST] = False
+        self.data[CONF_HOST] = await self._async_lookup_host() or self._auto_host()
+        return await self.async_step_test_connection()
+
+    async def async_step_reconfigure_profile(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """
+        Refresh this Appliance's profile via a new upload or a fresh Home Connect sign-in.
+
+        Covers two cases a fresh upload but not a full migration can't: new
+        Options/Settings a firmware update added (only present in a newly
+        exported profile file) and a new encryption key after the Appliance
+        was unpaired and re-paired with Home Connect.
+
+        Reuses the same legacy_oauth_region/upload steps initial setup and
+        reauth use, rather than a bespoke upload-only form - so a user who
+        set up via Home Connect sign-in isn't forced to find their old
+        profile-download file just to refresh it.
+        """
+        reconfigure_entry = self._get_reconfigure_entry()
+        self.global_config = self.hass.data.get(HC_KEY)
+        self.data = deepcopy(dict(reconfigure_entry.data))
+        await self.async_set_unique_id(reconfigure_entry.unique_id)
+        return self.async_show_menu(
+            step_id="reconfigure_profile",
+            menu_options=["legacy_oauth_region", "upload"],
+        )
 
     async def async_step_set_data(
         self, user_input: dict[str, Any] | None = None
@@ -493,7 +674,26 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class HCOptionsFlowHandler(OptionsFlow):
-    """Options flow: export the appliance's profile as a downloadable ZIP."""
+    """
+    Options flow: export the appliance's Full profile ZIP to the config directory.
+
+    The Safe profile (no key/MAC/serial - just the feature schema, meant to
+    be shared, e.g. attached to a feature-request issue) no longer goes
+    through this flow at all - it's served natively via the diagnostics
+    platform (see diagnostics.py) instead, which gets HA's own built-in
+    one-click "Download Diagnostics" button with zero custom UI needed here.
+
+    Full still contains the real local encryption key, so it's deliberately
+    NOT served over HTTP even admin-gated - writing it to the config
+    directory instead requires actual filesystem access (Samba/SSH/File
+    Editor) to retrieve it, a real access-control boundary independent of
+    whoever's logged into the HA frontend at the time.
+
+    async_step_init requires an explicit form submission before writing -
+    opening "Configure" for any reason (even just to see what's there) must
+    not silently write the key to disk (confirmed live: it did, before this
+    guard existed).
+    """
 
     def __init__(self, config_entry: HCConfigEntry) -> None:
         """Initialize options flow."""
@@ -512,29 +712,14 @@ class HCOptionsFlowHandler(OptionsFlow):
         )
         return self.async_create_entry(title="", data=self._config_entry.options)
 
-    async def _handle_export_safe(self) -> ConfigFlowResult:
-        # Safe has no sensitive content (no key, no MAC/serial - just the
-        # feature schema, meant to be shared), so a signed link is fine even
-        # though the link itself briefly appears in the notification and in
-        # HA's own access log.
-        base_url = get_url(self.hass)
-        path = f"/api/{DOMAIN}/export/{self._config_entry.entry_id}"
-        signed_path = async_sign_path(self.hass, path, timedelta(minutes=5))
-        stub = filename_stub(self._config_entry)
-        message = (
-            f"Open this link in your browser to download `{stub}_profile_safe.zip`"
-            f" (valid for 5 minutes):\n\n{base_url.rstrip('/')}{signed_path}"
-        )
-        return await self._notify_and_close(message)
-
-    async def _handle_export_full(self) -> ConfigFlowResult:
-        # Full contains the appliance's real encryption key. Deliberately NOT
-        # served over HTTP even via a signed link - a link is "possession
-        # equals access" and would sit in the notification history and in
-        # HA's own access log for its whole validity window. Writing to the
-        # config directory instead requires actual filesystem access
-        # (Samba/SSH/File Editor) to retrieve, a real access-control boundary
-        # rather than a leaked-link problem.
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Confirm, then write the Full profile ZIP to the config directory."""
+        if user_input is None:
+            # Full contains the real encryption key - opening "Configure" for
+            # any reason (including just to see what's there) must not
+            # silently write it to disk. Requires an explicit Submit click,
+            # same deliberateness the old Safe/Full mode choice provided.
+            return self.async_show_form(step_id="init", data_schema=vol.Schema({}))
         stub = filename_stub(self._config_entry)
         filename = f"{stub}_profile_full.zip"
         folder = Path(self.hass.config.path("homeconnect_ws_export"))
@@ -553,23 +738,3 @@ class HCOptionsFlowHandler(OptionsFlow):
             f" `homeconnect_ws_export/`. Retrieve it via Samba, SSH, or the File"
             f" Editor add-on."
         )
-
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Show the export menu."""
-        if user_input is not None:
-            if user_input["mode"] == "full":
-                return await self._handle_export_full()
-            return await self._handle_export_safe()
-        schema = vol.Schema(
-            {
-                vol.Required("mode", default="safe"): SelectSelector(
-                    SelectSelectorConfig(
-                        options=[
-                            SelectOptionDict(value="safe", label="Export Safe Profile"),
-                            SelectOptionDict(value="full", label="Export Full Profile"),
-                        ]
-                    )
-                ),
-            }
-        )
-        return self.async_show_form(step_id="init", data_schema=schema)

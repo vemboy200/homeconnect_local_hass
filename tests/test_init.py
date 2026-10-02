@@ -7,20 +7,28 @@ from copy import deepcopy
 from ipaddress import ip_address
 from pathlib import Path
 from typing import TYPE_CHECKING
-from unittest.mock import ANY, AsyncMock, Mock
+from unittest.mock import ANY, AsyncMock, MagicMock, Mock, patch
 
-from custom_components.homeconnect_ws import coordinator
+import pytest
+from custom_components.homeconnect_ws import (
+    _set_finish_in_with_active_program,
+    _wait_for_writable,
+    coordinator,
+)
 from custom_components.homeconnect_ws.const import (
     CONF_APPLIANCE_INFO,
     CONF_DESCRIPTION_FILENAME,
     CONF_FEATURE_FILENAME,
     DOMAIN,
 )
-from home_disconnect import ConnectionFailedError, serialize_device_description
+from home_disconnect import CodeResponsError, ConnectionFailedError, serialize_device_description
+from home_disconnect.entities import Access
 from home_disconnect.testutils import MockAppliance
 from homeassistant.config_entries import SOURCE_ZEROCONF, ConfigEntryState
 from homeassistant.const import CONF_DESCRIPTION, CONF_HOST
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from homeassistant.helpers.storage import STORAGE_DIR
 from homeassistant.util import dt as dt_util
@@ -29,7 +37,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from .const import DEVICE_DESCRIPTION, MOCK_APPLIANCE_INFO, MOCK_CONFIG_DATA, MOCK_TLS_DEVICE_ID
 
 if TYPE_CHECKING:
-    import pytest
     from homeassistant.core import HomeAssistant
 
 
@@ -63,6 +70,7 @@ async def test_load_unload_entry(
         iv64="AES_IV",
         session=ANY,
         connection_callback=ANY,
+        logger=coordinator._LOGGER,
         reconect=True,
     )
 
@@ -195,6 +203,36 @@ async def test_setup_converts_v2_entry_to_v1_shape(
     # The v2 files are cleaned up once converted, not left behind.
     assert not (storage_dir / description_filename).exists()
     assert not (storage_dir / feature_filename).exists()
+
+
+async def test_device_registry_serial_number(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test the device registry entry exposes the appliance's serial number."""
+    appliance = MockAppliance(DEVICE_DESCRIPTION, "host", "mock_app", "mock_app_id", "PSK_KEY")
+    monkeypatch.setattr(coordinator, "HomeAppliance", Mock(return_value=appliance))
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG_DATA,
+        unique_id=MOCK_TLS_DEVICE_ID,
+    )
+    entry.add_to_hass(hass)
+
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    device_registry = dr.async_get(hass)
+    if hasattr(device_registry, "async_get_device_by_identifier"):
+        # Newer HA: async_get_device is deprecated, identifiers aren't unique across entries.
+        device = device_registry.async_get_device_by_identifier(
+            (DOMAIN, entry.unique_id), entry.entry_id
+        )
+    else:
+        device = device_registry.async_get_device(identifiers={(DOMAIN, entry.unique_id)})
+    assert device is not None
+    assert device.serial_number == MOCK_APPLIANCE_INFO["serialNumber"]
 
 
 async def test_setup_entry_washer_connect_failure_is_non_blocking(
@@ -733,3 +771,93 @@ async def test_concurrent_reconnect_attempts_are_serialized(
     assert coord.connected is True
 
     await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_wait_for_writable_returns_immediately_when_already_writable() -> None:
+    """No need to wait for a callback if the entity is already writable."""
+    entity = MagicMock(access=Access.READ_WRITE)
+
+    await _wait_for_writable(entity)
+
+    entity.register_callback.assert_not_called()
+
+
+async def test_wait_for_writable_waits_for_the_next_writable_update() -> None:
+    """Waits for a descriptionChange NOTIFY flipping access, instead of firing blind."""
+    entity = MagicMock(access=Access.READ)
+    captured_callback = None
+
+    def _capture(callback: object) -> None:
+        nonlocal captured_callback
+        captured_callback = callback
+
+    entity.register_callback.side_effect = _capture
+
+    async def _flip_access_soon() -> None:
+        await asyncio.sleep(0)
+        entity.access = Access.READ_WRITE
+        assert captured_callback is not None
+        await captured_callback(entity)
+
+    flip_task = asyncio.ensure_future(_flip_access_soon())
+    await _wait_for_writable(entity)
+    await flip_task
+
+    entity.unregister_callback.assert_called_once()
+
+
+async def test_wait_for_writable_times_out_if_never_writable() -> None:
+    """Fails clearly instead of hanging if the appliance never opens the window."""
+    entity = MagicMock(access=Access.READ)
+
+    with (
+        patch("custom_components.homeconnect_ws._ACTIVE_PROGRAM_WRITABLE_TIMEOUT", 0.01),
+        pytest.raises(ServiceValidationError),
+    ):
+        await _wait_for_writable(entity)
+
+    entity.unregister_callback.assert_called_once()
+
+
+async def test_set_finish_in_with_active_program_sends_combined_write() -> None:
+    """The only format this class of appliance accepts: both uids in one /ro/values write."""
+    appliance = MagicMock()
+    active_program_entity = MagicMock(uid=256, access=Access.READ_WRITE)
+    appliance.entities = {"BSH.Common.Root.ActiveProgram": active_program_entity}
+    appliance.selected_program = MagicMock(uid=29953)
+    appliance.session.send_sync = AsyncMock()
+    finish_in_entity = MagicMock(uid=551)
+
+    await _set_finish_in_with_active_program(appliance, finish_in_entity, 51060)
+
+    appliance.session.send_sync.assert_called_once()
+    message = appliance.session.send_sync.call_args[0][0]
+    assert message.resource == "/ro/values"
+    assert message.data == [
+        {"uid": 551, "value": 51060},
+        {"uid": 256, "value": 29953},
+    ]
+
+
+async def test_set_finish_in_with_active_program_raises_without_selected_program() -> None:
+    """Nothing sensible to arm ActiveProgram to if no program is selected."""
+    appliance = MagicMock()
+    appliance.entities = {"BSH.Common.Root.ActiveProgram": MagicMock()}
+    appliance.selected_program = None
+    finish_in_entity = MagicMock(uid=551)
+
+    with pytest.raises(ServiceValidationError):
+        await _set_finish_in_with_active_program(appliance, finish_in_entity, 100)
+
+
+async def test_set_finish_in_with_active_program_translates_code_response_error() -> None:
+    """A rejected combined write still surfaces a clear, translated error."""
+    appliance = MagicMock()
+    active_program_entity = MagicMock(uid=256, access=Access.READ_WRITE)
+    appliance.entities = {"BSH.Common.Root.ActiveProgram": active_program_entity}
+    appliance.selected_program = MagicMock(uid=1)
+    appliance.session.send_sync = AsyncMock(side_effect=CodeResponsError(541, "/ro/values"))
+    finish_in_entity = MagicMock(uid=551)
+
+    with pytest.raises(ServiceValidationError):
+        await _set_finish_in_with_active_program(appliance, finish_in_entity, 100)

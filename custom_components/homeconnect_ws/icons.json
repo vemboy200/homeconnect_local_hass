@@ -358,6 +358,12 @@
             "sensor_wifi_signal_strength": {
                 "default": "mdi:wifi"
             },
+            "sensor_ipv4_address": {
+                "default": "mdi:ip-network"
+            },
+            "sensor_ipv6_address": {
+                "default": "mdi:ip-network"
+            },
             "sensor_grease_filter_saturation": {
                 "default": "mdi:air-filter"
             },
@@ -525,6 +531,9 @@
             "button_mains_power_off": {
                 "default": "mdi:power-plug-off"
             },
+            "button_sync_time": {
+                "default": "mdi:clock-edit"
+            },
             "button_hood_carbon_filter_reset": {
                 "default": "mdi:restore"
             },
@@ -539,6 +548,9 @@
             },
             "button_water_filter_reset": {
                 "default": "mdi:restore"
+            },
+            "button_refrigerator_open_door": {
+                "default": "mdi:door-open"
             }
         },
         "number": {
@@ -557,7 +569,10 @@
             },
             "number_oven_sound_volume": {
                 "default": "mdi:volume-high"
-            }
+            },
+			"number_hood_boost_time": {
+				"default": "mdi:fan-clock"
+			}
         }
     },
     "services": {
