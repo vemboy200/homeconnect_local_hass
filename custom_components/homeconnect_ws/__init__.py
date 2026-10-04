@@ -7,7 +7,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Never
 
-import voluptuous as vol
+import probatio
 from home_disconnect import CodeResponsError, Entity
 from home_disconnect.entities import Access
 from home_disconnect.message import Action
@@ -48,15 +48,15 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-CONFIG_SCHEMA = vol.Schema(
+CONFIG_SCHEMA = probatio.Schema(
     {
         DOMAIN: {
-            vol.Optional(CONF_DEV_SETUP_FROM_DUMP, default=False): vol.Boolean(),
-            vol.Optional(CONF_DEV_OVERRIDE_HOST): str,
-            vol.Optional(CONF_DEV_OVERRIDE_PSK): str,
+            probatio.Optional(CONF_DEV_SETUP_FROM_DUMP, default=False): probatio.Boolean(),
+            probatio.Optional(CONF_DEV_OVERRIDE_HOST): str,
+            probatio.Optional(CONF_DEV_OVERRIDE_PSK): str,
         }
     },
-    extra=vol.ALLOW_EXTRA,
+    extra=probatio.ALLOW_EXTRA,
 )
 
 

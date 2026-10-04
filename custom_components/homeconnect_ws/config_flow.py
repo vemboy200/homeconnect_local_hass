@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, cast
 from zipfile import ZipFile
 
 import homeassistant.helpers.config_validation as cv
-import voluptuous as vol
+import probatio
 from aiohttp import ClientConnectionError, ClientConnectorSSLError
 from home_disconnect import (
     AuthenticationError,
@@ -90,26 +90,26 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-CONFIG_FILE_SCHEMA = vol.Schema(
+CONFIG_FILE_SCHEMA = probatio.Schema(
     {
-        vol.Required(CONF_FILE): FileSelector(config=FileSelectorConfig(accept=".zip")),
+        probatio.Required(CONF_FILE): FileSelector(config=FileSelectorConfig(accept=".zip")),
     }
 )
-CONFIG_FILE_SCHEMA_JSON = vol.Schema(
+CONFIG_FILE_SCHEMA_JSON = probatio.Schema(
     {
-        vol.Required(CONF_FILE): FileSelector(config=FileSelectorConfig(accept=".zip,.json")),
+        probatio.Required(CONF_FILE): FileSelector(config=FileSelectorConfig(accept=".zip,.json")),
     }
 )
-CONFIG_HOST_SCHEMA = vol.Schema(
+CONFIG_HOST_SCHEMA = probatio.Schema(
     {
-        vol.Required(CONF_HOST): cv.string,
+        probatio.Required(CONF_HOST): cv.string,
     }
 )
-CONFIG_REGION_SCHEMA = vol.Schema(
+CONFIG_REGION_SCHEMA = probatio.Schema(
     {
         # Labelled in the translations (selector.region). Option keys must be lowercase
         # there, so the values are lowercased and turned back into region codes below.
-        vol.Required(CONF_REGION, default="eu"): SelectSelector(
+        probatio.Required(CONF_REGION, default="eu"): SelectSelector(
             SelectSelectorConfig(
                 options=[region.lower() for region in REGION_ASSET_BASE],
                 translation_key=CONF_REGION,
@@ -314,7 +314,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         authorize_url = legacy_build_authorize_url(
             self._region, self._legacy_code_verifier, self._legacy_state
         )
-        schema = vol.Schema({vol.Required(CONF_LEGACY_REDIRECT_URL): cv.string})
+        schema = probatio.Schema({probatio.Required(CONF_LEGACY_REDIRECT_URL): cv.string})
         return self.async_show_form(
             step_id="legacy_oauth_paste",
             data_schema=schema,
@@ -406,9 +406,9 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
             await self.async_set_unique_id(appliance_options[0]["value"])
             return await self.async_step_set_data()
         _LOGGER.debug("Found %s Appliances not setup", len(appliance_options))
-        schema = vol.Schema(
+        schema = probatio.Schema(
             {
-                vol.Required(CONF_DEVICE): SelectSelector(
+                probatio.Required(CONF_DEVICE): SelectSelector(
                     SelectSelectorConfig(options=appliance_options, sort=True)
                 )
             }
@@ -706,7 +706,7 @@ class HCOptionsFlowHandler(OptionsFlow):
             # any reason (including just to see what's there) must not
             # silently write it to disk. Requires an explicit Submit click,
             # same deliberateness the old Safe/Full mode choice provided.
-            return self.async_show_form(step_id="init", data_schema=vol.Schema({}))
+            return self.async_show_form(step_id="init", data_schema=probatio.Schema({}))
         stub = filename_stub(self._config_entry)
         filename = f"{stub}_profile_full.zip"
         folder = Path(self.hass.config.path("homeconnect_ws_export"))
