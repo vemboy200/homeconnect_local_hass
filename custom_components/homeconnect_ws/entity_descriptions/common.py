@@ -6,15 +6,13 @@ import re
 from typing import TYPE_CHECKING
 
 from home_disconnect.entities import Execution
-from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass,
-)
+from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
 from homeassistant.components.number import NumberDeviceClass, NumberMode
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorStateClass,
 )
-from homeassistant.components.switch import SwitchDeviceClass
+from homeassistant.components.switch.const import SwitchDeviceClass
 from homeassistant.components.update import UpdateDeviceClass
 from homeassistant.const import (
     PERCENTAGE,
