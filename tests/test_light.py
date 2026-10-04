@@ -33,6 +33,7 @@ from . import setup_config_entry
 from .const import MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
+    import pytest
     from home_disconnect.testutils import MockAppliance
     from homeassistant.core import HomeAssistant
 
@@ -792,13 +793,23 @@ async def test_set_color(
         },
         blocking=True,
     )
-    mock_appliance.session.send_sync.assert_awaited_once_with(
-        Message(
-            resource="/ro/values",
-            action=Action.POST,
-            data=[{"uid": 111, "value": "#800000"}, {"uid": 112, "value": 1}],
-        )
-    )
+    # Color mode is switched first, as its own write, then the color.
+    assert mock_appliance.session.send_sync.await_args_list == [
+        call(
+            Message(
+                resource="/ro/values",
+                action=Action.POST,
+                data=[{"uid": 112, "value": 1}],
+            )
+        ),
+        call(
+            Message(
+                resource="/ro/values",
+                action=Action.POST,
+                data=[{"uid": 111, "value": "#800000"}],
+            )
+        ),
+    ]
     mock_appliance.session.send_sync.reset_mock()
 
 
@@ -806,6 +817,7 @@ async def test_turn_on_skips_color_write_when_color_setting_unavailable(
     hass: HomeAssistant,
     mock_appliance: MockAppliance,
     patch_entity_description: None,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
     A color write must not be attempted while the color Setting is unavailable.
@@ -817,6 +829,7 @@ async def test_turn_on_skips_color_write_when_color_setting_unavailable(
     NotAvailable. Turning the light on should still work, just without a
     color write, rather than raising or errouring against the appliance.
     """
+    monkeypatch.setattr("custom_components.homeconnect_ws.light._RGB_AVAILABLE_TIMEOUT", 0.05)
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
     await mock_appliance.entities["Test.Lighting"].update({"value": False})
     await mock_appliance.entities["Test.LightingCustomColor"].update({"available": False})
@@ -937,3 +950,60 @@ async def test_turn_on_sends_power_and_color_as_separate_messages(
             ),
         ]
     )
+
+
+async def test_turn_on_writes_color_once_available_after_power_on(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """
+    A color picked while the light is off must still be written.
+
+    Confirmed on upstream issue #477 (Siemens LC91KWW60/04 ambient light):
+    the color Settings are reported unavailable while the light is off and
+    flip to available via a descriptionChange NOTIFY ~60 ms after the
+    power-on write is acknowledged. turn_on must wait for that instead of
+    dropping the color.
+    """
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.Lighting"].update({"value": False})
+    await mock_appliance.entities["Test.LightingColor"].update({"value": 1})
+    await mock_appliance.entities["Test.LightingCustomColor"].update({"available": False})
+    await hass.async_block_till_done()
+
+    color_entity = mock_appliance.entities["Test.LightingCustomColor"]
+
+    async def _appliance_reacts(message: Message) -> None:
+        if message.data == [{"uid": 108, "value": True}]:
+            hass.async_create_task(color_entity.update({"available": True}))
+
+    mock_appliance.session.send_sync.side_effect = _appliance_reacts
+
+    await hass.services.async_call(
+        LIGHT_DOMAIN,
+        SERVICE_TURN_ON,
+        {
+            ATTR_ENTITY_ID: "light.fake_brand_homeappliance_light_4",
+            ATTR_RGB_COLOR: (0, 255, 0),
+            ATTR_BRIGHTNESS: 255,
+        },
+        blocking=True,
+    )
+
+    assert mock_appliance.session.send_sync.await_args_list == [
+        call(
+            Message(
+                resource="/ro/values",
+                action=Action.POST,
+                data=[{"uid": 108, "value": True}],
+            )
+        ),
+        call(
+            Message(
+                resource="/ro/values",
+                action=Action.POST,
+                data=[{"uid": 111, "value": "#00ff00"}],
+            )
+        ),
+    ]

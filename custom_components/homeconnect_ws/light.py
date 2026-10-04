@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any, cast
 
 from home_disconnect.message import Action
@@ -38,6 +39,11 @@ if TYPE_CHECKING:
     from .entity_descriptions.descriptions_definitions import HCLightEntityDescription
 
 PARALLEL_UPDATES = 0
+
+# After a power-on write, ambient lights report their color Settings as
+# available via a descriptionChange NOTIFY (~60 ms on a Siemens LC91KWW60/04,
+# upstream #477). Wait for it, but give up quickly if it never arrives.
+_RGB_AVAILABLE_TIMEOUT = 2.0
 
 
 async def async_setup_entry(
@@ -173,37 +179,84 @@ class HCLight(HCEntity, LightEntity):
             return False
         return entity_is_available(self._color_entity, self.entity_description.available_access)
 
+    async def _wait_for_rgb_usable(self) -> None:
+        """
+        Wait for the color Setting to become available after power-on.
+
+        The appliance flips the color Settings to available with a
+        descriptionChange NOTIFY shortly after the power-on write is
+        acknowledged. Writing the color before that is rejected with
+        WriteRequest NotAvailable, so wait for the callback instead of
+        firing blind. Times out silently; _rgb_usable then skips the color.
+        """
+        if self._color_entity is None or self._rgb_usable:
+            return
+        became_usable = asyncio.Event()
+
+        async def _on_update(_: HcEntity) -> None:
+            if self._rgb_usable:
+                became_usable.set()
+
+        self._color_entity.register_callback(_on_update)
+        try:
+            async with asyncio.timeout(_RGB_AVAILABLE_TIMEOUT):
+                await became_usable.wait()
+        except TimeoutError:
+            pass
+        finally:
+            self._color_entity.unregister_callback(_on_update)
+
+    async def _write(self, data: list[dict[str, Any]]) -> None:
+        await self._runtime_data.appliance.session.send_sync(
+            HC_Message(resource="/ro/values", action=Action.POST, data=data)
+        )
+
     @error_decorator
     async def async_turn_on(self, **kwargs: Any) -> None:
-        message_data: list[dict[str, Any]] = []
+        powered_on_now = False
+        if self._entity is not None and self._entity.value is not True:
+            # Sent as its own write, before any color/brightness/color-temp
+            # data, rather than bundled into one combined message - some
+            # appliances reject the combined form outright (confirmed live on
+            # upstream #477, a Siemens LC91KWW60/04 ambient light: a bare
+            # power-on write succeeds, one that also carries a color value
+            # gets the whole message rejected with WriteRequest NotAvailable).
+            await self._write([{"uid": self._entity.uid, "value": True}])
+            powered_on_now = True
+
         brightness = kwargs.get(ATTR_BRIGHTNESS, self.brightness)
         rgb = kwargs.get(ATTR_RGB_COLOR, self.rgb_color)
 
-        # _attr_color_mode is only ever RGB when _color_entity was set in
-        # __init__, and only ever BRIGHTNESS/COLOR_TEMP when _brightness_entity
-        # was set there too - both entities are guaranteed non-None below.
-        if (
-            self._attr_color_mode == ColorMode.RGB
-            and self._rgb_usable
-            and rgb is not None
-            and brightness is not None
-        ):
-            color_entity = cast("HcEntity", self._color_entity)
-            rgb_with_brightness = tuple(color * brightness // 255 for color in rgb)
-            message_data.append(
-                {
-                    "uid": color_entity.uid,
-                    "value": "#" + color_rgb_to_hex(*rgb_with_brightness),
-                }
-            )
+        if self._attr_color_mode == ColorMode.RGB:
+            if powered_on_now:
+                # The color Settings only become available after power-on.
+                # Evaluating _rgb_usable before that would silently drop a
+                # color passed with turn_on (e.g. picking a color while off).
+                await self._wait_for_rgb_usable()
+            if not (self._rgb_usable and rgb is not None and brightness is not None):
+                return
+            # Color mode goes first, as its own write: the custom color
+            # Setting may only accept a value once the mode is CustomColor.
             if (
                 self._color_mode_entity is not None
                 and self._color_mode_entity.value != "CustomColor"
             ):
                 color_mode_value = self._color_mode_entity._rev_enumeration["CustomColor"]  # noqa: SLF001
-                message_data.append({"uid": self._color_mode_entity.uid, "value": color_mode_value})
+                await self._write([{"uid": self._color_mode_entity.uid, "value": color_mode_value}])
+            color_entity = cast("HcEntity", self._color_entity)
+            rgb_with_brightness = tuple(color * brightness // 255 for color in rgb)
+            await self._write(
+                [
+                    {
+                        "uid": color_entity.uid,
+                        "value": "#" + color_rgb_to_hex(*rgb_with_brightness),
+                    }
+                ]
+            )
+            return
 
-        elif (
+        message_data: list[dict[str, Any]] = []
+        if (
             self._attr_color_mode in (ColorMode.BRIGHTNESS, ColorMode.COLOR_TEMP)
             and ATTR_BRIGHTNESS in kwargs
             and brightness is not None
@@ -239,27 +292,8 @@ class HCLight(HCEntity, LightEntity):
                 {"uid": self._color_temperature_entity.uid, "value": value_in_range}
             )
 
-        if self._entity is not None and self._entity.value is not True:
-            # Sent as its own write, before any color/brightness/color-temp
-            # data, rather than bundled into one combined message - some
-            # appliances reject the combined form outright (confirmed live on
-            # upstream #477, a Siemens LC91KWW60/04 ambient light: a bare
-            # power-on write succeeds, one that also carries a color value
-            # gets the whole message rejected with WriteRequest NotAvailable).
-            power_message = HC_Message(
-                resource="/ro/values",
-                action=Action.POST,
-                data=[{"uid": self._entity.uid, "value": True}],
-            )
-            await self._runtime_data.appliance.session.send_sync(power_message)
-
         if message_data:
-            message = HC_Message(
-                resource="/ro/values",
-                action=Action.POST,
-                data=message_data,
-            )
-            await self._runtime_data.appliance.session.send_sync(message)
+            await self._write(message_data)
 
     @error_decorator
     async def async_turn_off(self, **kwargs: Any) -> None:
