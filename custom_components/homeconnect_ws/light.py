@@ -6,13 +6,11 @@ from typing import TYPE_CHECKING, Any, cast
 
 from home_disconnect.message import Action
 from home_disconnect.message import Message as HC_Message
-from homeassistant.components.light import (
+from homeassistant.components.light import LightEntity
+from homeassistant.components.light.const import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
     ATTR_RGB_COLOR,
-    LightEntity,
-)
-from homeassistant.components.light.const import (
     DEFAULT_MAX_KELVIN,
     DEFAULT_MIN_KELVIN,
     ColorMode,

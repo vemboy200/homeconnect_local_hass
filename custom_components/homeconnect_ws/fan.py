@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING, Any, Final, NamedTuple, override
 from home_disconnect.entities import Access
 from home_disconnect.message import Action
 from home_disconnect.message import Message as HC_Message
-from homeassistant.components.fan import FanEntity, FanEntityFeature
+from homeassistant.components.fan import FanEntity
+from homeassistant.components.fan.const import FanEntityFeature
 from homeassistant.core import callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.event import async_call_later
