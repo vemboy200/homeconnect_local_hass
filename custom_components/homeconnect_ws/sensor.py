@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import RestoreSensor, SensorEntity
+from homeassistant.core import callback
+from homeassistant.util import dt as dt_util
 
+from .const import LAST_FINISHED_VALUES
 from .entity import HCEntity
 from .helpers import create_entities
 
@@ -15,6 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from home_disconnect import HomeAppliance
+    from home_disconnect.entities import Entity as HcEntity
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -85,6 +89,7 @@ async def async_setup_entry(
             "wifi": HCWiFI,
             "ipv4": HCIPv4Address,
             "ipv6": HCIPv6Address,
+            "last_finished": HCLastFinished,
         },
         config_entry.runtime_data,
     )
@@ -348,3 +353,61 @@ class HCIPv6Address(HCIPAddress):
     """IPv6 address Sensor Entity."""
 
     _interface_key = "ipV6"
+
+
+class HCLastFinished(HCEntity, RestoreSensor):
+    """
+    Timestamp of when the appliance last finished a program.
+
+    The appliance never reports this itself, so it is the moment this sensor
+    saw one of its finished signals (see LAST_FINISHED_VALUES) switch on,
+    kept across restarts. It only counts a switch from "not finished" to
+    "finished" that it watched happen: whatever state the appliance is already
+    in when Home Assistant first sees it (a washer that has been sitting
+    finished since before a restart) is not a finish.
+    """
+
+    entity_description: HCSensorEntityDescription
+    _attr_native_value: datetime | None = None
+    # Whether any finished signal was on at the last look; None until the
+    # appliance's first full state has arrived, see _update_finished.
+    _finished: bool | None = None
+
+    async def async_added_to_hass(self) -> None:
+        last_data = await self.async_get_last_sensor_data()
+        if (
+            last_data is not None
+            and isinstance(last_data.native_value, datetime)
+            # A naive datetime would make the state write raise.
+            and last_data.native_value.tzinfo is not None
+        ):
+            self._attr_native_value = last_data.native_value
+        await super().async_added_to_hass()
+        self._update_finished()
+
+    def _is_finished(self) -> bool:
+        return any(entity.value in LAST_FINISHED_VALUES[entity.name] for entity in self._entities)
+
+    def _update_finished(self) -> None:
+        if self._finished is None:
+            # Until the appliance's state has been synced, entities only hold
+            # the defaults from the appliance profile, which say nothing about
+            # its real state - the first update after the sync would look like
+            # a change. The coordinator reports the sync with an update, so
+            # this is retried from _handle_coordinator_update.
+            if self._runtime_data.coordinator.synced:
+                self._finished = self._is_finished()
+            return
+        finished = self._is_finished()
+        if finished and not self._finished:
+            self._attr_native_value = dt_util.utcnow()
+        self._finished = finished
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        self._update_finished()
+        super()._handle_coordinator_update()
+
+    async def callback(self, entity: HcEntity) -> None:
+        self._update_finished()
+        await super().callback(entity)

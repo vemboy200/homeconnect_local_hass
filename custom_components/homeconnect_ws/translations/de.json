@@ -2096,6 +2096,9 @@
       "sensor_ipv6_address": {
         "name": "IPv6-Adresse"
       },
+      "sensor_last_finished": {
+        "name": "Zuletzt beendet"
+      },
       "sensor_count_ristretto_espresso": {
         "name": "Anzahl Ristretto"
       },

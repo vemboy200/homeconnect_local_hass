@@ -607,6 +607,7 @@ TRANSLATION_DOMAINS = {
     "wifi": "sensor",
     "ipv4": "sensor",
     "ipv6": "sensor",
+    "last_finished": "sensor",
 }
 
 

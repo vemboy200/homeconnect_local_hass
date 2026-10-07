@@ -1922,6 +1922,9 @@
       "sensor_ipv6_address": {
         "name": "IPv6 address"
       },
+      "sensor_last_finished": {
+        "name": "Last finished"
+      },
       "sensor_grease_filter_saturation": {
         "name": "Grease Filter Saturation"
       },

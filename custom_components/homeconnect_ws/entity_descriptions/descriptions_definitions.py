@@ -208,6 +208,7 @@ class EntityDescriptions(TypedDict, total=False):
     wifi: list[HCSensorEntityDescription]
     ipv4: list[HCSensorEntityDescription]
     ipv6: list[HCSensorEntityDescription]
+    last_finished: list[HCSensorEntityDescription]
     light: list[HCLightEntityDescription]
     fan: list[HCFanEntityDescription]
     update: list[HCUpdateEntityDescription]
@@ -228,6 +229,7 @@ _EntityDescriptionsDefinitionsType = dict[
         "wifi",
         "ipv4",
         "ipv6",
+        "last_finished",
         "light",
         "fan",
         "update",
@@ -254,6 +256,7 @@ _EntityDescriptionsType = dict[
         "wifi",
         "ipv4",
         "ipv6",
+        "last_finished",
         "light",
         "fan",
         "update",

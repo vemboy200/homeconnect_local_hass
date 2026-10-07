@@ -24,6 +24,8 @@ from homeassistant.const import (
 )
 from homeassistant.util import dt as dt_util
 
+from custom_components.homeconnect_ws.const import LAST_FINISHED_VALUES
+
 from .descriptions_definitions import (
     EntityDescriptions,
     HCBinarySensorEntityDescription,
@@ -267,6 +269,21 @@ def generate_ipv6(appliance: HomeAppliance) -> HCSensorEntityDescription:  # noq
         key="sensor_ipv6_address",
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
+    )
+
+
+def generate_last_finished(appliance: HomeAppliance) -> HCSensorEntityDescription:
+    """
+    Get Last finished sensor description.
+
+    Created for every appliance, whatever its type: the sensor watches
+    whichever of the finished signals (see LAST_FINISHED_VALUES) the appliance
+    actually has, and simply stays unknown on one that has none.
+    """
+    return HCSensorEntityDescription(
+        key="sensor_last_finished",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entities=[name for name in LAST_FINISHED_VALUES if name in appliance.entities],
     )
 
 
@@ -640,6 +657,7 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
     "wifi": [generate_wifi],
     "ipv4": [generate_ipv4],
     "ipv6": [generate_ipv6],
+    "last_finished": [generate_last_finished],
     "update": [generate_software_download_update, generate_software_update],
     "dynamic": [generate_power_switch, generate_program],
 }

@@ -114,6 +114,12 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
     appliance: HomeAppliance
     _connecting: bool = True
     connected: bool = False
+    # Whether the appliance's state has been received since the first connection.
+    # `connected` is set as soon as appliance.connect() returns, before the
+    # library has synced the appliance's state, so it can't tell whether the
+    # entities still hold only the defaults from the appliance profile. This is
+    # set from the library's CONNECTED callback, which comes after that sync.
+    synced: bool = False
     _escalate_connectivity_logging: bool
     _poll_unsub: Callable[[], None] | None = None
     # Laundry appliances have three independent triggers that can each call
@@ -453,6 +459,11 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
                     self.config_entry.data[CONF_DESCRIPTION]["info"].get("vib"),
                 )
             self.connected = True
+            # The library reports CONNECTED even when the sync failed. Losing
+            # the connection during it is the usual reason, and the one that
+            # can be seen here.
+            if self.appliance.session.connected:
+                self.synced = True
 
         elif event in (ConnectionState.RECONNECTING, ConnectionState.ABNORMAL_CLOSURE):
             # ABNORMAL_CLOSURE covers a connection that has never succeeded yet

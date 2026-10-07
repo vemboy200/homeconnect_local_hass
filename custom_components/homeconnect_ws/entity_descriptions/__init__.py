@@ -105,6 +105,7 @@ def get_available_entities(appliance: HomeAppliance) -> _EntityDescriptionsType:
         "wifi": [],
         "ipv4": [],
         "ipv6": [],
+        "last_finished": [],
         "light": [],
         "fan": [],
         "update": [],

@@ -49,6 +49,8 @@ Fields common to every entity type:
 - `mapping`: dict mapping raw HC values to display values
 - `force_option_when_expected_offline`: same idea as the select's field, for a read-only enum sensor
 
+The `last_finished` description (the "Last finished" timestamp) is generated for every appliance by `generate_last_finished` in `common.py`, like `wifi`/`ipv4`/`ipv6`. Which HC entities count as "finished", and with which values, is listed in `LAST_FINISHED_VALUES` in `const.py` - add to it there to teach the sensor another finished signal.
+
 ## Binary Sensor Entity (`HCBinarySensorEntityDescription`)
 
 - `value_on`: set of values for which the sensor should be `on`, e.g. `{"Open", "Ajar"}`

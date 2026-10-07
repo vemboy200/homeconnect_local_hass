@@ -405,6 +405,9 @@
             "sensor_ipv6_address": {
                 "default": "mdi:ip-network"
             },
+            "sensor_last_finished": {
+                "default": "mdi:clock-check-outline"
+            },
             "sensor_grease_filter_saturation": {
                 "default": "mdi:air-filter"
             },

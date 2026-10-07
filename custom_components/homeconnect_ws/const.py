@@ -46,3 +46,11 @@ CONF_DEV_OVERRIDE_PSK: Final = "override_psk"
 CONF_APPLIANCE_INFO: Final = "appliance_info"
 CONF_DESCRIPTION_FILENAME: Final = "description_filename"
 CONF_FEATURE_FILENAME: Final = "feature_filename"
+
+# Appliance entities signalling that a program has finished, mapped to the
+# values meaning "finished". A finish is recorded when any of them switches
+# to such a value. The event values match binary_sensor_program_finished.
+LAST_FINISHED_VALUES: Final[dict[str, frozenset[str]]] = {
+    "BSH.Common.Status.OperationState": frozenset({"Finished"}),
+    "BSH.Common.Event.ProgramFinished": frozenset({"Present", "Confirmed"}),
+}

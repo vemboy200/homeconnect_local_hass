@@ -17,6 +17,7 @@ The following entities are available. Which ones appear depends on the appliance
 | Remote Start Allowed | Binary Sensor | Whether remote control is enabled on the device |
 | Door State | Binary Sensor / Sensor | Whether the door is open or closed |
 | Program Finished | Binary Sensor | Turns on when the current cycle completes |
+| Last Finished | Sensor | When the appliance last finished a program, kept across restarts. Only finishes seen while connected count, and it stays unknown on appliances that never report one (e.g. a refrigerator) |
 | Wi-Fi Signal Strength | Sensor | Device's Wi-Fi signal strength - polled hourly (see Data Updates), not pushed like everything else |
 | Cloud Connection | Binary Sensor | Whether the appliance is currently connected to the Home Connect cloud |
 | Allow Cloud Connection | Switch | Enable or disable the appliance's connection to the Home Connect cloud |
