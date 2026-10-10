@@ -247,9 +247,10 @@ class HCWiFI(HCEntity, SensorEntity):
         await super().async_added_to_hass()
         # Without this, the platform's SCAN_INTERVAL timer wouldn't fire the
         # first poll until a full interval after setup/reload - get a value
-        # immediately instead of sitting at unknown for up to an hour.
-        await self.async_update()
-        self.async_write_ha_state()
+        # immediately instead of sitting at unknown for up to an hour. Scheduled
+        # rather than awaited: the /ni/info request has no timeout and would
+        # otherwise hold up the whole sensor platform setup.
+        self.async_schedule_update_ha_state(force_refresh=True)
 
     @property
     def icon(self) -> str:
@@ -294,9 +295,10 @@ class HCIPAddress(HCEntity, SensorEntity):
         await super().async_added_to_hass()
         # Without this, the platform's SCAN_INTERVAL timer wouldn't fire the
         # first poll until a full interval after setup/reload - get a value
-        # immediately instead of sitting at unknown for up to an hour.
-        await self.async_update()
-        self.async_write_ha_state()
+        # immediately instead of sitting at unknown for up to an hour. Scheduled
+        # rather than awaited: the /ni/info request has no timeout and would
+        # otherwise hold up the whole sensor platform setup.
+        self.async_schedule_update_ha_state(force_refresh=True)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
