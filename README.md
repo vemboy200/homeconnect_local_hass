@@ -24,7 +24,7 @@ The **Home Connect Local** allows users to integrate their home appliances suppo
 - Original Maintainer: [@chris-mc1](https://github.com/chris-mc1)
 - [View known issues](https://github.com/vemboy200/homeconnect_local_hass/issues)
 - [Request a feature](docs/integration/support-and-troubleshooting.md#requesting-a-new-feature)
-- [home-disconnect](https://github.com/vemboy200/home-disconnect) - a fork of the local WebSocket protocol library this integration talks to appliances through
+- [home-disconnect](https://github.com/vemboy200/home-disconnect-old) - a fork of the local WebSocket protocol library this integration talks to appliances through
 
 ## Install the Integration
 

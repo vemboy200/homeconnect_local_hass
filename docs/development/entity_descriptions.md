@@ -77,7 +77,7 @@ No HC-specific extra fields — use HA's own inherited `NumberEntityDescription`
 
 ## Development Options
 
-This integration has development-only options for use with the [HomeConnect Websocket Simulator](https://github.com/vemboy200/homeconnect_ws_sim/) (a fork retargeted to depend on this project's [home-disconnect](https://github.com/vemboy200/home-disconnect) library instead of the unmaintained original). Set these in `configuration.yaml`:
+This integration has development-only options for use with the [HomeConnect Websocket Simulator](https://github.com/vemboy200/homeconnect_ws_sim/) (a fork retargeted to depend on this project's [home-disconnect](https://github.com/vemboy200/home-disconnect-old) library instead of the unmaintained original). Set these in `configuration.yaml`:
 
 ```yaml
 homeconnect_ws:
