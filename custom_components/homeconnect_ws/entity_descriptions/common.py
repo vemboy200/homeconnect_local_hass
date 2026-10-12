@@ -2,19 +2,16 @@
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 from home_disconnect.entities import Execution
-from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass,
-)
+from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
 from homeassistant.components.number import NumberDeviceClass, NumberMode
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorStateClass,
 )
-from homeassistant.components.switch import SwitchDeviceClass
+from homeassistant.components.switch.const import SwitchDeviceClass
 from homeassistant.components.update import UpdateDeviceClass
 from homeassistant.const import (
     PERCENTAGE,
@@ -39,7 +36,7 @@ from .descriptions_definitions import (
 )
 
 if TYPE_CHECKING:
-    from home_disconnect import HomeAppliance
+    from home_disconnect import Appliance
 
 
 POWER_SWITCH_VALUE_MAPINGS = (
@@ -57,7 +54,7 @@ POWER_SWITCH_VALUE_MAPINGS = (
 POWER_OFF_STATE_NAMES = ("Off", "MainsOff")
 
 
-def generate_start_button(appliance: HomeAppliance) -> HCButtonEntityDescription | None:
+def generate_start_button(appliance: Appliance) -> HCButtonEntityDescription | None:
     """Get Start Button description."""
     # SELECT_ONLY needs this button just as much as SELECT_AND_START: selecting
     # a program (writing SelectedProgram) only stages it and its options on
@@ -108,7 +105,7 @@ def generate_start_button(appliance: HomeAppliance) -> HCButtonEntityDescription
     return None
 
 
-def generate_delay_start(appliance: HomeAppliance) -> HCSelectEntityDescription | None:
+def generate_delay_start(appliance: Appliance) -> HCSelectEntityDescription | None:
     """
     Get the "Delay start" select description.
 
@@ -128,7 +125,7 @@ def generate_delay_start(appliance: HomeAppliance) -> HCSelectEntityDescription 
     )
 
 
-def generate_power_switch(appliance: HomeAppliance) -> EntityDescriptions:
+def generate_power_switch(appliance: Appliance) -> EntityDescriptions:
     """Get Power switch description."""
     entity_descriptions = EntityDescriptions()
     if entity := appliance.entities.get("BSH.Common.Setting.PowerState"):
@@ -194,7 +191,7 @@ def generate_power_switch(appliance: HomeAppliance) -> EntityDescriptions:
     return entity_descriptions
 
 
-def generate_door_state(appliance: HomeAppliance) -> HCSensorEntityDescription | None:
+def generate_door_state(appliance: Appliance) -> HCSensorEntityDescription | None:
     """Get Door sensor description."""
     entity = appliance.entities.get("BSH.Common.Status.DoorState")
     if entity and len(entity.enum or {}) > 2:
@@ -207,21 +204,24 @@ def generate_door_state(appliance: HomeAppliance) -> HCSensorEntityDescription |
     return None
 
 
-def generate_program(appliance: HomeAppliance) -> EntityDescriptions:
+def generate_program(appliance: Appliance) -> EntityDescriptions:
     """Get Door program select and sensor description."""
-    pattern = re.compile(r"^BSH\.Common\.Program\.Favorite\.(.*)$")
+    favorites = {
+        f"BSH.Common.Program.Favorite.{favorite}": favorite
+        for favorite in appliance.group_ids("BSH.Common.Program.Favorite")
+    }
 
     programs = {}
 
     for program in appliance.programs:
-        if match := pattern.match(program):
+        if (favorite := favorites.get(program)) is not None:
             favorite_name_entity = appliance.settings.get(
-                f"BSH.Common.Setting.Favorite.{match.groups()[0]}.Name"
+                f"BSH.Common.Setting.Favorite.{favorite}.Name"
             )
             if favorite_name_entity and favorite_name_entity.value:
                 program_name = favorite_name_entity.value
             else:
-                program_name = f"favorite_{match.groups()[0]}"
+                program_name = f"favorite_{favorite}"
         else:
             program_name = program.lower().replace(".", "_")
 
@@ -256,7 +256,7 @@ def generate_program(appliance: HomeAppliance) -> EntityDescriptions:
     return descriptions
 
 
-def generate_wifi(appliance: HomeAppliance) -> HCSensorEntityDescription:  # noqa: ARG001
+def generate_wifi(appliance: Appliance) -> HCSensorEntityDescription:  # noqa: ARG001
     """
     Get WiFi sensor description.
 
@@ -274,7 +274,7 @@ def generate_wifi(appliance: HomeAppliance) -> HCSensorEntityDescription:  # noq
     )
 
 
-def generate_ipv4(appliance: HomeAppliance) -> HCSensorEntityDescription:  # noqa: ARG001
+def generate_ipv4(appliance: Appliance) -> HCSensorEntityDescription:  # noqa: ARG001
     """Get IPv4 address sensor description. Polled the same way as generate_wifi."""
     return HCSensorEntityDescription(
         key="sensor_ipv4_address",
@@ -283,7 +283,7 @@ def generate_ipv4(appliance: HomeAppliance) -> HCSensorEntityDescription:  # noq
     )
 
 
-def generate_ipv6(appliance: HomeAppliance) -> HCSensorEntityDescription:  # noqa: ARG001
+def generate_ipv6(appliance: Appliance) -> HCSensorEntityDescription:  # noqa: ARG001
     """Get IPv6 address sensor description. Polled the same way as generate_wifi."""
     return HCSensorEntityDescription(
         key="sensor_ipv6_address",
@@ -292,7 +292,7 @@ def generate_ipv6(appliance: HomeAppliance) -> HCSensorEntityDescription:  # noq
     )
 
 
-def generate_temperature_unit(appliance: HomeAppliance) -> HCSelectEntityDescription | None:
+def generate_temperature_unit(appliance: Appliance) -> HCSelectEntityDescription | None:
     """Get Temperature unit description."""
     entity = appliance.entities.get("BSH.Common.Setting.TemperatureUnit")
     if entity and len(entity.enum or {}) > 2:
@@ -308,7 +308,7 @@ def generate_temperature_unit(appliance: HomeAppliance) -> HCSelectEntityDescrip
 
 
 def generate_software_download_update(
-    appliance: HomeAppliance,
+    appliance: Appliance,
 ) -> HCUpdateEntityDescription | None:
     """Get Software Download update description, if a separate download stage exists."""
     if (
@@ -325,7 +325,7 @@ def generate_software_download_update(
     return None
 
 
-def generate_software_update(appliance: HomeAppliance) -> HCUpdateEntityDescription | None:
+def generate_software_update(appliance: Appliance) -> HCUpdateEntityDescription | None:
     """Get Software Update (install) description."""
     if (
         "BSH.Common.Event.SoftwareUpdateAvailable" in appliance.entities
@@ -366,10 +366,7 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             # Only useful with "Synchronize time with server" off, which is
             # itself disabled by default, so follow it.
             entity_registry_enabled_default=False,
-            # The appliance reports and expects a naive ISO-8601 local
-            # timestamp ("2026-09-24T10:36:09"), so drop the offset that
-            # dt_util.now() carries rather than sending it along.
-            press_value_fn=lambda: dt_util.now().replace(tzinfo=None).isoformat(timespec="seconds"),
+            press_fn=lambda appliance: appliance.set_datetime(dt_util.now()),
         ),
     ],
     "binary_sensor": [

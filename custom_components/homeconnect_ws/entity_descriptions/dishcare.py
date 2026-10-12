@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from homeassistant.components.binary_sensor import BinarySensorDeviceClass
+from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorStateClass,
 )
-from homeassistant.components.switch import SwitchDeviceClass
+from homeassistant.components.switch.const import SwitchDeviceClass
 from homeassistant.const import EntityCategory
 
 from .descriptions_definitions import (

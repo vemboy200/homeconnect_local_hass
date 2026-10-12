@@ -2260,9 +2260,6 @@
     "missing_unique_id": {
       "message": "Tato položka konfigurace nemá jedinečné ID. Odeberte spotřebič a přidejte ho znovu."
     },
-    "fan_no_default_program": {
-      "message": "Ventilátor této digestoře nemá výchozí program odsávání, který by šel spustit."
-    },
     "setup_cannot_connect": {
       "message": "Nelze se připojit k {host}. Pokud se to nevyřeší samo, podívejte se na {url}."
     },

@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass,
-    BinarySensorEntity,
-)
+from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
 from homeassistant.const import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -17,7 +15,7 @@ from .entity_descriptions.descriptions_definitions import HCBinarySensorEntityDe
 from .helpers import create_entities
 
 if TYPE_CHECKING:
-    from home_disconnect import HomeAppliance
+    from home_disconnect import Appliance
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.device_registry import DeviceInfo
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -81,7 +79,7 @@ class HCConnectionSensor(CoordinatorEntity[HomeConnectCoordinator], BinarySensor
         self, entity_description: HCBinarySensorEntityDescription, runtime_data: HCData
     ) -> None:
         super().__init__(runtime_data.coordinator)
-        self._appliance: HomeAppliance = runtime_data.appliance
+        self._appliance: Appliance = runtime_data.appliance
         self.entity_description = entity_description
         self._attr_unique_id = f"{runtime_data.appliance.info['deviceID']}-{entity_description.key}"
         self._attr_device_info: DeviceInfo = runtime_data.device_info
@@ -89,11 +87,10 @@ class HCConnectionSensor(CoordinatorEntity[HomeConnectCoordinator], BinarySensor
 
     @property
     def is_on(self) -> bool:
-        return self._appliance.session.connected
+        return self._appliance.connected
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        # Reflects the most recent close, regardless of current connectivity -
-        # not just "while currently disconnected" - so it stays checkable
-        # after the appliance reconnects, not only in the moment it's down.
-        return {"clean_disconnect": self._appliance.session.last_close_code == 1000}
+        # Whether the last connection ended with a normal close (code 1000), as washers and
+        # dryers do when switched off; False while connected.
+        return {"clean_disconnect": self._appliance.closed_cleanly is True}

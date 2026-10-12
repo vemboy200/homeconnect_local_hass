@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Container
+from collections.abc import Awaitable, Callable, Container
 from dataclasses import replace
 from typing import TYPE_CHECKING, Literal, NotRequired, TypedDict
 
-from home_disconnect import HomeAppliance
+from home_disconnect import Appliance
 from home_disconnect.entities import Access
 from homeassistant.components.binary_sensor import BinarySensorEntityDescription
 from homeassistant.components.button import ButtonEntityDescription
@@ -153,9 +153,9 @@ class HCButtonEntityDescription(
 
     available_access: tuple[Access, ...] = (Access.READ_WRITE, Access.WRITE_ONLY)
     # A button writes True to its Command by default. A button backed by a
-    # Setting instead supplies the value to write here, evaluated on press so
-    # it can depend on the current state (e.g. the current time).
-    press_value_fn: Callable[[], str | int | bool] | None = None
+    # Setting instead does its own write here, through a library method (e.g.
+    # setting the clock to the current time).
+    press_fn: Callable[[Appliance], Awaitable[None]] | None = None
 
 
 class HCNumberEntityDescription(
@@ -180,7 +180,6 @@ class HCFanEntityDescription(HCEntityDescription, FanEntityDescription, frozen_o
     """Description for Fan Entity."""
 
     available_access: tuple[Access, ...] = (Access.READ_WRITE,)
-    default_program: str | None = None
 
 
 class HCUpdateEntityDescription(
@@ -236,8 +235,7 @@ _EntityDescriptionsDefinitionsType = dict[
         "dynamic",
     ],
     list[
-        HCEntityDescription
-        | Callable[[HomeAppliance], HCEntityDescription | EntityDescriptions | None]
+        HCEntityDescription | Callable[[Appliance], HCEntityDescription | EntityDescriptions | None]
     ],
 ]
 

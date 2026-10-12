@@ -6,20 +6,23 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from home_disconnect.entities import Access, Option, SelectedProgram, Setting
-from home_disconnect.errors import AccessError, CodeResponsError, NotConnectedError
+from home_disconnect import (
+    Access,
+    AccessError,
+    ConnectionClosedError,
+    InvalidValueError,
+    ResponseError,
+)
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.service import async_extract_config_entry_ids
 
 from .const import DOMAIN
 
 if TYPE_CHECKING:
-    import re
-    from collections.abc import Callable, Coroutine, Iterator
+    from collections.abc import Callable, Coroutine
 
-    from home_disconnect import HomeAppliance
-    from home_disconnect.entities import Entity as HcEntity
-    from home_disconnect.entities import Program
+    from home_disconnect import Appliance
+    from home_disconnect import Entity as HcEntity
     from homeassistant.core import HomeAssistant, ServiceCall
 
     from . import HCConfigEntry, HCData
@@ -60,36 +63,6 @@ def merge_dicts[K, V](*args: dict[K, list[V]]) -> dict[K, list[V]]:
     return out_dict
 
 
-@dataclass
-class EntityMatch:
-    """Returned by get_entities_from_regex."""
-
-    entity: str
-    groups: tuple[str, ...]
-
-
-def get_entities_from_regex(
-    appliance: HomeAppliance, pattern: re.Pattern[str]
-) -> list[EntityMatch]:
-    """Get all entities matching the pattern."""
-    return [
-        EntityMatch(entity=entity, groups=match.groups())
-        for entity in appliance.entities
-        if (match := pattern.match(entity))
-    ]
-
-
-def get_groups_from_regex(
-    appliance: HomeAppliance, pattern: re.Pattern[str]
-) -> set[tuple[str, ...]]:
-    """Get all regex groups matching the pattern."""
-    groups: set[tuple[str, ...]] = set()
-    for entity in appliance.entities:
-        if (match := pattern.match(entity)) and match.groups() not in groups:
-            groups.add(match.groups())
-    return groups
-
-
 async def get_config_entry_from_call(
     hass: HomeAssistant, service_call: ServiceCall
 ) -> HCConfigEntry:
@@ -108,19 +81,22 @@ def entity_is_available(
     """Check is HC entity is available."""
     available = True
     if entity is not None and hasattr(entity, "available"):
-        available &= entity.available
+        # None (not reported yet) counts as available.
+        available &= entity.available is not False
 
     if entity is not None and available_access is not None and hasattr(entity, "access"):
-        available &= entity.access in available_access
+        # READ_STATIC is read-only and fixed (e.g. an oven cavity's size): wherever READ
+        # counts as available, so does READ_STATIC.
+        if entity.access == Access.READ_STATIC:
+            available &= Access.READ in available_access
+        else:
+            available &= entity.access in available_access
     return available
-
-
-_LOCKABLE_ENTITY_TYPES = (Option, Setting, SelectedProgram)
 
 
 def is_lockable(entity: HcEntity | None) -> bool:
     """Whether entity is a type HC locks read-only rather than hides, regardless of access."""
-    return isinstance(entity, _LOCKABLE_ENTITY_TYPES)
+    return entity is not None and entity.lockable
 
 
 def is_locked(entity: HcEntity | None) -> bool:
@@ -128,20 +104,12 @@ def is_locked(entity: HcEntity | None) -> bool:
     Whether entity is currently locked read-only, not just inapplicable.
 
     Options (e.g. an iDos dosing switch while a program runs),
-    SelectedProgram (e.g. while a delayed start is armed - confirmed live on
-    fork issue #59 via a Bosch WGB244A0BY's own debug log, access flips
-    READ_WRITE -> READ the moment the delay is armed and back once the wash
-    actually starts) and Settings (e.g. a Bosch WQB245A0BY dryer's
-    CupboardDryFineAdjust/IronDryFineAdjust, READ for the whole ~1h47m of a
-    running program and READ_WRITE again once it ends, from the same issue)
-    are the HC entity types whose write access depends on appliance state
-    this way - Home Connect itself shows these as visible-but-disabled on the
-    appliance's own panel/app rather than hiding them. Access.READ
-    specifically means "still readable, just not writable right now" -
-    Access.NONE means "not applicable at all", which should stay genuinely
-    unavailable rather than shown as read-only.
+    SelectedProgram (e.g. while a delayed start is armed - fork issue #59) and
+    Settings (e.g. a dryer's fine-adjust settings during a program) are
+    locked READ rather than hidden - the library's Entity.locked. Access.NONE
+    means "not applicable at all" and stays unavailable instead.
     """
-    return isinstance(entity, _LOCKABLE_ENTITY_TYPES) and entity.access == Access.READ
+    return entity is not None and entity.locked
 
 
 def ensure_writable(entity: HcEntity | None) -> None:
@@ -153,109 +121,15 @@ def ensure_writable(entity: HcEntity | None) -> None:
         )
 
 
-def needs_full_option_set(program: Program) -> bool:
-    """
-    Whether this appliance expects program and options as one complete write.
-
-    Appliance-wide: Program.full_option_set falls back to the appliance value,
-    which is true as soon as *either* SelectedProgram or ActiveProgram declares
-    the flag. Right for the ActiveProgram writes (start button, fan) - for a
-    SelectedProgram write use selected_program_needs_full_option_set().
-    """
-    return program.full_option_set
-
-
-def selected_program_needs_full_option_set(entity: SelectedProgram) -> bool:
-    """
-    Whether a write to SelectedProgram itself has to carry the complete option set.
-
-    A device description declares fullOptionSet per resource, and the two can
-    disagree: a Siemens EQ.9 CoffeeMaker has
-
-        <selectedProgram fullOptionSet="false" access="readwrite" />
-        <activeProgram   fullOptionSet="true"  access="read" />
-
-    so selecting a program there is an ordinary SelectedProgram write, while
-    the appliance-wide value says otherwise. Ask the entity being written to,
-    not the appliance.
-    """
-    return entity.full_option_set
-
-
-def is_unplugged_probe(appliance: HomeAppliance, option: Option) -> bool:
-    """
-    Whether option is a meat probe setpoint while no probe is plugged in.
-
-    Supplying it anyway makes the appliance reject the entire program write.
-    """
-    if "MeatProbeTemperature" not in option.name:
-        return False
-    plugged = appliance.status.get("Cooking.Oven.Status.MeatprobePlugged")
-    return not bool(getattr(plugged, "value", False))
-
-
-def _writable_options(appliance: HomeAppliance, program: Program) -> Iterator[Option]:
-    """
-    Yield the program's options that may go into a program write right now.
-
-    Skips read-only options, an unplugged meat probe, and options the appliance
-    does not offer for this program at the moment (available is False): a
-    Siemens EQ.9 CoffeeMaker lists DisplayName on every beverage program but
-    never reports it or makes it available, and sending any value for it makes
-    the appliance reject the whole write with 400 - the same effect the
-    meat-probe special case guards against, just for the general case.
-    """
-    for opt in program._options:  # noqa: SLF001
-        if opt.access != Access.READ_WRITE:
-            continue
-        if is_unplugged_probe(appliance, opt):
-            continue
-        if opt.available is False:
-            continue
-        yield opt
-
-
-def build_known_option_set(
-    appliance: HomeAppliance, program: Program
-) -> dict[int, str | int | bool]:
-    """
-    Collect the options whose value the appliance has reported, for a program write.
-
-    Mirrors the library's default merge (every READ_WRITE option's value_shadow)
-    so that known values still go out - a hood's Venting program needs its real
-    level to start - but leaves out options that have no value yet. The library
-    would send those as {"uid": x, "value": None}, and an appliance that never
-    reported the option rejects the whole write with 400.
-    """
-    options: dict[int, str | int | bool] = {}
-    for opt in _writable_options(appliance, program):
-        value = opt.value_shadow
-        if value is None:
-            value = opt.value
-        if value is None:
-            continue
-        options[opt.uid] = value
-    return options
-
-
-def build_full_option_set(
-    appliance: HomeAppliance, program: Program
-) -> dict[int, str | int | bool]:
-    """
-    Collect a complete, well-formed option set for a program write.
-
-    An appliance that wants a full option set rejects {"uid": x, "value": None}
-    entries, so on top of the known values fall back to the option's minimum.
-    Options that stay valueless even then are left out rather than sent as null.
-    """
-    options = build_known_option_set(appliance, program)
-    for opt in _writable_options(appliance, program):
-        if opt.uid in options or opt.min is None:
-            continue
-        # opt.min is typed float (generic XML min/max parsing), but the
-        # wire protocol only ever takes int/str/bool option values.
-        options[opt.uid] = int(opt.min)
-    return options
+def remote_start_error(runtime_data: HCData) -> HomeAssistantError:
+    """Return the error for a start the appliance refuses because remote start is off."""
+    return HomeAssistantError(
+        translation_domain=DOMAIN,
+        translation_key="remote_start_not_allowed",
+        translation_placeholders={
+            "device_name": runtime_data.device_info.get("name") or "your appliance"
+        },
+    )
 
 
 def error_decorator[T](
@@ -271,13 +145,19 @@ def error_decorator[T](
                 translation_domain=DOMAIN,
                 translation_key="access_error",
             ) from None
-        except CodeResponsError as exc:
+        except InvalidValueError as exc:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="code_respons",
+                translation_placeholders={"message": str(exc)},
+            ) from None
+        except ResponseError as exc:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="code_respons",
-                translation_placeholders={"message": exc.message},
+                translation_placeholders={"message": str(exc)},
             ) from None
-        except NotConnectedError:
+        except ConnectionClosedError:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="not_connected",
@@ -298,7 +178,6 @@ def error_decorator[T](
 
 START_IN_RELATIVE = "BSH.Common.Option.StartInRelative"
 FINISH_IN_RELATIVE = "BSH.Common.Option.FinishInRelative"
-ESTIMATED_TOTAL_PROGRAM_TIME = "BSH.Common.Option.EstimatedTotalProgramTime"
 DELAY_START_NONE = "no_delay"
 DELAY_START_OPTIONS = [DELAY_START_NONE, *(f"{hours}h" for hours in range(1, 25))]
 
@@ -310,8 +189,8 @@ class DelayStart:
 
     The appliance has no notion of this value on its own: it only accepts
     StartInRelative/FinishInRelative as an option of the program start
-    (#146), so the select keeps the choice here and the Start button turns
-    it into that option when the program is started.
+    (#146), so the select keeps the choice here and the Start button passes
+    it to Appliance.start_program(), which turns it into that option.
     """
 
     option: str = DELAY_START_NONE
@@ -336,7 +215,7 @@ class DelayStart:
             listener()
 
 
-def delay_start_entity(appliance: HomeAppliance) -> HcEntity | None:
+def delay_start_entity(appliance: Appliance) -> HcEntity | None:
     """
     Return the option the delay goes into: StartInRelative, else FinishInRelative.
 
@@ -344,58 +223,3 @@ def delay_start_entity(appliance: HomeAppliance) -> HcEntity | None:
     duration added, so prefer the simpler one when an appliance has both.
     """
     return appliance.entities.get(START_IN_RELATIVE) or appliance.entities.get(FINISH_IN_RELATIVE)
-
-
-def _program_duration(
-    appliance: HomeAppliance, finish_in: HcEntity, options: dict[int, Any]
-) -> int:
-    """
-    Return the selected program's duration in seconds.
-
-    EstimatedTotalProgramTime first: FinishInRelative may already hold a
-    finish time someone set through the "Finish in" number on an appliance
-    that accepts that write, and adding the delay on top would count it
-    twice. With a program selected, the Siemens WM16XKH2EU washer reports
-    both as the program duration (3600 s for the same program, #146), so
-    FinishInRelative stays as the fallback for appliances without
-    EstimatedTotalProgramTime.
-    """
-    for source in (appliance.entities.get(ESTIMATED_TOTAL_PROGRAM_TIME), finish_in):
-        if source is None or not getattr(source, "available", True):
-            continue
-        duration = options.get(source.uid, source.value)
-        if duration is not None:
-            return int(duration)
-    raise HomeAssistantError(
-        translation_domain=DOMAIN,
-        translation_key="delay_start_duration_unknown",
-    )
-
-
-def apply_delay_start(
-    appliance: HomeAppliance, delay_start: DelayStart, options: dict[int, Any]
-) -> dict[int, Any]:
-    """
-    Add the selected start delay to the program start options.
-
-    StartInRelative gets the delay itself. FinishInRelative gets the program
-    duration plus the delay (see _program_duration for where it comes from).
-    """
-    seconds = delay_start.seconds
-    if not seconds:
-        return options
-    entity = delay_start_entity(appliance)
-    if entity is None:
-        return options
-    if entity.name == START_IN_RELATIVE:
-        value = seconds
-    else:
-        value = _program_duration(appliance, entity, options) + seconds
-    max_value = getattr(entity, "max", None)
-    if max_value is not None and value > max_value:
-        raise HomeAssistantError(
-            translation_domain=DOMAIN,
-            translation_key="delay_start_too_long",
-            translation_placeholders={"max_hours": str(int(max_value) // 3600)},
-        )
-    return {**options, entity.uid: value}

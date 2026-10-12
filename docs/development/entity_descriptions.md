@@ -62,10 +62,6 @@ No HC-specific extra fields — use HA's own inherited `NumberEntityDescription`
 
 - `brightness_entity`, `color_temperature_entity`, `color_entity`, `color_mode_entity`: names of the HC entities backing each of these light capabilities, when they're separate from the main `entity`
 
-## Fan Entity (`HCFanEntityDescription`)
-
-- `default_program`: the HC program name to start when the fan is turned on without an explicit speed/preset
-
 ## Update Entity (`HCUpdateEntityDescription`)
 
 - `command_entity`: the HC entity used to trigger the install/download command

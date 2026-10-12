@@ -6,10 +6,9 @@ import logging
 import math
 from typing import TYPE_CHECKING, Any, Final, NamedTuple, override
 
-from home_disconnect.entities import Access
-from home_disconnect.message import Action
-from home_disconnect.message import Message as HC_Message
-from homeassistant.components.fan import FanEntity, FanEntityFeature
+from home_disconnect import AccessError
+from homeassistant.components.fan import FanEntity
+from homeassistant.components.fan.const import FanEntityFeature
 from homeassistant.core import callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.event import async_call_later
@@ -17,20 +16,16 @@ from homeassistant.util.percentage import percentage_to_ranged_value, ranged_val
 
 from .const import DOMAIN
 from .entity import HCEntity
-from .entity_descriptions.common import POWER_OFF_STATE_NAMES
 from .helpers import (
-    build_full_option_set,
     create_entities,
     entity_is_available,
     error_decorator,
-    needs_full_option_set,
 )
 
 if TYPE_CHECKING:
     from datetime import datetime
 
     from home_disconnect.entities import Entity as HcEntity
-    from home_disconnect.entities import Program
     from homeassistant.core import CALLBACK_TYPE, HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -75,11 +70,7 @@ async def async_setup_entry(
     async_add_entites(entities)
 
 
-_POWER_STATE_ENTITY = "BSH.Common.Setting.PowerState"
 _OPERATION_STATE_ENTITY = "BSH.Common.Status.OperationState"
-_VENTING_PROGRAM_ENTITY = "Cooking.Common.Program.Hood.Venting"  # D80B / 55307
-_VENTING_LEVEL_ENTITY = "Cooking.Common.Option.Hood.VentingLevel"  # D80C / 55308
-_VENTING_INTENSIVE_LEVEL_ENTITY = "Cooking.Common.Option.Hood.IntensiveLevel"  # D809 / 55305
 _VENTING_BOOST_ENTITY = "Cooking.Common.Option.Hood.Boost"  # D801 / 55297
 _INACTIVE_OPERATION_STATES = frozenset({"inactive", "ready"})
 
@@ -211,37 +202,6 @@ class HCFan(HCEntity, FanEntity):
                 return ranged_value_to_percentage(self._speed_range, speed.speed)
         return 0
 
-    def _venting_program(self) -> Program:
-        default_program = self.entity_description.default_program
-        if default_program is None:
-            raise ServiceValidationError(
-                translation_domain=DOMAIN, translation_key="fan_no_default_program"
-            )
-        if self._runtime_data.appliance.active_program is not None:
-            return self._runtime_data.appliance.active_program
-        return self._runtime_data.appliance.programs[default_program]
-
-    def _speed_options(
-        self,
-        program: Program,
-        *,
-        entity_name: str | None = None,
-        value: int = 0,
-    ) -> dict[int, str | int | bool]:
-        """Build writable fan option uids for the given program."""
-        options: dict[int, str | int | bool] = {}
-        # Program.options has no public accessor in the library yet.
-        for option in program._options:  # noqa: SLF001
-            if option.name not in self._speed_entities:
-                continue
-            if option.access != Access.READ_WRITE:
-                continue
-            if entity_name is None or option.name == entity_name:
-                options[option.uid] = value
-            else:
-                options[option.uid] = 0
-        return options
-
     @error_decorator
     async def async_set_percentage(self, percentage: int) -> None:
         new_speed = math.ceil(percentage_to_ranged_value(self._speed_range, percentage))
@@ -249,34 +209,15 @@ class HCFan(HCEntity, FanEntity):
             await self.async_turn_off()
             return
 
-        new_speed_entity: str | None = None
-        new_speed_value: int | None = None
-        for speed in self._speed_mapping:
-            if speed.speed == new_speed:
-                new_speed_entity = speed.entity_name
-                new_speed_value = speed.entity_value
-
-        if new_speed_entity is None or new_speed_value is None:
+        speed = next((speed for speed in self._speed_mapping if speed.speed == new_speed), None)
+        if speed is None:
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
                 translation_key="speed_invalid",
                 translation_placeholders={"percentage": str(percentage)},
             )
 
-        program = self._venting_program()
-        options = self._speed_options(
-            program,
-            entity_name=new_speed_entity,
-            value=new_speed_value,
-        )
-        if not options:
-            raise ServiceValidationError(
-                translation_domain=DOMAIN,
-                translation_key="speed_invalid",
-                translation_placeholders={"percentage": str(percentage)},
-            )
-
-        await program.start(options)
+        await self._runtime_data.appliance.set_fan_level(speed.entity_name, speed.entity_value)
         self.async_write_ha_state()
 
     @error_decorator
@@ -289,17 +230,7 @@ class HCFan(HCEntity, FanEntity):
         if self._venting_boost_entity is not None:
             self._set_optimistic_preset(PRESET_NONE)
         if percentage is None:
-            program = self._venting_program()
-            # Same 400 BadRequest as the start button / program select: an
-            # appliance whose ActiveProgram is flagged fullOptionSet validates
-            # a program write against the program's complete option set and
-            # rejects an empty one. Confirmed live on a Bosch hood.
-            options = (
-                build_full_option_set(self._runtime_data.appliance, program)
-                if needs_full_option_set(program)
-                else {}
-            )
-            await program.start(options, override_options=True)
+            await self._runtime_data.appliance.start_fan()
         else:
             await self.async_set_percentage(int(percentage))
         self.async_write_ha_state()
@@ -310,47 +241,19 @@ class HCFan(HCEntity, FanEntity):
         if appliance.active_program is None:
             return
 
-        # A hood has no way to abort a running program: it exposes no
-        # AbortProgram command and its programs are all START_ONLY. Both
-        # other candidates are dead ends, confirmed live on a DWK81AN60 by
-        # reading the WebSocket debug log:
-        #   - DELETE /ro/activeProgram is never answered at all, so send_sync
-        #     waits for a response that cannot come and raises TimeoutError
-        #     (upstream issue #386 describes it working on other appliance
-        #     classes, so this stays appliance-specific).
-        #   - re-POSTing the venting program with VentingLevel=FanOff gets a
-        #     bare RESPONSE and is then silently dropped: no value notify
-        #     follows and the fan keeps spinning at its previous stage
-        #     (fork issue #17).
-        # Powering the appliance off is the only stop it honours, and it is
-        # the exact counterpart of starting a program, which the hood answers
-        # by switching PowerState to On by itself.
-        power_state = appliance.entities.get(_POWER_STATE_ENTITY)
-        off_value = None
-        if power_state is not None:
-            entity_min = getattr(power_state, "min", None)
-            entity_max = getattr(power_state, "max", None)
-            if entity_min is not None and entity_max is not None:
-                # Some appliances declare a wider enum than they actually
-                # allow writing - matches generate_power_switch's own
-                # settable-range check for this same entity.
-                settable = {
-                    value
-                    for key, value in (power_state.enum or {}).items()
-                    if entity_min <= int(key) <= entity_max
-                }
-            else:
-                settable = set((power_state.enum or {}).values())
-            off_value = next((n for n in POWER_OFF_STATE_NAMES if n in settable), None)
-        if power_state is None or off_value is None:
+        # A hood has no way to abort a running program: it exposes no AbortProgram command, its
+        # programs are all START_ONLY, DELETE /ro/activeProgram is never answered and re-starting
+        # Venting with the level at FanOff is ignored (DWK81AN60, fork issue #17). Powering the
+        # appliance off is the only stop it honours.
+        if self._venting_boost_entity is not None:
+            self._set_optimistic_preset(PRESET_NONE)
+        try:
+            await appliance.power_off()
+        except AccessError:
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
                 translation_key="no_power_off",
-            )
-
-        if self._venting_boost_entity is not None:
-            self._set_optimistic_preset(PRESET_NONE)
-        await power_state.set_value(off_value)
+            ) from None
         self.async_write_ha_state()
 
     @override
@@ -370,40 +273,9 @@ class HCFan(HCEntity, FanEntity):
         self._set_optimistic_preset(preset_mode)
 
     async def start_boost(self) -> None:
-        """Set new preset mode."""
-        appliance = self._runtime_data.appliance
-        venting_boost = appliance.options[_VENTING_BOOST_ENTITY]
-        venting_program = appliance.programs[_VENTING_PROGRAM_ENTITY]
-        venting_level = appliance.options[_VENTING_LEVEL_ENTITY]
-        venting_intensive_level = appliance.options.get(_VENTING_INTENSIVE_LEVEL_ENTITY)
-
-        options: list[dict[str, Any]] = [
-            {"uid": venting_level.uid, "value": 0},
-            {"uid": venting_boost.uid, "value": True},
-        ]
-        # Make intensive level optional (not sure if such a case can happen)
-        if venting_intensive_level is not None:
-            options.append({"uid": venting_intensive_level.uid, "value": 0})
-
-        message_data: list[dict[str, Any]] = []
-        message_data.append({"program": venting_program.uid, "options": options})
-        message = HC_Message(
-            resource="/ro/activeProgram",
-            action=Action.POST,
-            data=message_data,
-        )
-        await self._runtime_data.appliance.session.send_sync(message)
+        """Turn boost on."""
+        await self._runtime_data.appliance.set_boost(on=True)
 
     async def stop_boost(self) -> None:
-        """Set new preset mode."""
-        appliance = self._runtime_data.appliance
-        venting_program = appliance.programs[_VENTING_PROGRAM_ENTITY]
-
-        message_data: list[dict[str, Any]] = []
-        message_data.append({"program": venting_program.uid, "options": []})
-        message = HC_Message(
-            resource="/ro/activeProgram",
-            action=Action.POST,
-            data=message_data,
-        )
-        await self._runtime_data.appliance.session.send_sync(message)
+        """Turn boost off."""
+        await self._runtime_data.appliance.set_boost(on=False)

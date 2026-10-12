@@ -4389,14 +4389,14 @@
     "missing_unique_id": {
       "message": "This config entry has no unique ID. Remove the appliance and add it again."
     },
-    "fan_no_default_program": {
-      "message": "This hood's fan has no default venting program to start."
-    },
     "setup_cannot_connect": {
       "message": "Can't connect to {host}. See {url} if this doesn't resolve on its own."
     },
     "setup_cannot_connect_error": {
       "message": "Can't connect to {host} ({error}). See {url} if this doesn't resolve on its own."
+    },
+    "invalid_profile": {
+      "message": "The stored appliance profile can't be read: {error}. Update the profile from the integration's Reconfigure menu."
     },
     "delay_start_too_long": {
       "message": "The selected delay is too long: the program would finish more than {max_hours} h from now, which the appliance doesn't allow"

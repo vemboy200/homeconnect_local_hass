@@ -2,25 +2,21 @@
 
 from __future__ import annotations
 
-import asyncio
+import logging
 from typing import TYPE_CHECKING, Any, cast
 
-from home_disconnect.message import Action
-from home_disconnect.message import Message as HC_Message
-from homeassistant.components.light import (
+from home_disconnect import AccessError
+from homeassistant.components.light import LightEntity
+from homeassistant.components.light.const import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
     ATTR_RGB_COLOR,
-    LightEntity,
-)
-from homeassistant.components.light.const import (
     DEFAULT_MAX_KELVIN,
     DEFAULT_MIN_KELVIN,
     ColorMode,
 )
 from homeassistant.util.color import (
     brightness_to_value,
-    color_rgb_to_hex,
     match_max_scale,
     rgb_hex_to_rgb_list,
     value_to_brightness,
@@ -28,11 +24,9 @@ from homeassistant.util.color import (
 from homeassistant.util.scaling import scale_ranged_value_to_int_range
 
 from .entity import HCEntity
-from .helpers import create_entities, entity_is_available, error_decorator
+from .helpers import create_entities, error_decorator
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from home_disconnect.entities import Entity as HcEntity
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -40,12 +34,9 @@ if TYPE_CHECKING:
     from . import HCConfigEntry, HCData
     from .entity_descriptions.descriptions_definitions import HCLightEntityDescription
 
-PARALLEL_UPDATES = 0
+_LOGGER = logging.getLogger(__name__)
 
-# After a power-on write, ambient lights report their color Settings as
-# available via a descriptionChange NOTIFY (~60 ms on a Siemens LC91KWW60/04,
-# upstream #477). Wait for it, but give up quickly if it never arrives.
-_RGB_AVAILABLE_TIMEOUT = 2.0
+PARALLEL_UPDATES = 0
 
 
 def _brightness_value(entity: HcEntity, brightness: int) -> int:
@@ -184,19 +175,6 @@ class HCLight(HCEntity, LightEntity):
         return None
 
     @property
-    def _rgb_usable(self) -> bool:
-        """
-        Whether the appliance currently offers the color Setting.
-
-        Ambient lights report their color Setting as unavailable while the
-        light is off, so writing a color then would hit a Setting the
-        appliance rejects with WriteRequest NotAvailable (upstream #477).
-        """
-        if self._color_entity is None:
-            return False
-        return entity_is_available(self._color_entity, self.entity_description.available_access)
-
-    @property
     def _preset_active(self) -> bool:
         """Whether a preset color (not CustomColor) is selected."""
         return self._color_mode_entity is not None and self._color_mode_entity.value not in (
@@ -204,140 +182,45 @@ class HCLight(HCEntity, LightEntity):
             "CustomColor",
         )
 
-    @property
-    def _preset_brightness_usable(self) -> bool:
-        """Whether the brightness Setting for a preset color can be written."""
-        return (
-            self._preset_active
-            and self._brightness_entity is not None
-            and entity_is_available(
-                self._brightness_entity, self.entity_description.available_access
-            )
-        )
-
-    @property
-    def _custom_color_mode_pending(self) -> bool:
-        """
-        Whether the color mode can, and still needs to, be set to CustomColor.
-
-        While a preset color is active, the LC91KWW60/04 hood offers the color
-        mode Setting but not the custom color Setting at all; the custom color
-        only becomes available once the mode is CustomColor (upstream #477).
-        """
-        if self._color_mode_entity is None:
-            return False
-        return (
-            entity_is_available(self._color_mode_entity, self.entity_description.available_access)
-            and self._color_mode_entity.value != "CustomColor"
-        )
-
-    async def _wait_until(self, condition: Callable[[], bool]) -> None:
-        """
-        Wait (bounded) until condition() holds after a write.
-
-        The appliance reports Setting availability changes via a
-        descriptionChange NOTIFY shortly after a write is acknowledged, so
-        wait for that callback instead of firing blind. Times out silently;
-        the caller re-checks availability before writing.
-        """
-        if condition():
-            return
-        entities = [
-            entity
-            for entity in (self._color_entity, self._color_mode_entity, self._brightness_entity)
-            if entity is not None
-        ]
-        if not entities:
-            return
-        condition_met = asyncio.Event()
-
-        async def _on_update(_: HcEntity) -> None:
-            if condition():
-                condition_met.set()
-
-        for entity in entities:
-            entity.register_callback(_on_update)
-        try:
-            async with asyncio.timeout(_RGB_AVAILABLE_TIMEOUT):
-                await condition_met.wait()
-        except TimeoutError:
-            pass
-        finally:
-            for entity in entities:
-                entity.unregister_callback(_on_update)
-
     async def _write(self, data: list[dict[str, Any]]) -> None:
-        await self._runtime_data.appliance.session.send_sync(
-            HC_Message(resource="/ro/values", action=Action.POST, data=data)
+        await self._runtime_data.appliance.set_values_raw(
+            {item["uid"]: item["value"] for item in data}
         )
 
-    async def _turn_on_rgb(self, kwargs: dict[str, Any], *, powered_on_now: bool) -> None:
+    async def _turn_on_ambient(self, kwargs: dict[str, Any]) -> None:
+        """Turn on an ambient light; the library waits for its color Settings (upstream #477)."""
         brightness = kwargs.get(ATTR_BRIGHTNESS, self.brightness)
         rgb = kwargs.get(ATTR_RGB_COLOR, self.rgb_color)
-        if ATTR_RGB_COLOR not in kwargs and ATTR_BRIGHTNESS not in kwargs:
-            # Plain turn-on: the appliance restores its last color itself,
-            # so there is nothing to write and no reason to wait.
-            return
-        if powered_on_now:
-            # The color Settings only become available after power-on.
-            # Evaluating them before that would silently drop a color
-            # passed with turn_on (e.g. picking a color while off).
-            await self._wait_until(lambda: self._rgb_usable or self._custom_color_mode_pending)
-        if ATTR_RGB_COLOR not in kwargs and self._preset_active:
-            # Brightness-only change while a preset color is active: the
-            # preset has its own brightness Setting. Switching to
-            # CustomColor here would replace the preset with the last
-            # custom color.
-            await self._wait_until(lambda: self._preset_brightness_usable)
-            if self._preset_brightness_usable and brightness is not None:
-                brightness_entity = cast("HcEntity", self._brightness_entity)
-                await self._write(
-                    [
-                        {
-                            "uid": brightness_entity.uid,
-                            "value": _brightness_value(brightness_entity, brightness),
-                        }
-                    ]
-                )
-            return
-        if not self._rgb_usable and self._custom_color_mode_pending:
-            # A preset color is active and the custom color Setting is not
-            # offered: switch to CustomColor first, then wait for it.
-            mode_entity = cast("HcEntity", self._color_mode_entity)
-            color_mode_value = mode_entity._rev_enumeration["CustomColor"]  # noqa: SLF001
-            await self._write([{"uid": mode_entity.uid, "value": color_mode_value}])
-            await self._wait_until(lambda: self._rgb_usable)
-        if not (self._rgb_usable and rgb is not None and brightness is not None):
-            return
-        color_entity = cast("HcEntity", self._color_entity)
-        rgb_with_brightness = tuple(color * brightness // 255 for color in rgb)
-        color_data: list[dict[str, Any]] = [
-            {
-                "uid": color_entity.uid,
-                "value": "#" + color_rgb_to_hex(*rgb_with_brightness),
-            }
-        ]
-        if self._color_mode_entity is not None and self._color_mode_entity.value != "CustomColor":
-            color_mode_value = self._color_mode_entity._rev_enumeration["CustomColor"]  # noqa: SLF001
-            color_data.append({"uid": self._color_mode_entity.uid, "value": color_mode_value})
-        await self._write(color_data)
+        change: dict[str, Any] = {}
+        if ATTR_RGB_COLOR not in kwargs and ATTR_BRIGHTNESS in kwargs and self._preset_active:
+            # A preset color has its own brightness Setting. Switching to CustomColor here would
+            # replace the preset with the last custom color.
+            brightness_entity = cast("HcEntity", self._brightness_entity)
+            change["brightness"] = _brightness_value(brightness_entity, kwargs[ATTR_BRIGHTNESS])
+        elif (ATTR_RGB_COLOR in kwargs or ATTR_BRIGHTNESS in kwargs) and (
+            rgb is not None and brightness is not None
+        ):
+            # The custom color carries the brightness: (128, 0, 0) is a dimmer red.
+            change["color"] = tuple(c * brightness // 255 for c in rgb)
+        # With neither, it's a plain turn-on: the appliance restores its last color itself.
+        try:
+            await self._runtime_data.appliance.set_ambient_light(**change)
+        except AccessError:
+            # The color Settings never became available after power-on (upstream #477): the
+            # light is on, just without the change.
+            _LOGGER.debug("%s: color or brightness not available, not set", self.entity_id)
 
     @error_decorator
     async def async_turn_on(self, **kwargs: Any) -> None:
-        powered_on_now = False
-        if self._entity is not None and self._entity.value is not True:
-            # Sent as its own write, before any color/brightness/color-temp
-            # data, rather than bundled into one combined message - some
-            # appliances reject the combined form outright (confirmed live on
-            # upstream #477, a Siemens LC91KWW60/04 ambient light: a bare
-            # power-on write succeeds, one that also carries a color value
-            # gets the whole message rejected with WriteRequest NotAvailable).
-            await self._write([{"uid": self._entity.uid, "value": True}])
-            powered_on_now = True
-
         if self._attr_color_mode == ColorMode.RGB:
-            await self._turn_on_rgb(kwargs, powered_on_now=powered_on_now)
+            await self._turn_on_ambient(kwargs)
             return
+
+        if self._entity is not None and self._entity.value is not True:
+            # Sent as its own write, before any brightness/color-temp data, rather than bundled
+            # into one message - some appliances reject the combined form outright (upstream
+            # #477, a Siemens LC91KWW60/04).
+            await self._write([{"uid": self._entity.uid, "value": True}])
 
         brightness = kwargs.get(ATTR_BRIGHTNESS, self.brightness)
         message_data: list[dict[str, Any]] = []

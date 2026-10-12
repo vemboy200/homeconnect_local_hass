@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from zoneinfo import ZoneInfo
 
 from custom_components.homeconnect_ws import HCData, entity_descriptions
@@ -32,13 +32,17 @@ from custom_components.homeconnect_ws.entity_descriptions.refrigeration import (
 )
 from custom_components.homeconnect_ws.helpers import merge_dicts
 from custom_components.homeconnect_ws.select import HCSelect
-from home_disconnect.entities import Access, DeviceDescription, EntityDescription, Execution
+from home_disconnect import Access, Execution
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.switch import SwitchDeviceClass
 
+from . import update_entity
+
 if TYPE_CHECKING:
     import pytest
-    from home_disconnect.testutils import MockAppliance, MockApplianceType
+    from home_disconnect import Appliance
+
+    from . import MockApplianceFactory
 
 
 def test_merge_dicts() -> None:
@@ -83,9 +87,7 @@ MOCK_ENTITY_DESCRIPTIONS = {
 }
 
 
-def test_get_available_entities(
-    mock_appliance: MockAppliance, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_get_available_entities(mock_appliance: Appliance, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test get_available_entities."""
     monkeypatch.setattr(
         entity_descriptions,
@@ -128,7 +130,7 @@ POWER_SWITCH = {
 }
 
 
-async def test_power_switch(mock_homeconnect_appliance: MockApplianceType) -> None:
+async def test_power_switch(mock_homeconnect_appliance: MockApplianceFactory) -> None:
     """Test dynamic Power switch."""
     device_description = POWER_SWITCH.copy()
 
@@ -203,7 +205,7 @@ async def test_power_switch(mock_homeconnect_appliance: MockApplianceType) -> No
 
 
 async def test_power_switch_present_on_venting_hood(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """
     A hood with a Venting program must still get a power switch.
@@ -269,7 +271,7 @@ HOOD_LIGHT = {
 }
 
 
-async def test_hood_light(mock_homeconnect_appliance: MockApplianceType) -> None:
+async def test_hood_light(mock_homeconnect_appliance: MockApplianceFactory) -> None:
     """
     A declared-but-unavailable ColorTemperaturePercent shouldn't be used.
 
@@ -289,8 +291,8 @@ async def test_hood_light(mock_homeconnect_appliance: MockApplianceType) -> None
 
     # Once the appliance actually reports it available, the color
     # temperature branch should be used.
-    await appliance.entities["Cooking.Hood.Setting.ColorTemperaturePercent"].update(
-        {"available": True}
+    await update_entity(
+        appliance.entities["Cooking.Hood.Setting.ColorTemperaturePercent"], {"available": True}
     )
     assert generate_hood_light(appliance) == HCLightEntityDescription(
         key="light_cooking_lighting",
@@ -300,49 +302,51 @@ async def test_hood_light(mock_homeconnect_appliance: MockApplianceType) -> None
     )
 
 
-PROGRAM = DeviceDescription(
-    setting=[
-        EntityDescription(
-            uid=101,
-            name="BSH.Common.Setting.Favorite.001.Name",
-            access=Access.READ_WRITE,
-            available=True,
-            max=30,
-            min=0,
-            default="Named Favorite",
-        ),
-        EntityDescription(
-            uid=102,
-            name="BSH.Common.Setting.Favorite.002.Name",
-            access=Access.READ_WRITE,
-            available=True,
-            max=30,
-            min=0,
-            default="",
-        ),
+PROGRAM = {
+    "setting": [
+        {
+            "uid": 101,
+            "name": "BSH.Common.Setting.Favorite.001.Name",
+            "access": Access.READ_WRITE,
+            "available": True,
+            "max": 30,
+            "min": 0,
+            "default": "Named Favorite",
+        },
+        {
+            "uid": 102,
+            "name": "BSH.Common.Setting.Favorite.002.Name",
+            "access": Access.READ_WRITE,
+            "available": True,
+            "max": 30,
+            "min": 0,
+            "default": "",
+        },
     ],
-    program=[
-        EntityDescription(
-            uid=201,
-            name="BSH.Common.Program.Favorite.001",
-            available=True,
-        ),
-        EntityDescription(
-            uid=202,
-            name="BSH.Common.Program.Favorite.002",
-            available=True,
-        ),
-        EntityDescription(
-            uid=500,
-            name="BSH.Common.Program.Program1",
-        ),
+    "program": [
+        {
+            "uid": 201,
+            "name": "BSH.Common.Program.Favorite.001",
+            "available": True,
+        },
+        {
+            "uid": 202,
+            "name": "BSH.Common.Program.Favorite.002",
+            "available": True,
+        },
+        {
+            "uid": 500,
+            "name": "BSH.Common.Program.Program1",
+        },
     ],
-)
+}
 
 
-async def test_program(mock_homeconnect_appliance: MockApplianceType) -> None:
+async def test_program(mock_homeconnect_appliance: MockApplianceFactory) -> None:
     """Test dynamic Program."""
     appliance = await mock_homeconnect_appliance(description=PROGRAM)
+    # The names come from the values the appliance reports, not the profile's defaults.
+    appliance.entities.apply([{"uid": 101, "value": "Named Favorite"}, {"uid": 102, "value": ""}])
     program_description = generate_program(appliance)
     assert program_description["program"][0] == HCSelectEntityDescription(
         key="select_program",
@@ -371,7 +375,7 @@ async def test_program(mock_homeconnect_appliance: MockApplianceType) -> None:
 
 
 async def test_start_button_created_when_execution_not_yet_populated(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """
     The start button must still be created before the appliance's real execution value arrives.
@@ -388,15 +392,15 @@ async def test_start_button_created_when_execution_not_yet_populated(
     (exclude only confirmed START_ONLY) fixes this without needing to change
     when this generator runs.
     """
-    description = DeviceDescription(
-        program=[
-            EntityDescription(
-                uid=500,
-                name="Test.Program.Placeholder",
-                execution=Execution.NONE,
-            ),
+    description = {
+        "program": [
+            {
+                "uid": 500,
+                "name": "Test.Program.Placeholder",
+                "execution": Execution.NONE,
+            },
         ],
-    )
+    }
     appliance = await mock_homeconnect_appliance(description=description)
 
     assert generate_start_button(appliance) == HCButtonEntityDescription(
@@ -407,26 +411,26 @@ async def test_start_button_created_when_execution_not_yet_populated(
 
 
 async def test_start_button_not_created_for_start_only_programs(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """START_ONLY programs already start on selection - they don't need this button."""
-    description = DeviceDescription(
-        program=[
-            EntityDescription(
-                uid=500,
-                name="Test.Program.StartOnly",
-                execution=Execution.START_ONLY,
-            ),
+    description = {
+        "program": [
+            {
+                "uid": 500,
+                "name": "Test.Program.StartOnly",
+                "execution": Execution.START_ONLY,
+            },
         ],
-    )
+    }
     appliance = await mock_homeconnect_appliance(description=description)
 
     assert generate_start_button(appliance) is None
 
 
-HOOD_BOOST = DeviceDescription(
-    info={"deviceID": "test_device_id"},
-    option=[
+HOOD_BOOST = {
+    "info": {"deviceID": "test_device_id"},
+    "option": [
         {
             "access": "readwrite",
             "available": True,
@@ -443,11 +447,11 @@ HOOD_BOOST = DeviceDescription(
             "name": "Cooking.Common.Option.Hood.Boost",
         },
     ],
-)
+}
 
 
 async def test_hood_boost_is_a_three_stage_select(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """switch_hood_boost was replaced by select_hood_boost - a boolean can't represent 2 stages."""
     appliance = await mock_homeconnect_appliance(description=HOOD_BOOST)
@@ -470,13 +474,13 @@ async def test_hood_boost_is_a_three_stage_select(
         "intensivestage2",
     ]
 
-    await appliance.entities["Cooking.Common.Option.Hood.Boost"].update({"value": 2})
+    await update_entity(appliance.entities["Cooking.Common.Option.Hood.Boost"], {"value": 2})
     assert entity.current_option == "intensivestage2"
 
 
-HOOD_COLOR_TEMPERATURE = DeviceDescription(
-    info={"deviceID": "test_device_id"},
-    setting=[
+HOOD_COLOR_TEMPERATURE = {
+    "info": {"deviceID": "test_device_id"},
+    "setting": [
         {
             "access": "readwrite",
             "available": True,
@@ -495,11 +499,11 @@ HOOD_COLOR_TEMPERATURE = DeviceDescription(
             "name": "Cooking.Hood.Setting.ColorTemperature",
         },
     ],
-)
+}
 
 
 async def test_hood_color_temperature_mode_select(
-    mock_homeconnect_appliance: MockApplianceType,
+    mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """select_hood_color_temperature_mode exposes the hood's warm/neutral/cold enum."""
     appliance = await mock_homeconnect_appliance(description=HOOD_COLOR_TEMPERATURE)
@@ -525,31 +529,31 @@ async def test_hood_color_temperature_mode_select(
         "cold",
     ]
 
-    await appliance.entities["Cooking.Hood.Setting.ColorTemperature"].update({"value": 4})
+    await update_entity(appliance.entities["Cooking.Hood.Setting.ColorTemperature"], {"value": 4})
     assert entity.current_option == "neutraltocold"
 
 
-INTERNAL_LIGHT = DeviceDescription(
-    setting=[
-        EntityDescription(
-            uid=0x5001,
-            name="Refrigeration.Common.Setting.Light.Internal.Power",
-            access=Access.READ_WRITE,
-            available=True,
-        ),
-        EntityDescription(
-            uid=0x5002,
-            name="Refrigeration.Common.Setting.Light.Internal.Brightness",
-            access=Access.READ_WRITE,
-            available=True,
-            max=100,
-            min=0,
-        ),
+INTERNAL_LIGHT = {
+    "setting": [
+        {
+            "uid": 0x5001,
+            "name": "Refrigeration.Common.Setting.Light.Internal.Power",
+            "access": Access.READ_WRITE,
+            "available": True,
+        },
+        {
+            "uid": 0x5002,
+            "name": "Refrigeration.Common.Setting.Light.Internal.Brightness",
+            "access": Access.READ_WRITE,
+            "available": True,
+            "max": 100,
+            "min": 0,
+        },
     ]
-)
+}
 
 
-async def test_internal_light(mock_homeconnect_appliance: MockApplianceType) -> None:
+async def test_internal_light(mock_homeconnect_appliance: MockApplianceFactory) -> None:
     """Test dynamic internal light."""
     # Power + Brightness
     appliance = await mock_homeconnect_appliance(description=INTERNAL_LIGHT)
@@ -560,7 +564,7 @@ async def test_internal_light(mock_homeconnect_appliance: MockApplianceType) -> 
     )
 
     # Power only
-    power_only = DeviceDescription(setting=[INTERNAL_LIGHT["setting"][0]])
+    power_only = {"setting": [INTERNAL_LIGHT["setting"][0]]}
     appliance = await mock_homeconnect_appliance(description=power_only)
     assert generate_internal_light(appliance) == HCLightEntityDescription(
         key="light_internal",
@@ -572,7 +576,7 @@ async def test_internal_light(mock_homeconnect_appliance: MockApplianceType) -> 
     assert generate_internal_light(appliance) is None
 
 
-async def test_internal_light_brightness(mock_homeconnect_appliance: MockApplianceType) -> None:
+async def test_internal_light_brightness(mock_homeconnect_appliance: MockApplianceFactory) -> None:
     """Test the brightness number defers to the light entity."""
     # Light entity owns brightness, so the number is opt-in
     appliance = await mock_homeconnect_appliance(description=INTERNAL_LIGHT)
@@ -580,7 +584,7 @@ async def test_internal_light_brightness(mock_homeconnect_appliance: MockApplian
     assert description.entity_registry_enabled_default is False
 
     # No light entity to own it, so the number is the only control
-    brightness_only = DeviceDescription(setting=[INTERNAL_LIGHT["setting"][1]])
+    brightness_only = {"setting": [INTERNAL_LIGHT["setting"][1]]}
     appliance = await mock_homeconnect_appliance(description=brightness_only)
     description = generate_internal_light_brightness(appliance)
     assert description.entity_registry_enabled_default is True
@@ -695,13 +699,12 @@ def test_german_translation_complete() -> None:
     assert sorted(flatten(english) - flatten(german)) == []
 
 
-def test_sync_time_button_writes_naive_local_timestamp() -> None:
+async def test_sync_time_button_sets_the_clock_to_local_time() -> None:
     """
-    The clock button sends local time without a UTC offset.
+    The clock button sets the appliance clock to HA's local time.
 
-    A Siemens HB876G8B6 oven reports BSH.Common.Setting.ApplianceDateTime as
-    "2026-09-24T10:36:09" - no offset, local time. dt_util.now() is timezone
-    aware, so the offset has to be dropped rather than sent along.
+    The appliance wants a naive local timestamp; the library's set_datetime()
+    drops the offset that dt_util.now() carries.
     """
     description = next(
         entity_description
@@ -711,11 +714,13 @@ def test_sync_time_button_writes_naive_local_timestamp() -> None:
     # No isinstance() check here - HA clones these classes at runtime, see
     # _resolve_description in entity_descriptions/__init__.py.
     assert description.entity == "BSH.Common.Setting.ApplianceDateTime"
-    assert description.press_value_fn is not None
+    assert description.press_fn is not None
 
     local_now = datetime(2026, 9, 24, 10, 36, 9, 123456, tzinfo=ZoneInfo("Europe/Berlin"))
+    appliance = Mock(set_datetime=AsyncMock())
     with patch(
         "custom_components.homeconnect_ws.entity_descriptions.common.dt_util.now",
         return_value=local_now,
     ):
-        assert description.press_value_fn() == "2026-09-24T10:36:09"
+        await description.press_fn(appliance)
+    appliance.set_datetime.assert_awaited_once_with(local_now)

@@ -40,8 +40,6 @@ class HCNumber(HCEntity, NumberEntity):
         runtime_data: HCData,
     ) -> None:
         super().__init__(entity_description, runtime_data)
-        if self._entity is not None:
-            self._entity._type = int  # noqa: SLF001 Force integer type
 
     @property
     def native_value(self) -> int | float | None:
@@ -51,7 +49,8 @@ class HCNumber(HCEntity, NumberEntity):
             return None
         if self._entity is None:
             return None
-        return self._entity.value
+        value = self._entity.value
+        return value if isinstance(value, int | float) and not isinstance(value, bool) else None
 
     @property
     def native_min_value(self) -> float:

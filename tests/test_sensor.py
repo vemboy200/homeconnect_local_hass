@@ -22,17 +22,17 @@ from homeassistant.components.sensor import ATTR_OPTIONS
 from homeassistant.const import ATTR_FRIENDLY_NAME
 from homeassistant.helpers.entity import Entity as HAEntity
 
-from . import setup_config_entry
+from . import setup_config_entry, update_entity
 from .const import MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
-    from home_disconnect.testutils import MockAppliance
+    from home_disconnect import Appliance
     from homeassistant.core import HomeAssistant
 
 
 async def test_setup(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test setting up entity."""
@@ -64,19 +64,21 @@ async def test_setup(
         "favorite_002",
         "test_program_program1",
         "test_program_program2",
+        "test_program_fan1",
+        "test_program_fan2",
     ]
 
 
 async def test_update(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test updating entity."""
     entity_id = "sensor.fake_brand_homeappliance_sensor"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
 
-    await mock_appliance.entities["Test.Sensor"].update({"value": 5})
+    await update_entity(mock_appliance.entities["Test.Sensor"], {"value": 5})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
@@ -85,7 +87,7 @@ async def test_update(
 
 async def test_callback_recovers_after_write_failure(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -116,12 +118,12 @@ async def test_callback_recovers_after_write_failure(
 
     monkeypatch.setattr(HAEntity, "async_write_ha_state", patched_write_ha_state)
 
-    await mock_appliance.entities["Test.Sensor"].update({"value": 1})
+    await update_entity(mock_appliance.entities["Test.Sensor"], {"value": 1})
     await hass.async_block_till_done()
 
     # The failed write shouldn't have left the reentrancy guard stuck -
     # a later, successful update must still go through.
-    await mock_appliance.entities["Test.Sensor"].update({"value": 2})
+    await update_entity(mock_appliance.entities["Test.Sensor"], {"value": 2})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
@@ -130,20 +132,20 @@ async def test_callback_recovers_after_write_failure(
 
 async def test_update_enum(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test updating entity with enum."""
     entity_id = "sensor.fake_brand_homeappliance_sensor_enum"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
 
-    await mock_appliance.entities["Test.Sensor.Enum"].update({"value": 0})
+    await update_entity(mock_appliance.entities["Test.Sensor.Enum"], {"value": 0})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state.state == "Off"
 
-    await mock_appliance.entities["Test.Sensor.Enum"].update({"value": 1})
+    await update_entity(mock_appliance.entities["Test.Sensor.Enum"], {"value": 1})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
@@ -152,33 +154,33 @@ async def test_update_enum(
 
 async def test_update_event(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test updating event sensor."""
     entity_id = "sensor.fake_brand_homeappliance_sensor_event"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
 
-    await mock_appliance.entities["Test.Event1"].update({"value": 0})
-    await mock_appliance.entities["Test.Event2"].update({"value": 0})
+    await update_entity(mock_appliance.entities["Test.Event1"], {"value": 0})
+    await update_entity(mock_appliance.entities["Test.Event2"], {"value": 0})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state.state == "No Event"
 
-    await mock_appliance.entities["Test.Event1"].update({"value": 1})
+    await update_entity(mock_appliance.entities["Test.Event1"], {"value": 1})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state.state == "Event1"
 
-    await mock_appliance.entities["Test.Event2"].update({"value": 1})
+    await update_entity(mock_appliance.entities["Test.Event2"], {"value": 1})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state.state == "Event2"
 
-    await mock_appliance.entities["Test.Event2"].update({"value": 0})
+    await update_entity(mock_appliance.entities["Test.Event2"], {"value": 0})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
@@ -187,20 +189,20 @@ async def test_update_event(
 
 async def test_update_active_program(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test updating active program entity."""
     entity_id = "sensor.fake_brand_homeappliance_activeprogram"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
 
-    await mock_appliance.entities["Test.ActiveProgram"].update({"value": 500})
+    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 500})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state.state == "test_program_program1"
 
-    await mock_appliance.entities["Test.ActiveProgram"].update({"value": 502})
+    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 502})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
@@ -588,7 +590,7 @@ async def test_progress_unavailable_when_no_active_program_and_off() -> None:
     appliance = MagicMock()
     appliance.info = {"deviceID": "test_device_id"}
     appliance.active_program = None
-    appliance.session.connected = True
+    appliance.connected = True
     appliance.entities.get.return_value = MagicMock(value="Off")
     runtime_data = HCData(
         appliance=appliance,
@@ -608,7 +610,7 @@ async def test_progress_available_when_active_program_present() -> None:
     """The progress sensor stays available while a program is actually running."""
     appliance = MagicMock()
     appliance.info = {"deviceID": "test_device_id"}
-    appliance.session.connected = True
+    appliance.connected = True
     appliance.entities.get.return_value = MagicMock(value="Off")
     runtime_data = HCData(
         appliance=appliance,
@@ -689,7 +691,7 @@ async def test_progress_available_when_powered_on() -> None:
     appliance = MagicMock()
     appliance.info = {"deviceID": "test_device_id"}
     appliance.active_program = None
-    appliance.session.connected = True
+    appliance.connected = True
     appliance.entities.get.return_value = MagicMock(value="On")
     runtime_data = HCData(
         appliance=appliance,
@@ -712,7 +714,7 @@ def _elapsed_time_sensor(
     appliance = MagicMock()
     appliance.info = {"deviceID": "test_device_id"}
     appliance.active_program = active_program
-    appliance.session.connected = connected
+    appliance.connected = connected
     appliance.entities = {
         "Test.ElapsedProgramTime": MagicMock(value=value, enum=None, available=False),
         "BSH.Common.Setting.PowerState": MagicMock(value="On"),

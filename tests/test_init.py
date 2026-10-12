@@ -2,39 +2,41 @@
 
 from __future__ import annotations
 
-import asyncio
 import copy
 from copy import deepcopy
 from ipaddress import ip_address
 from pathlib import Path
 from typing import TYPE_CHECKING
-from unittest.mock import ANY, AsyncMock, MagicMock, Mock, patch
+from unittest.mock import ANY, AsyncMock, PropertyMock, patch
 
 import pytest
-from custom_components.homeconnect_ws import (
-    _set_finish_in_with_active_program,
-    _wait_for_writable,
-    coordinator,
-)
+from custom_components.homeconnect_ws import coordinator
 from custom_components.homeconnect_ws.const import (
     CONF_APPLIANCE_INFO,
     CONF_DESCRIPTION_FILENAME,
     CONF_FEATURE_FILENAME,
     DOMAIN,
 )
-from home_disconnect import CodeResponsError, ConnectionFailedError, serialize_device_description
-from home_disconnect.entities import Access
-from home_disconnect.testutils import MockAppliance
+from home_disconnect import (
+    AccessError,
+    Appliance,
+    ConnectionFailedError,
+    ConnectionState,
+    RemoteStartNotAllowedError,
+    ResponseError,
+    serialize_legacy_description,
+)
+from home_disconnect.session import RECONNECT_MAX_DELAY
 from homeassistant.config_entries import SOURCE_ZEROCONF, ConfigEntryState
 from homeassistant.const import CONF_DESCRIPTION, CONF_HOST
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from homeassistant.helpers.storage import STORAGE_DIR
-from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from . import appliance_class, make_appliance
 from .const import DEVICE_DESCRIPTION, MOCK_APPLIANCE_INFO, MOCK_CONFIG_DATA, MOCK_TLS_DEVICE_ID
 
 if TYPE_CHECKING:
@@ -46,9 +48,9 @@ async def test_load_unload_entry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test setup and unload config entry."""
-    appliance = MockAppliance(DEVICE_DESCRIPTION, "host", "mock_app", "mock_app_id", "PSK_KEY")
-    appliance_mock = Mock(return_value=appliance)
-    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+    appliance = make_appliance(DEVICE_DESCRIPTION)
+    appliance_mock = appliance_class(appliance)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_mock)
 
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -63,17 +65,20 @@ async def test_load_unload_entry(
     assert entry.state is ConfigEntryState.LOADED
 
     appliance_mock.assert_called_once_with(
-        description=DEVICE_DESCRIPTION,
-        host="1.2.3.4",
+        ANY,
+        "1.2.3.4",
+        ANY,
+        "PSK_KEY",
+        "AES_IV",
         app_name="Homeassistant",
         app_id="Test_Device_ID",
-        psk64="PSK_KEY",
-        iv64="AES_IV",
-        session=ANY,
-        connection_callback=ANY,
-        logger=coordinator._LOGGER,
-        reconect=True,
+        on_connection_state=ANY,
+        reconnect_max_delay=RECONNECT_MAX_DELAY,
+        info=MOCK_APPLIANCE_INFO,
     )
+    profile = appliance_mock.call_args.args[2]
+    assert profile.info.model == MOCK_APPLIANCE_INFO["vib"]
+    assert set(appliance.entities) == set(make_appliance(DEVICE_DESCRIPTION).entities)
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
@@ -97,9 +102,9 @@ async def test_migrate_entry_v1_is_a_noop(
     it, not because this fork's own entries are meant to ever become
     version 2.
     """
-    appliance = MockAppliance(DEVICE_DESCRIPTION, "host", "mock_app", "mock_app_id", "PSK_KEY")
-    appliance_mock = Mock(return_value=appliance)
-    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+    appliance = make_appliance(DEVICE_DESCRIPTION)
+    appliance_mock = appliance_class(appliance)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_mock)
 
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -129,9 +134,9 @@ async def test_setup_stamps_a_freshly_created_v2_entry_back_to_v1(
     that back down to 1 on first setup, same as it does for a v2-shaped
     entry from upstream, just without any data to convert.
     """
-    appliance = MockAppliance(DEVICE_DESCRIPTION, "host", "mock_app", "mock_app_id", "PSK_KEY")
-    appliance_mock = Mock(return_value=appliance)
-    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+    appliance = make_appliance(DEVICE_DESCRIPTION)
+    appliance_mock = appliance_class(appliance)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_mock)
 
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -166,13 +171,13 @@ async def test_setup_converts_v2_entry_to_v1_shape(
     never even runs for this case (confirmed live: see
     homeconnect_local_ws_sim_fork memory).
     """
-    appliance = MockAppliance(DEVICE_DESCRIPTION, "host", "mock_app", "mock_app_id", "PSK_KEY")
-    appliance_mock = Mock(return_value=appliance)
-    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+    appliance = make_appliance(DEVICE_DESCRIPTION)
+    appliance_mock = appliance_class(appliance)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_mock)
 
     device_id = MOCK_APPLIANCE_INFO["deviceID"]
     storage_dir = Path(hass.config.path(STORAGE_DIR, DOMAIN))
-    description_xml, feature_xml = serialize_device_description(DEVICE_DESCRIPTION)
+    description_xml, feature_xml = serialize_legacy_description(DEVICE_DESCRIPTION)
     description_filename = f"{device_id}/DeviceDescription.xml"
     feature_filename = f"{device_id}/FeatureMapping.xml"
     (storage_dir / description_filename).parent.mkdir(parents=True, exist_ok=True)
@@ -211,8 +216,8 @@ async def test_device_registry_serial_number(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test the device registry entry exposes the appliance's serial number."""
-    appliance = MockAppliance(DEVICE_DESCRIPTION, "host", "mock_app", "mock_app_id", "PSK_KEY")
-    monkeypatch.setattr(coordinator, "HomeAppliance", Mock(return_value=appliance))
+    appliance = make_appliance(DEVICE_DESCRIPTION)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))
 
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -250,8 +255,8 @@ async def test_device_registry_model_id(
     description = copy.deepcopy(DEVICE_DESCRIPTION)
     if e_number is not None:
         description["info"]["eNumber"] = e_number
-    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
-    monkeypatch.setattr(coordinator, "HomeAppliance", Mock(return_value=appliance))
+    appliance = make_appliance(description)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))
 
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -281,10 +286,10 @@ async def test_setup_entry_washer_connect_failure_is_non_blocking(
     """Standalone washers/dryers keep the non-blocking setup even if unreachable."""
     description = deepcopy(DEVICE_DESCRIPTION)
     description["info"]["type"] = "Washer"
-    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
+    appliance = make_appliance(description)
     appliance.session.connect = AsyncMock(side_effect=ConnectionFailedError)
-    appliance_mock = Mock(return_value=appliance)
-    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+    appliance_mock = appliance_class(appliance)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_mock)
 
     # The mock appliance above is decoupled from what the config entry itself
     # carries (HomeAppliance is fully replaced by appliance_mock, which
@@ -300,10 +305,6 @@ async def test_setup_entry_washer_connect_failure_is_non_blocking(
     )
     entry.add_to_hass(hass)
 
-    # Not async_block_till_done(): the exempt path's _connect() retries in a
-    # background task with real asyncio.sleep() backoff, which would hang
-    # this waiting for it. _async_setup() itself returns immediately after
-    # scheduling that task, so entry.state is already settled by this point.
     await hass.config_entries.async_setup(entry.entry_id)
 
     assert entry.state is ConfigEntryState.LOADED
@@ -328,12 +329,12 @@ async def test_washer_expected_offline_on_fresh_restart(
     """
     description = deepcopy(DEVICE_DESCRIPTION)
     description["info"]["type"] = "Washer"
-    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
+    appliance = make_appliance(description)
     appliance.session.connect = AsyncMock(side_effect=ConnectionFailedError)
     appliance.session.connected = False
-    appliance.session.last_close_code = None
-    appliance_mock = Mock(return_value=appliance)
-    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+    appliance.session.close_code = None
+    appliance_mock = appliance_class(appliance)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_mock)
 
     config_data = deepcopy(MOCK_CONFIG_DATA)
     config_data[CONF_DESCRIPTION] = description
@@ -350,63 +351,19 @@ async def test_washer_expected_offline_on_fresh_restart(
     assert coord.expected_offline is True
 
     # A confirmed non-clean close code still correctly reports as not expected.
-    appliance.session.last_close_code = 1006
+    appliance.session.close_code = 1006
     assert coord.expected_offline is False
 
-    # Actually connected must never read as expected_offline, regardless of
-    # last_close_code - confirmed live on fork issue #21: home_disconnect
-    # resets last_close_code back to None the moment a connection succeeds,
-    # so a fully-connected, always-online washer was getting force_off_*/
-    # clear_on_expected_offline entities (switch_power_state,
+    # Actually connected must never read as expected_offline - confirmed live on fork issue
+    # #21: a connection has no close code, so a fully-connected, always-online washer was
+    # getting force_off_*/clear_on_expected_offline entities (switch_power_state,
     # sensor_power_state, ...) stuck at their offline placeholder forever.
     appliance.session.connected = True
-    appliance.session.last_close_code = None
+    appliance.state = ConnectionState.CONNECTED
+    appliance.session.close_code = None
     assert coord.expected_offline is False
-    appliance.session.last_close_code = 1000
+    appliance.session.close_code = 1000
     assert coord.expected_offline is False
-
-
-async def test_washer_background_connect_does_not_block_till_done(
-    hass: HomeAssistant,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """
-    async_block_till_done() must not wait on the exempt-type connect loop.
-
-    Confirmed live on fork issue #16: using async_create_task() for this
-    background loop meant it was tracked and waited on by Home Assistant's
-    own startup sequencing, blocking the rest of HA's bootstrap for minutes
-    whenever a washer/dryer was unreachable at startup - the loop retries
-    with backoff for as long as the appliance stays off. Switched to
-    async_create_background_task(), which is documented not to block
-    startup and not be waited on by async_block_till_done().
-    """
-    description = deepcopy(DEVICE_DESCRIPTION)
-    description["info"]["type"] = "Washer"
-    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
-    appliance.session.connect = AsyncMock(side_effect=ConnectionFailedError)
-    appliance_mock = Mock(return_value=appliance)
-    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
-
-    config_data = deepcopy(MOCK_CONFIG_DATA)
-    config_data[CONF_DESCRIPTION] = description
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data=config_data,
-        unique_id=MOCK_TLS_DEVICE_ID,
-    )
-    entry.add_to_hass(hass)
-
-    await hass.config_entries.async_setup(entry.entry_id)
-    assert entry.state is ConfigEntryState.LOADED
-
-    # The connect loop is still retrying in the background (the mock always
-    # fails) - if it were still tracked by async_create_task(), this would
-    # hang for the loop's full backoff schedule instead of returning almost
-    # immediately.
-    await asyncio.wait_for(hass.async_block_till_done(), timeout=2)
-
-    await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_setup_entry_non_laundry_connect_failure_not_ready(
@@ -427,10 +384,10 @@ async def test_setup_entry_non_laundry_connect_failure_not_ready(
     ConfigEntryNotReady for the config entry.
     """
     monkeypatch.setattr(coordinator, "SETUP_CONNECT_RETRY_DELAY", 0)
-    appliance = MockAppliance(DEVICE_DESCRIPTION, "host", "mock_app", "mock_app_id", "PSK_KEY")
+    appliance = make_appliance(DEVICE_DESCRIPTION)
     appliance.session.connect = AsyncMock(side_effect=ConnectionFailedError)
-    appliance_mock = Mock(return_value=appliance)
-    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+    appliance_mock = appliance_class(appliance)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_mock)
 
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -454,10 +411,10 @@ async def test_setup_entry_non_laundry_retries_transient_connect_failure(
 ) -> None:
     """A single momentary connect failure at setup is retried, not fatal on its own."""
     monkeypatch.setattr(coordinator, "SETUP_CONNECT_RETRY_DELAY", 0)
-    appliance = MockAppliance(DEVICE_DESCRIPTION, "host", "mock_app", "mock_app_id", "PSK_KEY")
+    appliance = make_appliance(DEVICE_DESCRIPTION)
     appliance.session.connect = AsyncMock(side_effect=[ConnectionFailedError, None])
-    appliance_mock = Mock(return_value=appliance)
-    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+    appliance_mock = appliance_class(appliance)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_mock)
 
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -473,23 +430,17 @@ async def test_setup_entry_non_laundry_retries_transient_connect_failure(
     assert appliance.session.connect.await_count == 2
 
 
-async def test_washer_reconnect_poll_registered_and_recovers(
+async def test_laundry_reconnects_through_the_library_with_a_short_wait(
     hass: HomeAssistant,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """
-    The fallback poll is registered for standalone washers/dryers and recovers connectivity.
-
-    home-disconnect's own auto-reconnect is disabled for these (reconect=
-    False), so nothing else would notice the appliance coming back after
-    the initial connect fails.
-    """
+    """Washers connect with start() and a capped library backoff, not a poll of their own."""
     description = deepcopy(DEVICE_DESCRIPTION)
     description["info"]["type"] = "Washer"
-    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
+    appliance = make_appliance(description)
     appliance.session.connect = AsyncMock(side_effect=ConnectionFailedError)
-    appliance_mock = Mock(return_value=appliance)
-    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+    appliance_mock = appliance_class(appliance)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_mock)
 
     config_data = deepcopy(MOCK_CONFIG_DATA)
     config_data[CONF_DESCRIPTION] = description
@@ -499,103 +450,23 @@ async def test_washer_reconnect_poll_registered_and_recovers(
         unique_id=MOCK_TLS_DEVICE_ID,
     )
     entry.add_to_hass(hass)
-
     await hass.config_entries.async_setup(entry.entry_id)
 
     assert entry.state is ConfigEntryState.LOADED
-    coord = entry.runtime_data.coordinator
-    assert coord._poll_unsub is not None
-    assert coord.connected is False
-
-    # Appliance is reachable again - call the poll directly rather than
-    # waiting out the real 20s interval or racing _connect()'s own
-    # background retry loop (still running with the old failing mock).
-    appliance.session.connect = AsyncMock()
-    appliance.session.connected = True
-    await coord._async_poll_reconnect(dt_util.utcnow())
-
-    assert coord.connected is True
+    assert appliance_mock.call_args.kwargs["reconnect_max_delay"] == (
+        coordinator.LAUNDRY_RECONNECT_MAX_DELAY
+    )
+    appliance.start.assert_awaited_once_with()
+    assert entry.runtime_data.coordinator.connected is False
 
     await hass.config_entries.async_unload(entry.entry_id)
-    assert coord._poll_unsub is None
 
 
-async def test_nudge_reconnect_schedules_immediate_retry_for_disconnected_washer(
+async def test_nudge_reconnect_skips_the_backoff(
     hass: HomeAssistant,
-    monkeypatch: pytest.MonkeyPatch,
+    mock_appliance: Appliance,
 ) -> None:
-    """async_nudge_reconnect() (called from the zeroconf discovery flow) retries now."""
-    description = deepcopy(DEVICE_DESCRIPTION)
-    description["info"]["type"] = "Washer"
-    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
-    appliance.session.connect = AsyncMock(side_effect=ConnectionFailedError)
-    appliance_mock = Mock(return_value=appliance)
-    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
-
-    config_data = deepcopy(MOCK_CONFIG_DATA)
-    config_data[CONF_DESCRIPTION] = description
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data=config_data,
-        unique_id=MOCK_TLS_DEVICE_ID,
-    )
-    entry.add_to_hass(hass)
-
-    await hass.config_entries.async_setup(entry.entry_id)
-    coord = entry.runtime_data.coordinator
-    assert coord.connected is False
-
-    appliance.session.connect = AsyncMock()
-    appliance.session.connected = True
-    coord.async_nudge_reconnect()
-    # async_nudge_reconnect() schedules its retry via
-    # async_create_background_task() (see coordinator.py - deliberately not
-    # tracked by HA's startup sequencing), so a plain async_block_till_done()
-    # isn't guaranteed to wait for it. Whether it happens to finish in time
-    # anyway depends on unrelated event-loop scheduling, which is exactly
-    # the kind of thing that can differ between HA versions - explicitly
-    # opt in to waiting for it instead of relying on that.
-    await hass.async_block_till_done(wait_background_tasks=True)
-
-    assert coord.connected is True
-
-
-async def test_nudge_reconnect_is_noop_when_already_connected(
-    hass: HomeAssistant,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A redundant re-announcement while already connected doesn't trigger another connect."""
-    description = deepcopy(DEVICE_DESCRIPTION)
-    description["info"]["type"] = "Washer"
-    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
-    appliance_mock = Mock(return_value=appliance)
-    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
-
-    config_data = deepcopy(MOCK_CONFIG_DATA)
-    config_data[CONF_DESCRIPTION] = description
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data=config_data,
-        unique_id=MOCK_TLS_DEVICE_ID,
-    )
-    entry.add_to_hass(hass)
-
-    await hass.config_entries.async_setup(entry.entry_id)
-    coord = entry.runtime_data.coordinator
-    assert coord.connected is True
-
-    connect_calls_before = appliance.session.connect.call_count
-    coord.async_nudge_reconnect()
-    await hass.async_block_till_done()
-
-    assert appliance.session.connect.call_count == connect_calls_before
-
-
-async def test_nudge_reconnect_is_noop_for_non_exempt_appliance(
-    hass: HomeAssistant,
-    mock_appliance: MockAppliance,
-) -> None:
-    """A dishwasher's coordinator ignores the nudge - not in the exempt/disconnect-prone set."""
+    """The mDNS nudge asks home-disconnect to retry now; it doesn't connect by itself."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data=MOCK_CONFIG_DATA,
@@ -610,6 +481,7 @@ async def test_nudge_reconnect_is_noop_for_non_exempt_appliance(
     await hass.async_block_till_done()
 
     assert mock_appliance.session.connect.call_count == connect_calls_before
+    mock_appliance.session.retry_now.assert_called_once_with()
 
 
 async def test_setup_entry_washer_dryer_combo_connect_failure_is_non_blocking(
@@ -628,10 +500,10 @@ async def test_setup_entry_washer_dryer_combo_connect_failure_is_non_blocking(
     """
     description = deepcopy(DEVICE_DESCRIPTION)
     description["info"]["type"] = "WasherDryer"
-    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
+    appliance = make_appliance(description)
     appliance.session.connect = AsyncMock(side_effect=ConnectionFailedError)
-    appliance_mock = Mock(return_value=appliance)
-    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+    appliance_mock = appliance_class(appliance)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_mock)
 
     config_data = deepcopy(MOCK_CONFIG_DATA)
     config_data[CONF_DESCRIPTION] = description
@@ -642,10 +514,6 @@ async def test_setup_entry_washer_dryer_combo_connect_failure_is_non_blocking(
     )
     entry.add_to_hass(hass)
 
-    # Not async_block_till_done(): the exempt path's _connect() retries in a
-    # background task with real asyncio.sleep() backoff, which would hang
-    # this waiting for it. _async_setup() itself returns immediately after
-    # scheduling that task, so entry.state is already settled by this point.
     await hass.config_entries.async_setup(entry.entry_id)
 
     assert entry.state is ConfigEntryState.LOADED
@@ -677,10 +545,10 @@ async def test_zeroconf_nudges_reconnect_for_loaded_laundry_entry(
     """Re-announcing at the same IP nudges an immediate reconnect, not just a reload."""
     description = deepcopy(DEVICE_DESCRIPTION)
     description["info"]["type"] = "Washer"
-    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
+    appliance = make_appliance(description)
     appliance.session.connect = AsyncMock(side_effect=ConnectionFailedError)
-    appliance_mock = Mock(return_value=appliance)
-    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+    appliance_mock = appliance_class(appliance)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_mock)
 
     config_data = deepcopy(MOCK_CONFIG_DATA)
     config_data[CONF_DESCRIPTION] = description
@@ -692,26 +560,15 @@ async def test_zeroconf_nudges_reconnect_for_loaded_laundry_entry(
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
 
-    coord = entry.runtime_data.coordinator
-    assert coord.connected is False
-
-    # Appliance is reachable again by the time it re-announces itself.
-    appliance.session.connect = AsyncMock()
-    appliance.session.connected = True
-
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
         context={"source": SOURCE_ZEROCONF},
         data=_make_zeroconf_discovery_info(config_data[CONF_HOST]),
     )
-    # Same as test_nudge_reconnect_schedules_immediate_retry_for_disconnected_washer:
-    # the nudge's retry runs via async_create_background_task(), not waited on by
-    # async_block_till_done() unless explicitly requested.
-    await hass.async_block_till_done(wait_background_tasks=True)
 
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
-    assert coord.connected is True
+    appliance.session.retry_now.assert_called_once_with()
 
 
 async def test_zeroconf_does_not_nudge_unloaded_entry(
@@ -721,9 +578,9 @@ async def test_zeroconf_does_not_nudge_unloaded_entry(
     """No coordinator to nudge (and no crash) when the matching entry isn't loaded."""
     description = deepcopy(DEVICE_DESCRIPTION)
     description["info"]["type"] = "Washer"
-    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
-    appliance_mock = Mock(return_value=appliance)
-    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
+    appliance = make_appliance(description)
+    appliance_mock = appliance_class(appliance)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_mock)
 
     config_data = deepcopy(MOCK_CONFIG_DATA)
     config_data[CONF_DESCRIPTION] = description
@@ -746,244 +603,88 @@ async def test_zeroconf_does_not_nudge_unloaded_entry(
     assert result["reason"] == "already_configured"
 
 
-async def test_concurrent_reconnect_attempts_are_serialized(
-    hass: HomeAssistant,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """
-    Two overlapping reconnect triggers don't race each other.
-
-    Without _connect_lock, a second caller arriving while the first's
-    appliance.connect() is still in flight would raise AllreadyConnectedError
-    and react by closing the shared session - tearing down the first
-    caller's in-progress connection too. Confirms only one connect() call
-    ever happens even when two triggers overlap.
-    """
+async def _setup_with_finish_in(hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch) -> str:
+    """Set up an appliance that has FinishInRelative; returns its device ID."""
     description = deepcopy(DEVICE_DESCRIPTION)
-    description["info"]["type"] = "Washer"
-    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
-
-    connect_started = asyncio.Event()
-    release_connect = asyncio.Event()
-    connect_call_count = 0
-
-    async def slow_connect() -> None:
-        nonlocal connect_call_count
-        connect_call_count += 1
-        connect_started.set()
-        await release_connect.wait()
-        appliance.session.connected = True
-
-    appliance.session.connect = AsyncMock(side_effect=slow_connect)
-    appliance_mock = Mock(return_value=appliance)
-    monkeypatch.setattr(coordinator, "HomeAppliance", appliance_mock)
-
-    config_data = deepcopy(MOCK_CONFIG_DATA)
-    config_data[CONF_DESCRIPTION] = description
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data=config_data,
-        unique_id=MOCK_TLS_DEVICE_ID,
+    description["option"].append(
+        {"uid": 405, "name": "BSH.Common.Option.FinishInRelative", "access": "readWrite"}
     )
+    appliance = make_appliance(description)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))
+    data = {**MOCK_CONFIG_DATA, CONF_DESCRIPTION: description}
+    entry = MockConfigEntry(domain=DOMAIN, data=data, unique_id=MOCK_TLS_DEVICE_ID)
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
-    coord = entry.runtime_data.coordinator
-
-    # Wait for the background _connect() task's first attempt to actually
-    # start and block (holding _connect_lock).
-    await connect_started.wait()
-    assert coord.connected is False
-
-    # A second trigger fires while the first is still in flight - it must
-    # wait for the lock rather than racing in with its own connect() call.
-    poll_task = asyncio.ensure_future(coord._async_poll_reconnect(dt_util.utcnow()))
-    await asyncio.sleep(0)
-    assert connect_call_count == 1
-
-    release_connect.set()
-    await poll_task
     await hass.async_block_till_done()
-
-    # The second caller saw self.connected already True once it finally got
-    # the lock, and returned without calling connect() again.
-    assert connect_call_count == 1
-    assert coord.connected is True
-
-    await hass.config_entries.async_unload(entry.entry_id)
-
-
-async def test_wait_for_writable_returns_immediately_when_already_writable() -> None:
-    """No need to wait for a callback if the entity is already writable."""
-    entity = MagicMock(access=Access.READ_WRITE)
-
-    await _wait_for_writable(entity)
-
-    entity.register_callback.assert_not_called()
+    device_registry = dr.async_get(hass)
+    if hasattr(device_registry, "async_get_device_by_identifier"):
+        device = device_registry.async_get_device_by_identifier(
+            (DOMAIN, MOCK_TLS_DEVICE_ID), entry.entry_id
+        )
+    else:
+        device = device_registry.async_get_device(identifiers={(DOMAIN, MOCK_TLS_DEVICE_ID)})
+    assert device is not None
+    return device.id
 
 
-async def test_wait_for_writable_waits_for_the_next_writable_update() -> None:
-    """Waits for a descriptionChange NOTIFY flipping access, instead of firing blind."""
-    entity = MagicMock(access=Access.READ)
-    captured_callback = None
-
-    def _capture(callback: object) -> None:
-        nonlocal captured_callback
-        captured_callback = callback
-
-    entity.register_callback.side_effect = _capture
-
-    async def _flip_access_soon() -> None:
-        await asyncio.sleep(0)
-        entity.access = Access.READ_WRITE
-        assert captured_callback is not None
-        await captured_callback(entity)
-
-    flip_task = asyncio.ensure_future(_flip_access_soon())
-    await _wait_for_writable(entity)
-    await flip_task
-
-    entity.unregister_callback.assert_called_once()
+async def test_set_finish_in_uses_the_library(
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """set_finish_in hands the duration to Appliance.set_finish_in, fallback included."""
+    device_id = await _setup_with_finish_in(hass, monkeypatch)
+    with patch("home_disconnect.Appliance.set_finish_in", AsyncMock()) as set_finish_in:
+        await hass.services.async_call(
+            DOMAIN,
+            "set_finish_in",
+            {"device_id": device_id, "finish_in": {"hours": 1, "minutes": 30}},
+            blocking=True,
+        )
+    set_finish_in.assert_awaited_once_with(5400)
 
 
-async def test_wait_for_writable_times_out_if_never_writable() -> None:
-    """Fails clearly instead of hanging if the appliance never opens the window."""
-    entity = MagicMock(access=Access.READ)
-
+@pytest.mark.parametrize(
+    ("error", "translation_key"),
+    [
+        (AccessError("No program is selected"), "no_program_selected"),
+        (AccessError("The appliance didn't open a window"), "finish_in_not_writable"),
+        (ResponseError(541, "/ro/values"), "start_program_error"),
+    ],
+)
+async def test_set_finish_in_errors(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    error: Exception,
+    translation_key: str,
+) -> None:
+    """The library's errors come out as translated service errors."""
+    device_id = await _setup_with_finish_in(hass, monkeypatch)
     with (
-        patch("custom_components.homeconnect_ws._ACTIVE_PROGRAM_WRITABLE_TIMEOUT", 0.01),
-        pytest.raises(ServiceValidationError),
+        patch("home_disconnect.Appliance.set_finish_in", AsyncMock(side_effect=error)),
+        pytest.raises(ServiceValidationError) as exc_info,
     ):
-        await _wait_for_writable(entity)
-
-    entity.unregister_callback.assert_called_once()
-
-
-async def test_set_finish_in_with_active_program_sends_combined_write() -> None:
-    """The only format this class of appliance accepts: both uids in one /ro/values write."""
-    appliance = MagicMock()
-    active_program_entity = MagicMock(uid=256, access=Access.READ_WRITE)
-    appliance.entities = {"BSH.Common.Root.ActiveProgram": active_program_entity}
-    appliance.selected_program = MagicMock(uid=29953)
-    appliance.session.send_sync = AsyncMock()
-    finish_in_entity = MagicMock(uid=551)
-
-    await _set_finish_in_with_active_program(appliance, finish_in_entity, 51060)
-
-    appliance.session.send_sync.assert_called_once()
-    message = appliance.session.send_sync.call_args[0][0]
-    assert message.resource == "/ro/values"
-    assert message.data == [
-        {"uid": 551, "value": 51060},
-        {"uid": 256, "value": 29953},
-    ]
+        await hass.services.async_call(
+            DOMAIN,
+            "set_finish_in",
+            {"device_id": device_id, "finish_in": {"minutes": 1}},
+            blocking=True,
+        )
+    assert exc_info.value.translation_key == translation_key
 
 
-async def test_set_finish_in_with_active_program_raises_without_selected_program() -> None:
-    """Nothing sensible to arm ActiveProgram to if no program is selected."""
-    appliance = MagicMock()
-    appliance.entities = {"BSH.Common.Root.ActiveProgram": MagicMock()}
-    appliance.selected_program = None
-    finish_in_entity = MagicMock(uid=551)
-
-    with pytest.raises(ServiceValidationError):
-        await _set_finish_in_with_active_program(appliance, finish_in_entity, 100)
-
-
-async def test_set_finish_in_with_active_program_translates_code_response_error() -> None:
-    """A combined write rejected with anything but 541 surfaces a clear, translated error."""
-    appliance = MagicMock()
-    active_program_entity = MagicMock(uid=256, access=Access.READ_WRITE)
-    appliance.entities = {"BSH.Common.Root.ActiveProgram": active_program_entity}
-    appliance.selected_program = MagicMock(uid=1)
-    appliance.session.send_sync = AsyncMock(side_effect=CodeResponsError(400, "/ro/values"))
-    finish_in_entity = MagicMock(uid=551)
-
-    with pytest.raises(ServiceValidationError):
-        await _set_finish_in_with_active_program(appliance, finish_in_entity, 100)
-
-
-async def test_set_finish_in_with_active_program_falls_back_to_program_start() -> None:
-    """
-    After 541 on the combined write, start the program with FinishInRelative as an option.
-
-    Confirmed on a Siemens WM16XKH2EU washer (#146): it rejects the standalone
-    and the combined write with 541, and only accepts FinishInRelative as an
-    option of the /ro/activeProgram start.
-    """
-    appliance = MagicMock()
-    active_program_entity = MagicMock(uid=256, access=Access.READ_WRITE)
-    appliance.entities = {"BSH.Common.Root.ActiveProgram": active_program_entity}
-    appliance.selected_program = MagicMock(uid=28675)
-    appliance.selected_program.start = AsyncMock()
-    appliance.session.send_sync = AsyncMock(side_effect=CodeResponsError(541, "/ro/values"))
-    finish_in_entity = MagicMock(uid=551)
-
-    with patch(
-        "custom_components.homeconnect_ws.build_known_option_set",
-        return_value={24577: 5, 551: 5100},
-    ):
-        await _set_finish_in_with_active_program(appliance, finish_in_entity, 8700)
-
-    appliance.selected_program.start.assert_awaited_once_with(
-        {24577: 5, 551: 8700}, override_options=True
-    )
-
-
-async def test_set_finish_in_with_active_program_translates_program_start_error() -> None:
-    """If the program start is rejected too, surface a clear, translated error."""
-    appliance = MagicMock()
-    active_program_entity = MagicMock(uid=256, access=Access.READ_WRITE)
-    appliance.entities = {"BSH.Common.Root.ActiveProgram": active_program_entity}
-    appliance.selected_program = MagicMock(uid=1)
-    appliance.selected_program.start = AsyncMock(
-        side_effect=CodeResponsError(501, "/ro/activeProgram")
-    )
-    appliance.session.send_sync = AsyncMock(side_effect=CodeResponsError(541, "/ro/values"))
-    finish_in_entity = MagicMock(uid=551)
-
+async def test_start_program_remote_start_not_allowed(
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """start_program says to allow remote start at the appliance when the library refuses."""
+    device_id = await _setup_with_finish_in(hass, monkeypatch)
     with (
-        patch("custom_components.homeconnect_ws.build_known_option_set", return_value={}),
-        pytest.raises(ServiceValidationError),
+        patch("home_disconnect.Appliance.selected_program", new_callable=PropertyMock),
+        patch(
+            "home_disconnect.Appliance.start_program",
+            AsyncMock(side_effect=RemoteStartNotAllowedError("off")),
+        ),
+        pytest.raises(HomeAssistantError) as exc_info,
     ):
-        await _set_finish_in_with_active_program(appliance, finish_in_entity, 100)
-
-
-async def test_set_finish_in_with_active_program_starts_program_when_never_writable() -> None:
-    """If ActiveProgram never opens for writing, go straight to the program start."""
-    appliance = MagicMock()
-    active_program_entity = MagicMock(uid=256, access=Access.READ)
-    appliance.entities = {"BSH.Common.Root.ActiveProgram": active_program_entity}
-    appliance.selected_program = MagicMock(uid=28675)
-    appliance.selected_program.start = AsyncMock()
-    appliance.session.send_sync = AsyncMock()
-    finish_in_entity = MagicMock(uid=551)
-
-    with (
-        patch("custom_components.homeconnect_ws._ACTIVE_PROGRAM_WRITABLE_TIMEOUT", 0.01),
-        patch("custom_components.homeconnect_ws.build_known_option_set", return_value={}),
-    ):
-        await _set_finish_in_with_active_program(appliance, finish_in_entity, 8700)
-
-    appliance.session.send_sync.assert_not_awaited()
-    appliance.selected_program.start.assert_awaited_once_with({551: 8700}, override_options=True)
-
-
-async def test_set_finish_in_with_active_program_keeps_not_writable_error() -> None:
-    """If the program start fails too, the original not-writable error is reported."""
-    appliance = MagicMock()
-    active_program_entity = MagicMock(uid=256, access=Access.READ)
-    appliance.entities = {"BSH.Common.Root.ActiveProgram": active_program_entity}
-    appliance.selected_program = MagicMock(uid=1)
-    appliance.selected_program.start = AsyncMock(
-        side_effect=CodeResponsError(501, "/ro/activeProgram")
-    )
-    finish_in_entity = MagicMock(uid=551)
-
-    with (
-        patch("custom_components.homeconnect_ws._ACTIVE_PROGRAM_WRITABLE_TIMEOUT", 0.01),
-        patch("custom_components.homeconnect_ws.build_known_option_set", return_value={}),
-        pytest.raises(ServiceValidationError) as err,
-    ):
-        await _set_finish_in_with_active_program(appliance, finish_in_entity, 100)
-
-    assert err.value.translation_key == "finish_in_not_writable"
+        await hass.services.async_call(
+            DOMAIN, "start_program", {"device_id": device_id}, blocking=True
+        )
+    assert exc_info.value.translation_key == "remote_start_not_allowed"

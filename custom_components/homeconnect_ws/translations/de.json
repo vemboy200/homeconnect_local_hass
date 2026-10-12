@@ -4772,14 +4772,14 @@
     "missing_unique_id": {
       "message": "Dieser Konfigurationseintrag hat keine eindeutige ID. Entfernen Sie das Gerät und fügen Sie es erneut hinzu."
     },
-    "fan_no_default_program": {
-      "message": "Für den Lüfter dieser Dunstabzugshaube ist kein Standard-Lüftungsprogramm festgelegt."
-    },
     "setup_cannot_connect": {
       "message": "Keine Verbindung zu {host}. Siehe {url}, falls sich das nicht von selbst behebt."
     },
     "setup_cannot_connect_error": {
       "message": "Keine Verbindung zu {host} ({error}). Siehe {url}, falls sich das nicht von selbst behebt."
+    },
+    "invalid_profile": {
+      "message": "Das gespeicherte Geräteprofil kann nicht gelesen werden: {error}. Aktualisiere das Profil über das Menü „Neu konfigurieren“ der Integration."
     },
     "delay_start_too_long": {
       "message": "Die gewählte Verzögerung ist zu lang: Das Programm wäre erst in mehr als {max_hours} h fertig, was das Gerät nicht erlaubt"

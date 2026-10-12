@@ -10,7 +10,7 @@ from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitio
     HCNumberEntityDescription,
 )
 from custom_components.homeconnect_ws.number import HCNumber
-from home_disconnect.message import Action, Message
+from home_disconnect.messages import Action, Message
 from homeassistant.components.number import (
     ATTR_MAX,
     ATTR_MIN,
@@ -21,17 +21,17 @@ from homeassistant.components.number import (
 from homeassistant.components.number import DOMAIN as NUMBER_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_FRIENDLY_NAME
 
-from . import setup_config_entry
+from . import setup_config_entry, update_entity
 from .const import MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
-    from home_disconnect.testutils import MockAppliance
+    from home_disconnect import Appliance
     from homeassistant.core import HomeAssistant
 
 
 async def test_setup(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test setting up entity."""
@@ -48,27 +48,29 @@ async def test_setup(
 
 async def test_update(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test updating entity."""
     entity_id = "number.fake_brand_homeappliance_number"
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
 
-    await mock_appliance.entities["Test.Number"].update({"value": 0})
+    await update_entity(mock_appliance.entities["Test.Number"], {"value": 0})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state
     assert state.state == "0"
 
-    await mock_appliance.entities["Test.Number"].update({"value": 10})
+    await update_entity(mock_appliance.entities["Test.Number"], {"value": 10})
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
     assert state.state == "10"
 
-    await mock_appliance.entities["Test.Number"].update({"min": 10, "max": 50, "stepSize": 5})
+    await update_entity(
+        mock_appliance.entities["Test.Number"], {"min": 10, "max": 50, "stepSize": 5}
+    )
     await hass.async_block_till_done()
 
     state = hass.states.get(entity_id)
@@ -79,7 +81,7 @@ async def test_update(
 
 async def test_set_value(
     hass: HomeAssistant,
-    mock_appliance: MockAppliance,
+    mock_appliance: Appliance,
     patch_entity_description: None,
 ) -> None:
     """Test setting a value."""
@@ -92,11 +94,11 @@ async def test_set_value(
         {ATTR_ENTITY_ID: entity_id, ATTR_VALUE: "2"},
         blocking=True,
     )
-    mock_appliance.session.send_sync.assert_awaited_once_with(
+    mock_appliance.session.request.assert_awaited_once_with(
         Message(
             resource="/ro/values",
             action=Action.POST,
-            data={"uid": 204, "value": 2},
+            data=[{"uid": 204, "value": 2}],
         )
     )
 
