@@ -114,6 +114,7 @@ The first core PR is as small as core allows: **one platform (`sensor`), the con
 | Initial platform | `sensor` | Read-only, so none of the program/option write rules have to be reviewed in the first PR. Status sensors (operation state, door, remaining time) exist on nearly every appliance type. |
 | Domain | Keep `homeconnect_ws` if reviewers accept it, otherwise pick a new one early | Same domain means custom users can switch without re-adding appliances (see [Phase 4](#phase-4-after-everything-is-ported)). A new domain means everyone re-adds their appliances. `ws` is an implementation detail, so expect reviewers to question it. If it has to change, `home_connect_local` follows core's `powerfox` / `powerfox_local` naming ("Powerfox Cloud" and "Powerfox Local", grouped under one Powerfox brand). |
 | Brand | Add the domain to core's existing Bosch brand (`homeassistant/brands/bosch.json`) | Core lists `home_connect` under Bosch, next to `bosch_alarm` and `bosch_shc`, so the local integration belongs in the same brand. There's no Siemens, Thermador or other BSH brand file to add it to. |
+| Entity description layout | Each platform's descriptions in its own platform file (`sensor.py`, `binary_sensor.py`, ...), with its description class. Switch the custom integration over in v2.0.0's entity cleanup (b1), so each core PR is a copy of one file. Generators that build descriptions for several platforms at once (e.g. `generate_oven_status`, which makes sensors and binary sensors per cavity) get split per platform too. If a platform gets too big for one file, turn it into a package split by appliance type (`sensor/cooking.py`, `sensor/laundry_care.py`, ...) | `entity_descriptions/` splits by appliance type, and each file covers every platform. Nothing in core is laid out that way: on core `dev` (2026-09-16) only 30 of 1,525 integrations have a Python subfolder at all, and the cloud `home_connect` integration keeps each platform's descriptions in that platform's file. Core's precedent for too many descriptions is splitting one platform by device type: `growatt_server/sensor/` (`inverter.py`, `mix.py`, `storage.py`, ... plus a shared `sensor_entity_description.py`) and `overkiz/climate/`. The descriptions themselves stay in the integration either way (they're built on HA's classes); only the feature names move to the library. |
 
 ### What's in it
 
@@ -289,6 +290,19 @@ The other attributes (`Is Estimated`, `Auto Counting`, the hob zone `Type`, `Las
 ### Optimistic hood boost
 
 The hood's `fan` entity shows a just-requested boost for 8 seconds before the hood confirms it (`_OPTIMISTIC_PRESET_DURATION` in `fan.py`), because the hood is slow to report it. Core wants entities to follow the device whenever the device reports its own state, and optimistic state is meant for devices that don't. Replace it before the `fan` PR (ideally in v2.0.0): wait in the action until the hood confirms, with a timeout, the same way the light's `_wait_until` does.
+
+### Delay start select
+
+The "Delay start" select (#148) holds a delay that only exists in Home Assistant: the appliance has no such setting, and the Start button turns the choice into `StartInRelative` (the delay as-is) or `FinishInRelative` (the program's duration plus the delay) when the program starts. The value is restored after a restart and resets after a start. It exists because some appliances only accept a delay as part of the program start: the Siemens WM16XKH2EU washer rejects a direct write even though its device description says it's writable (#146).
+
+Two problems for core:
+
+- **It duplicates the Start in / Finish in number** on appliances where the direct write works. A Thermador DWHD660WFP dishwasher, for example, gets both a "Start in" number and the select for the same `StartInRelative` option. Reviewers will ask why there are two controls for one thing.
+- **Its state lives only in Home Assistant**, not on the appliance, which reviewers usually push back on.
+
+Which appliances need it can't be read from the device description, only found out by trying the write, so it can't simply be created only where it's needed.
+
+**Plan: merge the two into one number for v2.0.0**, before the `number` PR. The Start in / Finish in number writes to the appliance right away like now, and if the appliance rejects the write, it holds the value and the Start button sends it with the program start, which is what the select does today. The select goes away, and every appliance gets the number's finer steps instead of the select's whole hours. 1.9.0 ships the select as it is.
 
 ### Corrections for stale values
 
