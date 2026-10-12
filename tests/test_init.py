@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 from copy import deepcopy
 from ipaddress import ip_address
 from pathlib import Path
@@ -233,6 +234,44 @@ async def test_device_registry_serial_number(
         device = device_registry.async_get_device(identifiers={(DOMAIN, entry.unique_id)})
     assert device is not None
     assert device.serial_number == MOCK_APPLIANCE_INFO["serialNumber"]
+
+
+@pytest.mark.parametrize(
+    ("e_number", "expected_model_id"),
+    [("Fake_vib/01", "Fake_vib/01"), (None, MOCK_APPLIANCE_INFO["vib"])],
+)
+async def test_device_registry_model_id(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    e_number: str | None,
+    expected_model_id: str,
+) -> None:
+    """model_id is the full product number (E-Nr) when reported, else the model number."""
+    description = copy.deepcopy(DEVICE_DESCRIPTION)
+    if e_number is not None:
+        description["info"]["eNumber"] = e_number
+    appliance = MockAppliance(description, "host", "mock_app", "mock_app_id", "PSK_KEY")
+    monkeypatch.setattr(coordinator, "HomeAppliance", Mock(return_value=appliance))
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG_DATA,
+        unique_id=MOCK_TLS_DEVICE_ID,
+    )
+    entry.add_to_hass(hass)
+
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    device_registry = dr.async_get(hass)
+    if hasattr(device_registry, "async_get_device_by_identifier"):
+        device = device_registry.async_get_device_by_identifier(
+            (DOMAIN, entry.unique_id), entry.entry_id
+        )
+    else:
+        device = device_registry.async_get_device(identifiers={(DOMAIN, entry.unique_id)})
+    assert device is not None
+    assert device.model_id == expected_model_id
 
 
 async def test_setup_entry_washer_connect_failure_is_non_blocking(
@@ -851,13 +890,100 @@ async def test_set_finish_in_with_active_program_raises_without_selected_program
 
 
 async def test_set_finish_in_with_active_program_translates_code_response_error() -> None:
-    """A rejected combined write still surfaces a clear, translated error."""
+    """A combined write rejected with anything but 541 surfaces a clear, translated error."""
     appliance = MagicMock()
     active_program_entity = MagicMock(uid=256, access=Access.READ_WRITE)
     appliance.entities = {"BSH.Common.Root.ActiveProgram": active_program_entity}
     appliance.selected_program = MagicMock(uid=1)
-    appliance.session.send_sync = AsyncMock(side_effect=CodeResponsError(541, "/ro/values"))
+    appliance.session.send_sync = AsyncMock(side_effect=CodeResponsError(400, "/ro/values"))
     finish_in_entity = MagicMock(uid=551)
 
     with pytest.raises(ServiceValidationError):
         await _set_finish_in_with_active_program(appliance, finish_in_entity, 100)
+
+
+async def test_set_finish_in_with_active_program_falls_back_to_program_start() -> None:
+    """
+    After 541 on the combined write, start the program with FinishInRelative as an option.
+
+    Confirmed on a Siemens WM16XKH2EU washer (#146): it rejects the standalone
+    and the combined write with 541, and only accepts FinishInRelative as an
+    option of the /ro/activeProgram start.
+    """
+    appliance = MagicMock()
+    active_program_entity = MagicMock(uid=256, access=Access.READ_WRITE)
+    appliance.entities = {"BSH.Common.Root.ActiveProgram": active_program_entity}
+    appliance.selected_program = MagicMock(uid=28675)
+    appliance.selected_program.start = AsyncMock()
+    appliance.session.send_sync = AsyncMock(side_effect=CodeResponsError(541, "/ro/values"))
+    finish_in_entity = MagicMock(uid=551)
+
+    with patch(
+        "custom_components.homeconnect_ws.build_known_option_set",
+        return_value={24577: 5, 551: 5100},
+    ):
+        await _set_finish_in_with_active_program(appliance, finish_in_entity, 8700)
+
+    appliance.selected_program.start.assert_awaited_once_with(
+        {24577: 5, 551: 8700}, override_options=True
+    )
+
+
+async def test_set_finish_in_with_active_program_translates_program_start_error() -> None:
+    """If the program start is rejected too, surface a clear, translated error."""
+    appliance = MagicMock()
+    active_program_entity = MagicMock(uid=256, access=Access.READ_WRITE)
+    appliance.entities = {"BSH.Common.Root.ActiveProgram": active_program_entity}
+    appliance.selected_program = MagicMock(uid=1)
+    appliance.selected_program.start = AsyncMock(
+        side_effect=CodeResponsError(501, "/ro/activeProgram")
+    )
+    appliance.session.send_sync = AsyncMock(side_effect=CodeResponsError(541, "/ro/values"))
+    finish_in_entity = MagicMock(uid=551)
+
+    with (
+        patch("custom_components.homeconnect_ws.build_known_option_set", return_value={}),
+        pytest.raises(ServiceValidationError),
+    ):
+        await _set_finish_in_with_active_program(appliance, finish_in_entity, 100)
+
+
+async def test_set_finish_in_with_active_program_starts_program_when_never_writable() -> None:
+    """If ActiveProgram never opens for writing, go straight to the program start."""
+    appliance = MagicMock()
+    active_program_entity = MagicMock(uid=256, access=Access.READ)
+    appliance.entities = {"BSH.Common.Root.ActiveProgram": active_program_entity}
+    appliance.selected_program = MagicMock(uid=28675)
+    appliance.selected_program.start = AsyncMock()
+    appliance.session.send_sync = AsyncMock()
+    finish_in_entity = MagicMock(uid=551)
+
+    with (
+        patch("custom_components.homeconnect_ws._ACTIVE_PROGRAM_WRITABLE_TIMEOUT", 0.01),
+        patch("custom_components.homeconnect_ws.build_known_option_set", return_value={}),
+    ):
+        await _set_finish_in_with_active_program(appliance, finish_in_entity, 8700)
+
+    appliance.session.send_sync.assert_not_awaited()
+    appliance.selected_program.start.assert_awaited_once_with({551: 8700}, override_options=True)
+
+
+async def test_set_finish_in_with_active_program_keeps_not_writable_error() -> None:
+    """If the program start fails too, the original not-writable error is reported."""
+    appliance = MagicMock()
+    active_program_entity = MagicMock(uid=256, access=Access.READ)
+    appliance.entities = {"BSH.Common.Root.ActiveProgram": active_program_entity}
+    appliance.selected_program = MagicMock(uid=1)
+    appliance.selected_program.start = AsyncMock(
+        side_effect=CodeResponsError(501, "/ro/activeProgram")
+    )
+    finish_in_entity = MagicMock(uid=551)
+
+    with (
+        patch("custom_components.homeconnect_ws._ACTIVE_PROGRAM_WRITABLE_TIMEOUT", 0.01),
+        patch("custom_components.homeconnect_ws.build_known_option_set", return_value={}),
+        pytest.raises(ServiceValidationError) as err,
+    ):
+        await _set_finish_in_with_active_program(appliance, finish_in_entity, 100)
+
+    assert err.value.translation_key == "finish_in_not_writable"

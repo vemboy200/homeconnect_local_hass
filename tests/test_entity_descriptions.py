@@ -65,10 +65,18 @@ MOCK_ENTITY_DESCRIPTIONS = {
             ],
         ),
         HCSensorEntityDescription(
+            key="sensor_event_partial",
+            entities=[
+                "Test.Event3",
+                "Test.Event1",
+            ],
+            options=["event_3", "event_1", "none"],
+        ),
+        HCSensorEntityDescription(
             key="sensor_event_not_available",
             entities=[
-                "Test.Event1",
                 "Test.Event3",
+                "Test.Event4",
             ],
         ),
     ],
@@ -95,7 +103,13 @@ def test_get_available_entities(
                 "Test.Event1",
                 "Test.Event2",
             ],
-        )
+        ),
+        # Test.Event3 is missing: keep the sensor with the event the appliance has
+        HCSensorEntityDescription(
+            key="sensor_event_partial",
+            entities=["Test.Event1"],
+            options=["event_1", "none"],
+        ),
     ]
 
 
@@ -588,6 +602,7 @@ TRANSLATION_DOMAINS = {
     "select": "select",
     "sensor": "sensor",
     "start_button": "button",
+    "delay_start": "select",
     "switch": "switch",
     "update": "update",
     "wifi": "sensor",

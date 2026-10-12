@@ -28,7 +28,7 @@
       },
       "legacy_oauth_region": {
         "title": "Home Connect Kontoregion",
-        "description": "Wählen Sie die Region aus, in der Ihr Home Connect Konto registriert ist.",
+        "description": "Wählen Sie die Home Connect Cloud aus, in der Ihr Konto liegt. Gemeint ist die Cloud, nicht der Standort des Geräts: Die Europa-Cloud bedient auch Australien.",
         "data": {
           "region": "Region"
         }
@@ -70,7 +70,17 @@
       "failed_to_write_profile_file": "Profildatei konnte nicht gespeichert werden",
       "reconfigure_successful": "Neukonfiguration erfolgreich",
       "oauth_fetch_failed": "Geräteprofile konnten nicht von Home Connect abgerufen werden: {error}",
-      "reauth_entry_not_found": "Der neu zu authentifizierende Konfigurationseintrag existiert nicht mehr"
+      "reauth_entry_not_found": "Der neu zu authentifizierende Konfigurationseintrag existiert nicht mehr",
+      "invalid_discovery_info": "Das gefundene Gerät hat seine Marke oder seinen Typ nicht angegeben."
+    }
+  },
+  "selector": {
+    "region": {
+      "options": {
+        "eu": "Europa-Cloud (Europa, Australien, ...)",
+        "na": "Nordamerika-Cloud (USA, Kanada, ...)",
+        "cn": "China-Cloud (China)"
+      }
     }
   },
   "entity": {
@@ -110,6 +120,9 @@
       },
       "switch_cup_warmer": {
         "name": "Tassenwärmer"
+      },
+      "switch_coffee_leave_profiles_automatically": {
+        "name": "Profile automatisch verlassen"
       },
       "switch_half_load": {
         "name": "Halbe Ladung"
@@ -331,6 +344,21 @@
       },
       "binary_sensor_bean_container_empty": {
         "name": "Bohnenbehälter Leer"
+      },
+      "binary_sensor_coffee_cleaning_due": {
+        "name": "Reinigung fällig"
+      },
+      "binary_sensor_coffee_calc_n_clean_due": {
+        "name": "Calc'n'Clean fällig"
+      },
+      "binary_sensor_coffee_clean_brewing_unit": {
+        "name": "Brüheinheit reinigen"
+      },
+      "binary_sensor_coffee_milk_reminder": {
+        "name": "Milch-Erinnerung"
+      },
+      "binary_sensor_coffee_water_filter_change": {
+        "name": "Wasserfilter wechseln"
       },
       "binary_remote_start_allowed": {
         "name": "Fernstart erlaubt"
@@ -564,6 +592,15 @@
       },
       "binary_sensor_temperature_alarm_chiller_common": {
         "name": "Temperaturalarm Chiller"
+      },
+      "binary_sensor_coffee_brewing_unit_missing": {
+        "name": "Brüheinheit fehlt"
+      },
+      "binary_sensor_coffee_outlet_missing": {
+        "name": "Getränkeauslauf fehlt"
+      },
+      "binary_sensor_coffee_close_door": {
+        "name": "Klappe Brüheinheit"
       }
     },
     "sensor": {
@@ -607,7 +644,8 @@
         }
       },
       "sensor_machine_care_reminder": {
-        "name": "Maschinenpflege Erinnerung"
+        "name": "Maschinenpflege Erinnerung",
+        "unit_of_measurement": "Zyklen"
       },
       "sensor_active_program": {
         "name": "Aktives Programm",
@@ -920,6 +958,7 @@
           "cooking_oven_program_dish_recommendation_microwave_obstkuchenausruehrteigfein": "Obstkuchen aus Rührteig (fein)",
           "cooking_oven_program_dish_recommendation_microwave_ruehrkucheneinfach": "Rührkuchen einfach",
           "cooking_oven_program_dish_subsequentcooking": "Nachgarprogramm",
+          "cooking_oven_program_heatingmode_3dhotair": "3D Heißluft",
           "cooking_oven_program_heatingmode_bottomheating": "Unterhitze",
           "cooking_oven_program_heatingmode_desiccation": "Austrocknung",
           "cooking_oven_program_heatingmode_frozenheatupspecial": "Spezial-Aufheizen für Gefrorenes",
@@ -1309,10 +1348,22 @@
           "cooking_oven_program_dish_automatic_conv_bonedlegoflambmedium": "Automatik: Lammkeule ohne Knochen (medium)",
           "cooking_oven_program_dish_automatic_conv_bread": "Automatik: Brot",
           "cooking_oven_program_dish_automatic_conv_breadrollsbaguette": "Automatik: Brötchen/Baguette",
+          "cooking_oven_program_dish_automatic_conv_chickenparts": "Automatik: Hähnchenteile",
+          "cooking_oven_program_dish_automatic_conv_frozendeeppanpizza": "Automatik: Pizza mit dickem Boden (tiefgekühlt)",
+          "cooking_oven_program_dish_automatic_conv_frozenlasagne": "Automatik: Lasagne (tiefgekühlt)",
+          "cooking_oven_program_dish_automatic_conv_frozenthincrustpizza": "Automatik: Pizza mit dünnem Boden (tiefgekühlt)",
+          "cooking_oven_program_dish_automatic_conv_jointofporkwithcrackling": "Automatik: Schweinebraten mit Kruste",
+          "cooking_oven_program_dish_automatic_conv_partcookedbreadrollsorbaguette": "Automatik: Aufbackbrötchen oder Baguette",
+          "cooking_oven_program_dish_automatic_conv_pastabake": "Automatik: Nudelauflauf",
           "cooking_oven_program_dish_automatic_conv_pastadumplingspotatoesrice": "Automatik: Nudeln/Knödel/Kartoffeln/Reis",
+          "cooking_oven_program_dish_automatic_conv_pommesfrites": "Automatik: Pommes frites",
+          "cooking_oven_program_dish_automatic_conv_porkneckjoint": "Automatik: Schweinenacken",
+          "cooking_oven_program_dish_automatic_conv_potatogratin": "Automatik: Kartoffelgratin",
           "cooking_oven_program_dish_automatic_conv_reheatplatedmeal": "Automatik: Tellergericht aufwärmen",
           "cooking_oven_program_dish_automatic_conv_reheatvegetables": "Automatik: Gemüse aufwärmen",
           "cooking_oven_program_dish_automatic_conv_roastbeefenglish": "Automatik: Roastbeef (englisch)",
+          "cooking_oven_program_dish_automatic_conv_wholebakedpotatoes": "Automatik: Backkartoffeln ganz",
+          "cooking_oven_program_dish_automatic_conv_wholefish": "Automatik: Fisch ganz",
           "cooking_oven_program_dish_automatic_conv_steam_bonelesslegoflambmedium": "Automatik Dampf: Lammkeule ohne Knochen (medium)",
           "cooking_oven_program_dish_automatic_conv_steam_bonelesslegoflambwelldone": "Automatik Dampf: Lammkeule ohne Knochen (durchgegart)",
           "cooking_oven_program_dish_automatic_conv_steam_bonelesslegofroevenison": "Automatik Dampf: Rehkeule ohne Knochen",
@@ -1815,6 +1866,32 @@
           "ok": "OK",
           "not_inserted": "Nicht eingesetzt",
           "full": "Voll"
+        }
+      },
+      "sensor_coffee_descaling": {
+        "name": "Entkalken",
+        "state": {
+          "blocked": "Blockiert",
+          "overdue": "Überfällig",
+          "due": "Fällig",
+          "ok": "OK"
+        }
+      },
+      "sensor_coffee_care_program_step": {
+        "name": "Pflegeprogramm-Schritt",
+        "state": {
+          "empty_drip_tray": "Tropfschale leeren",
+          "empty_drip_tray_remove_container": "Tropfschale leeren und Gefäß entnehmen",
+          "insert_cleaning_tablet": "Reinigungstablette einwerfen",
+          "fill_descaler": "Entkalker einfüllen",
+          "empty_milk_container": "Milchbehälter leeren",
+          "place_empty_glass": "Leeres Glas unterstellen",
+          "place_container": "Gefäß unterstellen",
+          "clean_milk_container": "Milchbehälter reinigen",
+          "rinse_and_fill_water_tank": "Wassertank ausspülen und füllen",
+          "remove_container": "Gefäß entnehmen",
+          "finished": "Fertig",
+          "none": "Keine Aktion nötig"
         }
       },
       "sensor_start_in": {
@@ -2596,6 +2673,7 @@
           "cooking_oven_program_dish_recommendation_microwave_obstkuchenausruehrteigfein": "Obstkuchen aus Rührteig (fein)",
           "cooking_oven_program_dish_recommendation_microwave_ruehrkucheneinfach": "Rührkuchen einfach",
           "cooking_oven_program_dish_subsequentcooking": "Nachgarprogramm",
+          "cooking_oven_program_heatingmode_3dhotair": "3D Heißluft",
           "cooking_oven_program_heatingmode_bottomheating": "Unterhitze",
           "cooking_oven_program_heatingmode_desiccation": "Austrocknung",
           "cooking_oven_program_heatingmode_frozenheatupspecial": "Spezial-Aufheizen für Gefrorenes",
@@ -2985,10 +3063,22 @@
           "cooking_oven_program_dish_automatic_conv_bonedlegoflambmedium": "Automatik: Lammkeule ohne Knochen (medium)",
           "cooking_oven_program_dish_automatic_conv_bread": "Automatik: Brot",
           "cooking_oven_program_dish_automatic_conv_breadrollsbaguette": "Automatik: Brötchen/Baguette",
+          "cooking_oven_program_dish_automatic_conv_chickenparts": "Automatik: Hähnchenteile",
+          "cooking_oven_program_dish_automatic_conv_frozendeeppanpizza": "Automatik: Pizza mit dickem Boden (tiefgekühlt)",
+          "cooking_oven_program_dish_automatic_conv_frozenlasagne": "Automatik: Lasagne (tiefgekühlt)",
+          "cooking_oven_program_dish_automatic_conv_frozenthincrustpizza": "Automatik: Pizza mit dünnem Boden (tiefgekühlt)",
+          "cooking_oven_program_dish_automatic_conv_jointofporkwithcrackling": "Automatik: Schweinebraten mit Kruste",
+          "cooking_oven_program_dish_automatic_conv_partcookedbreadrollsorbaguette": "Automatik: Aufbackbrötchen oder Baguette",
+          "cooking_oven_program_dish_automatic_conv_pastabake": "Automatik: Nudelauflauf",
           "cooking_oven_program_dish_automatic_conv_pastadumplingspotatoesrice": "Automatik: Nudeln/Knödel/Kartoffeln/Reis",
+          "cooking_oven_program_dish_automatic_conv_pommesfrites": "Automatik: Pommes frites",
+          "cooking_oven_program_dish_automatic_conv_porkneckjoint": "Automatik: Schweinenacken",
+          "cooking_oven_program_dish_automatic_conv_potatogratin": "Automatik: Kartoffelgratin",
           "cooking_oven_program_dish_automatic_conv_reheatplatedmeal": "Automatik: Tellergericht aufwärmen",
           "cooking_oven_program_dish_automatic_conv_reheatvegetables": "Automatik: Gemüse aufwärmen",
           "cooking_oven_program_dish_automatic_conv_roastbeefenglish": "Automatik: Roastbeef (englisch)",
+          "cooking_oven_program_dish_automatic_conv_wholebakedpotatoes": "Automatik: Backkartoffeln ganz",
+          "cooking_oven_program_dish_automatic_conv_wholefish": "Automatik: Fisch ganz",
           "cooking_oven_program_dish_automatic_conv_steam_bonelesslegoflambmedium": "Automatik Dampf: Lammkeule ohne Knochen (medium)",
           "cooking_oven_program_dish_automatic_conv_steam_bonelesslegoflambwelldone": "Automatik Dampf: Lammkeule ohne Knochen (durchgegart)",
           "cooking_oven_program_dish_automatic_conv_steam_bonelesslegofroevenison": "Automatik Dampf: Rehkeule ohne Knochen",
@@ -3621,6 +3711,98 @@
           "two": "Zwei",
           "four": "Vier",
           "six": "Sechs"
+        }
+      },
+      "select_coffee_switch_off_after": {
+        "name": "Abschalten nach",
+        "state": {
+          "00hours05minutes": "5 min",
+          "00hours10minutes": "10 min",
+          "00hours15minutes": "15 min",
+          "00hours20minutes": "20 min",
+          "00hours25minutes": "25 min",
+          "00hours30minutes": "30 min",
+          "00hours35minutes": "35 min",
+          "00hours40minutes": "40 min",
+          "00hours45minutes": "45 min",
+          "00hours50minutes": "50 min",
+          "00hours55minutes": "55 min",
+          "01hours00minutes": "1 h",
+          "01hours15minutes": "1 h 15 min",
+          "01hours30minutes": "1 h 30 min",
+          "01hours45minutes": "1 h 45 min",
+          "02hours00minutes": "2 h",
+          "02hours15minutes": "2 h 15 min",
+          "02hours30minutes": "2 h 30 min",
+          "02hours45minutes": "2 h 45 min",
+          "03hours00minutes": "3 h"
+        }
+      },
+      "select_coffee_water_hardness": {
+        "name": "Wasserhärte",
+        "state": {
+          "soft": "Weich",
+          "medium": "Mittel",
+          "hard": "Hart",
+          "veryhard": "Sehr hart",
+          "softeningdevice": "Enthärtungsanlage"
+        }
+      },
+      "select_coffee_user_mode": {
+        "name": "Benutzermodus",
+        "state": {
+          "standard": "Standard",
+          "barista": "Barista"
+        }
+      },
+      "select_coffee_milk_order": {
+        "name": "Reihenfolge Cappuccino",
+        "state": {
+          "firstmilk": "Erst Milch",
+          "firstcoffee": "Erst Kaffee"
+        }
+      },
+      "select_coffee_macchiato_pause": {
+        "name": "Pause Latte Macchiato",
+        "state": {
+          "min": "Minimal",
+          "5sec": "5 s",
+          "10sec": "10 s"
+        }
+      },
+      "select_coffee_milk_reminder": {
+        "name": "Milch-Erinnerung nach",
+        "state": {
+          "off": "Aus",
+          "00hours05minutes": "5 min",
+          "00hours10minutes": "10 min",
+          "00hours15minutes": "15 min",
+          "00hours20minutes": "20 min",
+          "00hours25minutes": "25 min",
+          "00hours30minutes": "30 min",
+          "00hours35minutes": "35 min",
+          "00hours40minutes": "40 min",
+          "00hours45minutes": "45 min",
+          "00hours50minutes": "50 min",
+          "00hours55minutes": "55 min",
+          "01hours00minutes": "1 h",
+          "01hours15minutes": "1 h 15 min",
+          "01hours30minutes": "1 h 30 min",
+          "01hours45minutes": "1 h 45 min",
+          "02hours00minutes": "2 h",
+          "02hours15minutes": "2 h 15 min",
+          "02hours30minutes": "2 h 30 min",
+          "02hours45minutes": "2 h 45 min",
+          "03hours00minutes": "3 h"
+        }
+      },
+      "select_coffee_default_bean_container": {
+        "name": "Standard-Bohnenbehälter",
+        "state": {
+          "mostrecentlyselectedbeancontainer": "Zuletzt verwendet",
+          "defaultbeancontainerright": "Rechts",
+          "defaultbeancontainerleft": "Links",
+          "savebeancontainerwithbeverage": "Je Getränk gespeichert"
         }
       },
       "select_auto_power_off": {
@@ -4275,6 +4457,36 @@
           "middleforce": "Mittel",
           "highforce": "Hoch"
         }
+      },
+      "select_delay_start": {
+        "name": "Startverzögerung",
+        "state": {
+          "no_delay": "Keine Verzögerung",
+          "1h": "+1 h",
+          "2h": "+2 h",
+          "3h": "+3 h",
+          "4h": "+4 h",
+          "5h": "+5 h",
+          "6h": "+6 h",
+          "7h": "+7 h",
+          "8h": "+8 h",
+          "9h": "+9 h",
+          "10h": "+10 h",
+          "11h": "+11 h",
+          "12h": "+12 h",
+          "13h": "+13 h",
+          "14h": "+14 h",
+          "15h": "+15 h",
+          "16h": "+16 h",
+          "17h": "+17 h",
+          "18h": "+18 h",
+          "19h": "+19 h",
+          "20h": "+20 h",
+          "21h": "+21 h",
+          "22h": "+22 h",
+          "23h": "+23 h",
+          "24h": "+24 h"
+        }
       }
     },
     "button": {
@@ -4318,6 +4530,9 @@
     "number": {
       "number_fill_quantity": {
         "name": "Füllmenge"
+      },
+      "number_coffee_display_brightness": {
+        "name": "Displayhelligkeit"
       },
       "number_laundry_brightness": {
         "name": "Helligkeit"
@@ -4471,6 +4686,20 @@
           "description": "Zeit einstellen, in der das Programm fertig sein soll"
         }
       }
+    },
+    "set_finish_in": {
+      "name": "Endzeit einstellen",
+      "description": "Stellt ein, in welcher Zeit das Programm fertig sein soll. Bei manchen Geräten wird dabei das ausgewählte Programm verzögert gestartet.",
+      "fields": {
+        "device_id": {
+          "name": "Gerät",
+          "description": "Das Gerät, auf dem die Endzeit eingestellt werden soll"
+        },
+        "finish_in": {
+          "name": "Fertig in",
+          "description": "Zeit ab jetzt, bis das Programm fertig sein soll, einschließlich seiner Dauer"
+        }
+      }
     }
   },
   "options": {
@@ -4482,6 +4711,10 @@
           "mode": "Exporttyp"
         }
       }
+    },
+    "abort": {
+      "export_written": "`{filename}` wurde in Ihr Konfigurationsverzeichnis unter `homeconnect_ws_export/` geschrieben. Abrufen können Sie die Datei über Samba, SSH oder das File-Editor-Add-on.",
+      "export_failed": "Die Exportdatei konnte nicht geschrieben werden: {error}"
     }
   },
   "exceptions": {
@@ -4535,6 +4768,24 @@
     },
     "command_timeout": {
       "message": "Das Gerät hat den Befehl nicht rechtzeitig beantwortet"
+    },
+    "missing_unique_id": {
+      "message": "Dieser Konfigurationseintrag hat keine eindeutige ID. Entfernen Sie das Gerät und fügen Sie es erneut hinzu."
+    },
+    "fan_no_default_program": {
+      "message": "Für den Lüfter dieser Dunstabzugshaube ist kein Standard-Lüftungsprogramm festgelegt."
+    },
+    "setup_cannot_connect": {
+      "message": "Keine Verbindung zu {host}. Siehe {url}, falls sich das nicht von selbst behebt."
+    },
+    "setup_cannot_connect_error": {
+      "message": "Keine Verbindung zu {host} ({error}). Siehe {url}, falls sich das nicht von selbst behebt."
+    },
+    "delay_start_too_long": {
+      "message": "Die gewählte Verzögerung ist zu lang: Das Programm wäre erst in mehr als {max_hours} h fertig, was das Gerät nicht erlaubt"
+    },
+    "delay_start_duration_unknown": {
+      "message": "Die Programmdauer ist noch nicht bekannt, daher kann die Verzögerung nicht angewendet werden - bitte gleich erneut versuchen"
     }
   }
 }

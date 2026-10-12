@@ -22,7 +22,9 @@ New here? Start with:
 
 - **[Contributing guidelines](../CONTRIBUTING.md)**: the general guidelines for contributing
 - **[Adding a new entity](development/entity_descriptions.md)**: entity description fields by platform, dev-only config options
+- **[Using the official cloud API docs](development/official-api-docs.md)**: what BSH's documentation for the cloud API tells you about the local API
 - **[US appliance notes](development/us_appliances.md)**: appliance-specific reverse-engineering details
+- **[Core submission plan](development/core-submission-plan.md)**: what has to happen before, during and after submitting this integration to Home Assistant core
 - **[Idea: emulating the cloud during setup](development/emulated-cloud-setup.md)**: unclaimed project idea for removing the last internet dependency (initial pairing)
 
 ## Quick stats

@@ -288,7 +288,7 @@ DISHCARE_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             key="sensor_machine_care_reminder",
             entity="Dishcare.Dishwasher.Status.MachineCareReminder.RemainingProgramRuns",
             entity_category=EntityCategory.DIAGNOSTIC,
-            native_unit_of_measurement="cycles",
+            # The unit's text is in the translations (unit_of_measurement).
             state_class=SensorStateClass.MEASUREMENT,
         ),
     ],

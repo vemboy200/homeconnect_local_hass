@@ -11,6 +11,7 @@ from homeassistant.exceptions import HomeAssistantError
 from .const import DOMAIN
 from .entity import HCEntity
 from .helpers import (
+    apply_delay_start,
     build_full_option_set,
     build_known_option_set,
     create_entities,
@@ -46,6 +47,11 @@ class HCButton(HCEntity, ButtonEntity):
 
     _entity: Command | Setting
     entity_description: HCButtonEntityDescription
+    # A button has no value to keep showing, so a read-only one (e.g. the
+    # clock button while "Synchronize time with server" is on) goes
+    # unavailable instead of staying pressable only to raise an error.
+    # HCStartButton is deliberately different - see its available.
+    _show_when_locked = False
 
     @error_decorator
     async def async_press(self) -> None:
@@ -115,7 +121,6 @@ class HCStartButton(HCEntity, ButtonEntity):
             # appliance hasn't reported yet. Mirrors HCProgram's own
             # _select_with_full_option_set in select.py.
             options = build_full_option_set(self._runtime_data.appliance, selected_program)
-            await selected_program.start(options, override_options=True)
         else:
             # The library's default merge resends every READ_WRITE option's
             # raw shadow value, and one the appliance never reported goes out
@@ -124,4 +129,10 @@ class HCStartButton(HCEntity, ButtonEntity):
             # this branch ran). Send the known values only - a hood's Venting
             # program still needs its real level (fork issue #14).
             options = build_known_option_set(self._runtime_data.appliance, selected_program)
-            await selected_program.start(options, override_options=True)
+        # The "Delay start" select's choice goes in as StartInRelative or
+        # FinishInRelative - the only form some appliances accept it in (#146).
+        options = apply_delay_start(
+            self._runtime_data.appliance, self._runtime_data.delay_start, options
+        )
+        await selected_program.start(options, override_options=True)
+        self._runtime_data.delay_start.reset()

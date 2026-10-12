@@ -34,6 +34,10 @@ class HCEntity(CoordinatorEntity[HomeConnectCoordinator], Entity):
     _entities: list[HcEntity]
     _extra_attributes: list[ExtraAttributeDict]
     _has_callback: bool = False
+    # Whether a locked (read-only) Option/Setting/SelectedProgram stays
+    # visible with a readonly attribute instead of going unavailable. Off for
+    # entities that have no state to show while locked, like buttons.
+    _show_when_locked: bool = True
 
     def __init__(
         self,
@@ -77,7 +81,7 @@ class HCEntity(CoordinatorEntity[HomeConnectCoordinator], Entity):
             or self._runtime_data.coordinator.expected_offline
         )
         available_access = self.entity_description.available_access
-        if available_access is not None and is_locked(self._entity):
+        if available_access is not None and self._show_when_locked and is_locked(self._entity):
             # Home Connect itself shows a locked entity (an Option, Setting or
             # SelectedProgram) as visible-but-disabled rather than hiding it
             # (confirmed live on fork issue #59) - Access.READ means "still
@@ -89,7 +93,7 @@ class HCEntity(CoordinatorEntity[HomeConnectCoordinator], Entity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         extra_state_attributes: dict[str, Any] = {}
-        if is_lockable(self._entity):
+        if self._show_when_locked and is_lockable(self._entity):
             # Always present (not just when locked) so a template/custom card
             # can rely on it existing rather than treating "missing" as false.
             extra_state_attributes["readonly"] = is_locked(self._entity)

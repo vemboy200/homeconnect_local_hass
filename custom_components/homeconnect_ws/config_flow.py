@@ -105,15 +105,14 @@ CONFIG_HOST_SCHEMA = vol.Schema(
         vol.Required(CONF_HOST): cv.string,
     }
 )
-REGION_LABELS = {"EU": "Europe", "NA": "North America", "CN": "China"}
 CONFIG_REGION_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_REGION, default="EU"): SelectSelector(
+        # Labelled in the translations (selector.region). Option keys must be lowercase
+        # there, so the values are lowercased and turned back into region codes below.
+        vol.Required(CONF_REGION, default="eu"): SelectSelector(
             SelectSelectorConfig(
-                options=[
-                    SelectOptionDict(value=region, label=REGION_LABELS[region])
-                    for region in REGION_ASSET_BASE
-                ]
+                options=[region.lower() for region in REGION_ASSET_BASE],
+                translation_key=CONF_REGION,
             )
         ),
     }
@@ -262,7 +261,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
                     return await self._async_step_appliances_fetched()
 
         if user_input is not None:
-            self._region = user_input[CONF_REGION]
+            self._region = user_input[CONF_REGION].upper()
             self._legacy_code_verifier = legacy_generate_code_verifier()
             self._legacy_state = legacy_generate_state()
             return await self.async_step_legacy_oauth_paste()
@@ -700,18 +699,6 @@ class HCOptionsFlowHandler(OptionsFlow):
         # Do not assign to self.config_entry - it's a read-only property in HA.
         self._config_entry = config_entry
 
-    async def _notify_and_close(self, message: str) -> ConfigFlowResult:
-        await self.hass.services.async_call(
-            "persistent_notification",
-            "create",
-            {
-                "title": "Home Connect Local export",
-                "message": message,
-                "notification_id": f"homeconnect_ws_export_{self._config_entry.entry_id}",
-            },
-        )
-        return self.async_create_entry(title="", data=self._config_entry.options)
-
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Confirm, then write the Full profile ZIP to the config directory."""
         if user_input is None:
@@ -732,9 +719,11 @@ class HCOptionsFlowHandler(OptionsFlow):
         try:
             await self.hass.async_add_executor_job(_write)
         except OSError as err:
-            return await self._notify_and_close(f"Could not write export file: {err}")
-        return await self._notify_and_close(
-            f"Wrote `{filename}` to your config directory, under"
-            f" `homeconnect_ws_export/`. Retrieve it via Samba, SSH, or the File"
-            f" Editor add-on."
+            return self.async_abort(
+                reason="export_failed", description_placeholders={"error": str(err)}
+            )
+        # Ends the flow with the result shown in the dialog (options.abort in the
+        # translations); there are no options to save.
+        return self.async_abort(
+            reason="export_written", description_placeholders={"filename": filename}
         )

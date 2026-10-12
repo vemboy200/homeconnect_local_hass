@@ -13,7 +13,7 @@ from home_disconnect.entities import Program
 from home_disconnect.message import Action, Message
 from homeassistant.components.button import DOMAIN as BUTTON_DOMAIN
 from homeassistant.components.button import SERVICE_PRESS
-from homeassistant.const import ATTR_ENTITY_ID, ATTR_FRIENDLY_NAME
+from homeassistant.const import ATTR_ENTITY_ID, ATTR_FRIENDLY_NAME, STATE_UNAVAILABLE
 from homeassistant.exceptions import HomeAssistantError
 
 from . import setup_config_entry
@@ -394,3 +394,45 @@ async def test_press_writes_value_from_press_value_fn(
             data={"uid": 201, "value": "2026-09-24T10:36:09"},
         )
     )
+
+
+async def test_read_only_button_is_unavailable(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    A button whose Setting the appliance locks read-only goes unavailable.
+
+    Unlike a locked switch or select there is no value to keep showing, so a
+    read-only button (e.g. the clock button while "Synchronize time with
+    server" is on) is unavailable rather than pressable-then-error, and
+    carries no readonly attribute. The Start button keeps its own rules.
+    """
+    descriptions = {
+        **ENTITY_DESCRIPTIONS,
+        "button": [
+            HCButtonEntityDescription(
+                key="Test.Switch",
+                name="ValueButton",
+                entity="Test.Switch",
+                press_value_fn=lambda: "2026-09-24T10:36:09",
+            )
+        ],
+    }
+    for module in (entity_descriptions, homeconnect_ws):
+        monkeypatch.setattr(module, "get_available_entities", Mock(return_value=descriptions))
+    entity_id = "button.fake_brand_homeappliance_valuebutton"
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+
+    state = hass.states.get(entity_id)
+    assert state.state != STATE_UNAVAILABLE
+    assert "readonly" not in state.attributes
+
+    await mock_appliance.entities["Test.Switch"].update({"access": "read"})
+    await hass.async_block_till_done()
+    assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
+
+    await mock_appliance.entities["Test.Switch"].update({"access": "readWrite"})
+    await hass.async_block_till_done()
+    assert hass.states.get(entity_id).state != STATE_UNAVAILABLE

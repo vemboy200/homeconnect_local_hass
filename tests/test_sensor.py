@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from custom_components.homeconnect_ws import HCData
+from custom_components.homeconnect_ws.entity import HCEntity
 from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitions import (
     HCSensorEntityDescription,
 )
@@ -24,7 +26,6 @@ from . import setup_config_entry
 from .const import MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
-    import pytest
     from home_disconnect.testutils import MockAppliance
     from homeassistant.core import HomeAssistant
 
@@ -288,6 +289,34 @@ async def test_ipv6_address_update_missing_interface() -> None:
 
     assert entity.native_value is None
     assert entity.extra_state_attributes == {}
+
+
+@pytest.mark.parametrize(
+    ("entity_class", "key"),
+    [(HCWiFI, "sensor_wifi_signal_strength"), (HCIPv4Address, "sensor_ipv4_address")],
+)
+async def test_network_info_first_poll_does_not_block_setup(
+    entity_class: type[HCWiFI | HCIPv4Address], key: str
+) -> None:
+    """The first /ni/info poll is scheduled, not awaited, so a slow appliance can't stall setup."""
+    appliance = MagicMock()
+    appliance.info = {"deviceID": "test_device_id"}
+    coordinator = MagicMock()
+    coordinator.async_get_network_info = AsyncMock(side_effect=AssertionError("awaited"))
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=coordinator,
+    )
+    entity = entity_class(HCSensorEntityDescription(key=key), runtime_data)
+    entity.async_schedule_update_ha_state = MagicMock()
+
+    with patch.object(HCEntity, "async_added_to_hass", AsyncMock()):
+        await entity.async_added_to_hass()
+
+    entity.async_schedule_update_ha_state.assert_called_once_with(force_refresh=True)
+    coordinator.async_get_network_info.assert_not_awaited()
 
 
 async def test_native_value_cleared_when_expected_offline() -> None:

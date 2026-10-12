@@ -8,7 +8,7 @@ from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.number import NumberDeviceClass, NumberMode
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.components.switch import SwitchDeviceClass
-from homeassistant.const import UnitOfVolume
+from homeassistant.const import EntityCategory, UnitOfVolume
 
 from .descriptions_definitions import (
     HCBinarySensorEntityDescription,
@@ -24,11 +24,67 @@ if TYPE_CHECKING:
 CONSUMER_PRODUCTS_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
     "binary_sensor": [
         HCBinarySensorEntityDescription(
+            key="binary_sensor_coffee_brewing_unit_missing",
+            entity="ConsumerProducts.CoffeeMaker.Event.BrewingUnitIsMissing",
+            device_class=BinarySensorDeviceClass.PROBLEM,
+            value_on={"Present", "Confirmed"},
+            value_off={"Off"},
+        ),
+        HCBinarySensorEntityDescription(
+            key="binary_sensor_coffee_outlet_missing",
+            entity="ConsumerProducts.CoffeeMaker.Event.CoffeeOutletMissing",
+            device_class=BinarySensorDeviceClass.PROBLEM,
+            value_on={"Present", "Confirmed"},
+            value_off={"Off"},
+        ),
+        HCBinarySensorEntityDescription(
+            key="binary_sensor_coffee_close_door",
+            entity="ConsumerProducts.CoffeeMaker.Event.CloseDoor",
+            device_class=BinarySensorDeviceClass.DOOR,
+            value_on={"Present", "Confirmed"},
+            value_off={"Off"},
+        ),
+        HCBinarySensorEntityDescription(
             key="binary_sensor_bean_container_empty",
             entity="ConsumerProducts.CoffeeMaker.Event.BeanContainerEmpty",
             device_class=BinarySensorDeviceClass.PROBLEM,
             value_on={"Present"},
             value_off={"Off", "Confirmed"},
+        ),
+        HCBinarySensorEntityDescription(
+            key="binary_sensor_coffee_cleaning_due",
+            entity="ConsumerProducts.CoffeeMaker.Event.DeviceShouldBeCleaned",
+            device_class=BinarySensorDeviceClass.PROBLEM,
+            value_on={"Present", "Confirmed"},
+            value_off={"Off"},
+        ),
+        HCBinarySensorEntityDescription(
+            key="binary_sensor_coffee_calc_n_clean_due",
+            entity="ConsumerProducts.CoffeeMaker.Event.DeviceShouldBeCalcNCleaned",
+            device_class=BinarySensorDeviceClass.PROBLEM,
+            value_on={"Present", "Confirmed"},
+            value_off={"Off"},
+        ),
+        HCBinarySensorEntityDescription(
+            key="binary_sensor_coffee_clean_brewing_unit",
+            entity="ConsumerProducts.CoffeeMaker.Event.CleanBrewingUnit",
+            device_class=BinarySensorDeviceClass.PROBLEM,
+            value_on={"Present", "Confirmed"},
+            value_off={"Off"},
+        ),
+        HCBinarySensorEntityDescription(
+            key="binary_sensor_coffee_milk_reminder",
+            entity="ConsumerProducts.CoffeeMaker.Event.MilkReminder",
+            device_class=BinarySensorDeviceClass.PROBLEM,
+            value_on={"Present", "Confirmed"},
+            value_off={"Off"},
+        ),
+        HCBinarySensorEntityDescription(
+            key="binary_sensor_coffee_water_filter_change",
+            entity="ConsumerProducts.CoffeeMaker.Event.WaterFilterShouldBeChanged",
+            device_class=BinarySensorDeviceClass.PROBLEM,
+            value_on={"Present", "Confirmed"},
+            value_off={"Off"},
         ),
     ],
     "event_sensor": [
@@ -50,6 +106,47 @@ CONSUMER_PRODUCTS_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             ],
             device_class=SensorDeviceClass.ENUM,
             options=["full", "not_inserted", "ok"],
+        ),
+        HCSensorEntityDescription(
+            key="sensor_coffee_descaling",
+            entities=[
+                "ConsumerProducts.CoffeeMaker.Event.DeviceDescalingBlockage",
+                "ConsumerProducts.CoffeeMaker.Event.DeviceDescalingOverdue",
+                "ConsumerProducts.CoffeeMaker.Event.DeviceShouldBeDescaled",
+            ],
+            device_class=SensorDeviceClass.ENUM,
+            options=["blocked", "overdue", "due", "ok"],
+        ),
+        HCSensorEntityDescription(
+            key="sensor_coffee_care_program_step",
+            entities=[
+                "ConsumerProducts.CoffeeMaker.Event.EmptyDripTray",
+                "ConsumerProducts.CoffeeMaker.Event.EmptyDripTrayRemoveContainer",
+                "ConsumerProducts.CoffeeMaker.Event.ThrowCleaningDiscInTheDrawer",
+                "ConsumerProducts.CoffeeMaker.Event.FillDescaler",
+                "ConsumerProducts.CoffeeMaker.Event.EmptyMilkTank",
+                "ConsumerProducts.CoffeeMaker.Event.PlaceEmptyGlassUnderOutlet",
+                "ConsumerProducts.CoffeeMaker.Event.PlaceContainerUnderOutlet",
+                "ConsumerProducts.CoffeeMaker.Event.CleanMilkTank",
+                "ConsumerProducts.CoffeeMaker.Event.CleanFillWaterTank",
+                "ConsumerProducts.CoffeeMaker.Event.RemoveContainerUnderOutlet",
+                "ConsumerProducts.CoffeeMaker.Event.ServiceProgramFinished",
+            ],
+            device_class=SensorDeviceClass.ENUM,
+            options=[
+                "empty_drip_tray",
+                "empty_drip_tray_remove_container",
+                "insert_cleaning_tablet",
+                "fill_descaler",
+                "empty_milk_container",
+                "place_empty_glass",
+                "place_container",
+                "clean_milk_container",
+                "rinse_and_fill_water_tank",
+                "remove_container",
+                "finished",
+                "none",
+            ],
         ),
     ],
     "select": [
@@ -125,6 +222,52 @@ CONSUMER_PRODUCTS_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             device_class=SensorDeviceClass.ENUM,
             has_state_translation=True,
         ),
+        HCSelectEntityDescription(
+            key="select_coffee_switch_off_after",
+            entity="ConsumerProducts.CoffeeMaker.Setting.SwitchOffAfter",
+            entity_category=EntityCategory.CONFIG,
+            has_state_translation=True,
+        ),
+        HCSelectEntityDescription(
+            key="select_coffee_water_hardness",
+            entity="ConsumerProducts.CoffeeMaker.Setting.WaterHardness",
+            entity_category=EntityCategory.CONFIG,
+            has_state_translation=True,
+        ),
+        HCSelectEntityDescription(
+            key="select_coffee_user_mode",
+            entity="ConsumerProducts.CoffeeMaker.Setting.UserMode",
+            entity_category=EntityCategory.CONFIG,
+            has_state_translation=True,
+        ),
+        HCSelectEntityDescription(
+            key="select_coffee_milk_order",
+            entity="ConsumerProducts.CoffeeMaker.Setting.CoffeeMilkOrder",
+            entity_category=EntityCategory.CONFIG,
+            entity_registry_enabled_default=False,
+            has_state_translation=True,
+        ),
+        HCSelectEntityDescription(
+            key="select_coffee_macchiato_pause",
+            entity="ConsumerProducts.CoffeeMaker.Setting.MacchiatoPause",
+            entity_category=EntityCategory.CONFIG,
+            entity_registry_enabled_default=False,
+            has_state_translation=True,
+        ),
+        HCSelectEntityDescription(
+            key="select_coffee_milk_reminder",
+            entity="ConsumerProducts.CoffeeMaker.Setting.RemindForMilkAfter",
+            entity_category=EntityCategory.CONFIG,
+            entity_registry_enabled_default=False,
+            has_state_translation=True,
+        ),
+        HCSelectEntityDescription(
+            key="select_coffee_default_bean_container",
+            entity="ConsumerProducts.CoffeeMaker.Setting.DefaultBeanContainerSelection",
+            entity_category=EntityCategory.CONFIG,
+            entity_registry_enabled_default=False,
+            has_state_translation=True,
+        ),
     ],
     "switch": [
         HCSwitchEntityDescription(
@@ -137,6 +280,13 @@ CONSUMER_PRODUCTS_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity="ConsumerProducts.CoffeeMaker.Setting.CupWarmer",
             device_class=SwitchDeviceClass.SWITCH,
         ),
+        HCSwitchEntityDescription(
+            key="switch_coffee_leave_profiles_automatically",
+            entity="ConsumerProducts.CoffeeMaker.Setting.LeaveProfilesAutomatically",
+            device_class=SwitchDeviceClass.SWITCH,
+            entity_category=EntityCategory.CONFIG,
+            entity_registry_enabled_default=False,
+        ),
     ],
     "number": [
         HCNumberEntityDescription(
@@ -145,7 +295,14 @@ CONSUMER_PRODUCTS_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             device_class=NumberDeviceClass.VOLUME,
             native_unit_of_measurement=UnitOfVolume.MILLILITERS,
             mode=NumberMode.BOX,
-        )
+        ),
+        HCNumberEntityDescription(
+            key="number_coffee_display_brightness",
+            entity="ConsumerProducts.CoffeeMaker.Setting.BrightnessDisplay",
+            entity_category=EntityCategory.CONFIG,
+            entity_registry_enabled_default=False,
+            mode=NumberMode.AUTO,
+        ),
     ],
     "sensor": [
         HCSensorEntityDescription(

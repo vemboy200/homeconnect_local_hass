@@ -336,7 +336,7 @@ async def test_reconfigure_profile_via_sign_in(
         result["flow_id"], {"next_step_id": "legacy_oauth_region"}
     )
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], user_input={"region": "EU"}
+        result["flow_id"], user_input={"region": "eu"}
     )
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "legacy_oauth_paste"
@@ -515,7 +515,7 @@ async def test_reconfigure_profile_sign_in_unexpected_error(
         result["flow_id"], {"next_step_id": "legacy_oauth_region"}
     )
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], user_input={"region": "EU"}
+        result["flow_id"], user_input={"region": "eu"}
     )
     state = parse_qs(urlparse(result["description_placeholders"]["authorize_url"]).query)["state"][
         0

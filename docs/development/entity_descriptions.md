@@ -73,7 +73,7 @@ No HC-specific extra fields — use HA's own inherited `NumberEntityDescription`
 ## Button, Event Sensor, and other types
 
 - **Button** (`HCButtonEntityDescription`): `press_value_fn` — a callable returning the value to write when the button is pressed. Without it the button writes `True` to its `Command`, which is what a command-backed button needs. A button backed by a `Setting` sets this instead, and it is evaluated on press, so the value can depend on the current state (the clock button sends the current time this way).
-- **Event Sensor**: turns multiple HC events into a single sensor. Required fields: `entities` (list of event entities, evaluated top to bottom until one is set) and `options` (list of display values, one more than the number of `entities` — the last option is the fallback when none are set).
+- **Event Sensor**: turns multiple HC events into a single sensor. Required fields: `entities` (list of event entities, evaluated top to bottom until one is set) and `options` (list of display values, one more than the number of `entities` — the last option is the fallback when none are set). The sensor is created as soon as the appliance has at least one of the events; events it doesn't have are left out together with their option, and the fallback always stays.
 
 ## Development Options
 

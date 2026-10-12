@@ -261,6 +261,44 @@ async def test_update_program_from_active_program(
     assert state.state == "test_program_program2"
 
 
+async def test_program_options_follow_program_availability(
+    hass: HomeAssistant,
+    mock_appliance: MockAppliance,
+    patch_entity_description: None,
+) -> None:
+    """
+    The program select only offers programs the appliance flags available.
+
+    Each program carries its own available flag, in the device description
+    and live via /ro/descriptionChange (a Siemens EQ.9 CoffeeMaker ships its
+    three rinsing modes as available="false"). The current program stays
+    listed even when unavailable, so the select never shows a value outside
+    its own options.
+    """
+    entity_id = "select.fake_brand_homeappliance_selectedprogram"
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await mock_appliance.entities["Test.SelectedProgram"].update({"value": 500})
+    await hass.async_block_till_done()
+    assert "test_program_program2" in hass.states.get(entity_id).attributes[ATTR_OPTIONS]
+
+    await mock_appliance.programs["Test.Program.Program2"].update({"available": False})
+    await hass.async_block_till_done()
+    options = hass.states.get(entity_id).attributes[ATTR_OPTIONS]
+    assert "test_program_program2" not in options
+    assert "test_program_program1" in options
+
+    # Unavailable but currently selected: still listed.
+    await mock_appliance.programs["Test.Program.Program1"].update({"available": False})
+    await hass.async_block_till_done()
+    state = hass.states.get(entity_id)
+    assert state.state == "test_program_program1"
+    assert "test_program_program1" in state.attributes[ATTR_OPTIONS]
+
+    await mock_appliance.programs["Test.Program.Program2"].update({"available": True})
+    await hass.async_block_till_done()
+    assert "test_program_program2" in hass.states.get(entity_id).attributes[ATTR_OPTIONS]
+
+
 async def test_start_only_program_available_with_read_only_selected_program(
     hass: HomeAssistant,
     mock_appliance: MockAppliance,

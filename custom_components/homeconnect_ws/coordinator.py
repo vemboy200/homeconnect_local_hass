@@ -44,11 +44,13 @@ _LOGGER = logging.getLogger(__name__)
 
 # A sustained "Can't connect" failure has more than one real cause (a stale/
 # wrong encryption key, a genuinely offline appliance, or a stuck local API
-# needing a power cycle - see the README's "websocket shutdown" section) -
-# not something a single log line can diagnose, so point at the doc instead
-# of guessing which one it is.
+# needing a power cycle - see the troubleshooting doc's "websocket shutdown"
+# section) - not something a single log line can diagnose, so point at the doc
+# instead of guessing which one it is. The docs are on the default branch
+# (beta), and a test checks the page and heading still exist.
 TROUBLESHOOTING_URL = (
-    "https://github.com/vemboy200/homeconnect_local_hass"
+    "https://github.com/vemboy200/homeconnect_local_hass/blob/beta"
+    "/docs/integration/support-and-troubleshooting.md"
     "#home-assistant-cannot-connect-to-my-appliance-what-should-i-do"
 )
 
@@ -268,10 +270,6 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
 
             await self.appliance.close()
 
-        msg = f"Can't connect to {self.config_entry.data[CONF_HOST]}"
-        if last_err is not None:
-            msg += f" ({type(last_err).__name__}: {last_err})"
-        msg += f" - see {TROUBLESHOOTING_URL} if this doesn't resolve on its own"
         # UpdateFailed, not ConfigEntryNotReady: HA's own
         # async_config_entry_first_refresh() already converts a failed setup
         # into ConfigEntryNotReady for us. Raising ConfigEntryNotReady
@@ -285,7 +283,17 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
         # issue #30 (an oven unreachable for an extended period produced
         # dozens of these). UpdateFailed is handled quietly and still ends
         # up as ConfigEntryNotReady with this as __cause__.
-        raise UpdateFailed(msg) from last_err
+        raise UpdateFailed(
+            translation_domain=DOMAIN,
+            translation_key=(
+                "setup_cannot_connect" if last_err is None else "setup_cannot_connect_error"
+            ),
+            translation_placeholders={
+                "host": self.config_entry.data[CONF_HOST],
+                "error": f"{type(last_err).__name__}: {last_err}",
+                "url": TROUBLESHOOTING_URL,
+            },
+        ) from last_err
 
     async def _connect(self) -> None:
         self.logger.debug(

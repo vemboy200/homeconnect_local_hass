@@ -49,7 +49,8 @@ class HCSwitch(HCEntity, SwitchEntity):
             and self._runtime_data.coordinator.expected_offline
         ):
             return False
-        if self._entity is None:
+        if self._entity is None or self._entity.value is None:
+            # No entity, or not reported by the appliance yet - "unknown", not "off".
             return None
         if self._value_mapping:
             if self._value_mapping[0] == self._entity.value:

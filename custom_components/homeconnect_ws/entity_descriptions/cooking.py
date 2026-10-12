@@ -25,6 +25,7 @@ from .descriptions_definitions import (
     HCSensorEntityDescription,
     HCSwitchEntityDescription,
     _EntityDescriptionsDefinitionsType,
+    keep_known_events,
 )
 
 if TYPE_CHECKING:
@@ -65,14 +66,39 @@ def _meatprobe_entity(
     return None
 
 
+# The fields a cavity reports only so the Home Connect app can draw the
+# appliance front - nothing to show or control on their own.
+_CAVITY_LAYOUT_FIELDS = frozenset({"CavityType", "State", "LengthX", "LengthY", "Position"})
+
+
+def _is_layout_only_cavity(appliance: HomeAppliance, cavity: str) -> bool:
+    """
+    Whether a cavity reports nothing but its layout fields.
+
+    A Thermador PRG486WDH range's non-smart 18" oven (cavity 120) is one: it
+    reports State NotSelectable plus the layout fields, while the smart 30"
+    oven (cavity 340) carries everything else.
+    """
+    prefix = f"Cooking.Oven.Status.Cavity.{cavity}."
+    return all(
+        name.removeprefix(prefix) in _CAVITY_LAYOUT_FIELDS
+        for name in appliance.entities
+        if name.startswith(prefix)
+    )
+
+
 def generate_oven_status(appliance: HomeAppliance) -> EntityDescriptions:
     """Get Oven status descriptions."""
     pattern = re.compile(r"^Cooking\.Oven\.Status\.Cavity\.(\d+)\..*$")
     groups = get_groups_from_regex(appliance, pattern)
+    # Only cavities with something to show need telling apart - a layout-only
+    # cavity creates no entities, so it mustn't add a "340" suffix to the
+    # names of the one real cavity.
+    real_cavities = [group for group in groups if not _is_layout_only_cavity(appliance, group[0])]
     descriptions = EntityDescriptions(event_sensor=[], sensor=[], binary_sensor=[])
     for group in groups:
         group_name = f" {int(group[0])}"
-        if len(groups) == 1:
+        if len(real_cavities) <= 1:
             group_name = ""
 
         # Water Tank
@@ -80,17 +106,19 @@ def generate_oven_status(appliance: HomeAppliance) -> EntityDescriptions:
             f"Cooking.Oven.Status.Cavity.{group[0]}.WaterTankUnplugged",
             f"Cooking.Oven.Status.Cavity.{group[0]}.WaterTankEmpty",
         ]
-        if all(entity in appliance.entities for entity in entities):
-            descriptions["event_sensor"].append(
-                HCSensorEntityDescription(
-                    key=f"sensor_oven_water_tank_{group[0]}",
-                    translation_key="sensor_oven_water_tank_group",
-                    translation_placeholders={"group_name": group_name},
-                    entities=entities,
-                    device_class=SensorDeviceClass.ENUM,
-                    options=["unplugged", "empty", "ok"],
-                )
-            )
+        water_tank = keep_known_events(
+            HCSensorEntityDescription(
+                key=f"sensor_oven_water_tank_{group[0]}",
+                translation_key="sensor_oven_water_tank_group",
+                translation_placeholders={"group_name": group_name},
+                entities=entities,
+                device_class=SensorDeviceClass.ENUM,
+                options=["unplugged", "empty", "ok"],
+            ),
+            appliance.entities,
+        )
+        if water_tank is not None:
+            descriptions["event_sensor"].append(water_tank)
 
         # Temperature (Celsius or Fahrenheit depending on appliance locale)
         cavity_base = f"Cooking.Oven.Status.Cavity.{group[0]}."

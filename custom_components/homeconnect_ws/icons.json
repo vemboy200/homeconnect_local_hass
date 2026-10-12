@@ -59,6 +59,9 @@
             "switch_cup_warmer": {
                 "default": "mdi:heat-wave"
             },
+            "switch_coffee_leave_profiles_automatically": {
+                "default": "mdi:account-arrow-right"
+            },
             "switch_allow_backend_connection": {
                 "default": "mdi:cloud"
             },
@@ -143,6 +146,21 @@
                 }
             },
             "binary_sensor_bean_container_empty": {},
+            "binary_sensor_coffee_cleaning_due": {
+                "default": "mdi:spray-bottle"
+            },
+            "binary_sensor_coffee_calc_n_clean_due": {
+                "default": "mdi:water-sync"
+            },
+            "binary_sensor_coffee_clean_brewing_unit": {
+                "default": "mdi:coffee-maker-outline"
+            },
+            "binary_sensor_coffee_milk_reminder": {
+                "default": "mdi:fridge-alert-outline"
+            },
+            "binary_sensor_coffee_water_filter_change": {
+                "default": "mdi:filter-outline"
+            },
             "binary_remote_start_allowed": {
                 "state": {
                     "on": "mdi:remote",
@@ -259,7 +277,14 @@
                     "on": "mdi:thermometer-probe",
                     "off": "mdi:thermometer-probe-off"
                 }
-            }
+            },
+            "binary_sensor_coffee_brewing_unit_missing": {
+                "default": "mdi:puzzle-remove-outline"
+            },
+            "binary_sensor_coffee_outlet_missing": {
+                "default": "mdi:coffee-off-outline"
+            },
+            "binary_sensor_coffee_close_door": {}
         },
         "sensor": {
             "sensor_laundry_load_recommendation": {
@@ -317,6 +342,22 @@
                     "ok": "mdi:tray",
                     "not_inserted": "mdi:tray-remove",
                     "full": "mdi:tray-alert"
+                }
+            },
+            "sensor_coffee_descaling": {
+                "default": "mdi:water-check",
+                "state": {
+                    "blocked": "mdi:alert-octagon-outline",
+                    "overdue": "mdi:water-alert",
+                    "due": "mdi:water-alert",
+                    "ok": "mdi:water-check"
+                }
+            },
+            "sensor_coffee_care_program_step": {
+                "default": "mdi:hand-back-right-outline",
+                "state": {
+                    "none": "mdi:list-status",
+                    "finished": "mdi:check-circle-outline"
                 }
             },
             "sensor_start_in": {},
@@ -414,6 +455,12 @@
             }
         },
         "select": {
+            "select_delay_start": {
+                "default": "mdi:timer-play-outline",
+                "state": {
+                    "no_delay": "mdi:play-outline"
+                }
+            },
             "select_drying_assistant_all_programs": {},
             "select_hot_water": {
                 "default": "mdi:water-thermometer-outline"
@@ -438,6 +485,27 @@
             },
             "select_cups": {
                 "default": "mdi:coffee"
+            },
+            "select_coffee_switch_off_after": {
+                "default": "mdi:timer-off-outline"
+            },
+            "select_coffee_water_hardness": {
+                "default": "mdi:water-circle"
+            },
+            "select_coffee_user_mode": {
+                "default": "mdi:account-cog"
+            },
+            "select_coffee_milk_order": {
+                "default": "mdi:swap-vertical"
+            },
+            "select_coffee_macchiato_pause": {
+                "default": "mdi:timer-pause-outline"
+            },
+            "select_coffee_milk_reminder": {
+                "default": "mdi:bell-ring-outline"
+            },
+            "select_coffee_default_bean_container": {
+                "default": "mdi:seed"
             },
             "select_remote_control_level": {
                 "default": "mdi:remote",
@@ -555,6 +623,9 @@
         },
         "number": {
             "number_fill_quantity": {},
+            "number_coffee_display_brightness": {
+                "default": "mdi:brightness-6"
+            },
             "number_idos1_base_level": {
                 "default": "mdi:tune"
             },

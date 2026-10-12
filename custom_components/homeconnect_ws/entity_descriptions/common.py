@@ -24,6 +24,8 @@ from homeassistant.const import (
 )
 from homeassistant.util import dt as dt_util
 
+from custom_components.homeconnect_ws.helpers import DELAY_START_OPTIONS, delay_start_entity
+
 from .descriptions_definitions import (
     EntityDescriptions,
     HCBinarySensorEntityDescription,
@@ -104,6 +106,26 @@ def generate_start_button(appliance: HomeAppliance) -> HCButtonEntityDescription
             entities=["BSH.Common.Root.SelectedProgram"],
         )
     return None
+
+
+def generate_delay_start(appliance: HomeAppliance) -> HCSelectEntityDescription | None:
+    """
+    Get the "Delay start" select description.
+
+    Offered whenever the appliance has StartInRelative or FinishInRelative.
+    Its value lives in HA, not on the appliance: some appliances accept the
+    delay only as an option of the program start (#146), so the Start button
+    applies it then.
+    """
+    entity = delay_start_entity(appliance)
+    if entity is None:
+        return None
+    return HCSelectEntityDescription(
+        key="select_delay_start",
+        translation_key="select_delay_start",
+        entity=entity.name,
+        options=DELAY_START_OPTIONS,
+    )
 
 
 def generate_power_switch(appliance: HomeAppliance) -> EntityDescriptions:
@@ -574,6 +596,7 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
         generate_door_state,
     ],
     "start_button": [generate_start_button],
+    "delay_start": [generate_delay_start],
     "switch": [
         HCSwitchEntityDescription(
             key="switch_child_lock",

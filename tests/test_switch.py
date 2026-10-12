@@ -42,7 +42,8 @@ async def test_setup(
 
     state = hass.states.get("switch.fake_brand_homeappliance_switch")
     assert state
-    assert state.state == STATE_OFF
+    # No value reported yet: unknown, not off.
+    assert state.state == STATE_UNKNOWN
     assert state.name == "Fake_brand HomeAppliance Switch"
     assert state.attributes[ATTR_FRIENDLY_NAME] == "Fake_brand HomeAppliance Switch"
 
@@ -75,6 +76,13 @@ async def test_update(
     state = hass.states.get(entity_id)
     assert state
     assert state.state == STATE_ON
+
+    await mock_appliance.entities["Test.Switch"].update({"value": None})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state
+    assert state.state == STATE_UNKNOWN
 
 
 async def test_update_enum(

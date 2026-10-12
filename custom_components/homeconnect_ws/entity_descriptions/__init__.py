@@ -23,6 +23,7 @@ from .descriptions_definitions import (
     HCUpdateEntityDescription,
     _EntityDescriptionsDefinitionsType,
     _EntityDescriptionsType,
+    keep_known_events,
 )
 from .dishcare import DISHCARE_ENTITY_DESCRIPTIONS
 from .laundry_care import LAUNDRY_ENTITY_DESCRIPTIONS
@@ -74,6 +75,20 @@ def _resolve_description(
     return cast("HCEntityDescription", dynamic_result)
 
 
+def _available_description(
+    description_type: str, description: HCEntityDescription, appliance_entities: set[str]
+) -> HCEntityDescription | None:
+    """Return the description if this appliance can back it, else None."""
+    if description_type == "event_sensor":
+        return keep_known_events(cast("HCSensorEntityDescription", description), appliance_entities)
+    subscribed: set[str] = set()
+    if description.entity:
+        subscribed.add(description.entity)
+    if description.entities:
+        subscribed.update(description.entities)
+    return description if appliance_entities.issuperset(subscribed) else None
+
+
 def get_available_entities(appliance: HomeAppliance) -> _EntityDescriptionsType:
     """Get all available Entity descriptions."""
     available_entities: _EntityDescriptionsType = {
@@ -86,6 +101,7 @@ def get_available_entities(appliance: HomeAppliance) -> _EntityDescriptionsType:
         "select": [],
         "sensor": [],
         "start_button": [],
+        "delay_start": [],
         "switch": [],
         "wifi": [],
         "ipv4": [],
@@ -113,13 +129,11 @@ def get_available_entities(appliance: HomeAppliance) -> _EntityDescriptionsType:
             resolved_description = _resolve_description(description, appliance)
             if resolved_description is None:
                 continue
-            all_subscribed_entities: set[str] = set()
-            if resolved_description.entity:
-                all_subscribed_entities.add(resolved_description.entity)
-            if resolved_description.entities:
-                all_subscribed_entities.update(resolved_description.entities)
-            if appliance_entities.issuperset(all_subscribed_entities):
-                available_entities[description_type].append(resolved_description)
+            available_description = _available_description(
+                description_type, resolved_description, appliance_entities
+            )
+            if available_description is not None:
+                available_entities[description_type].append(available_description)
     return available_entities
 
 

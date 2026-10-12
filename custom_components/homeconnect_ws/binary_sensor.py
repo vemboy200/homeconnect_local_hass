@@ -63,6 +63,9 @@ class HCBinarySensor(HCEntity, BinarySensorEntity):
             ):
                 return False
             return None
+        if self._entity.value is None:
+            # Not reported by the appliance yet - "unknown", not "off".
+            return None
         return bool(self._entity.value)
 
 

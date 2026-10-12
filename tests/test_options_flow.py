@@ -50,25 +50,19 @@ async def test_options_flow_writes_full_profile_zip_after_confirmation(
     mock_appliance: MockAppliance,
     patch_entity_description: None,
 ) -> None:
-    """Submitting the confirmation form writes the Full profile ZIP and notifies."""
+    """Submitting the confirmation form writes the Full profile ZIP and says where."""
     assert await setup_config_entry(hass, {**MOCK_CONFIG_DATA, CONF_MODE: "AES"})
     entry = hass.config_entries.async_entries("homeconnect_ws")[0]
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    with patch(
-        "homeassistant.core.ServiceRegistry.async_call", new_callable=AsyncMock
-    ) as mock_call:
-        result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
 
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    mock_call.assert_awaited_once()
-    call_args = mock_call.call_args
-    assert call_args.args[0] == "persistent_notification"
-    assert call_args.args[1] == "create"
-    message = call_args.args[2]["message"]
-    assert "fake_brand_Fake_vib_profile_full.zip" in message
-    assert "homeconnect_ws_export" in message
-    assert "/api/" not in message
+    # The result is shown in the dialog, from options.abort in the translations.
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "export_written"
+    assert result["description_placeholders"] == {
+        "filename": "fake_brand_Fake_vib_profile_full.zip"
+    }
 
     written = Path(
         hass.config.path("homeconnect_ws_export", "fake_brand_Fake_vib_profile_full.zip")
@@ -82,18 +76,14 @@ async def test_options_flow_notifies_on_write_failure(
     mock_appliance: MockAppliance,
     patch_entity_description: None,
 ) -> None:
-    """An OSError while writing the export file is reported in the notification, not raised."""
+    """An OSError while writing the export file is reported in the dialog, not raised."""
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
     entry = hass.config_entries.async_entries("homeconnect_ws")[0]
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    with (
-        patch("pathlib.Path.mkdir", side_effect=OSError("disk full")),
-        patch("homeassistant.core.ServiceRegistry.async_call", new_callable=AsyncMock) as mock_call,
-    ):
+    with patch("pathlib.Path.mkdir", side_effect=OSError("disk full")):
         result = await hass.config_entries.options.async_configure(result["flow_id"], {})
 
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    message = mock_call.call_args.args[2]["message"]
-    assert "Could not write export file" in message
-    assert "disk full" in message
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "export_failed"
+    assert result["description_placeholders"] == {"error": "disk full"}

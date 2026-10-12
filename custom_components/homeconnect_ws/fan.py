@@ -214,8 +214,9 @@ class HCFan(HCEntity, FanEntity):
     def _venting_program(self) -> Program:
         default_program = self.entity_description.default_program
         if default_program is None:
-            msg = "Hood fan is missing default_program"
-            raise ServiceValidationError(msg)
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="fan_no_default_program"
+            )
         if self._runtime_data.appliance.active_program is not None:
             return self._runtime_data.appliance.active_program
         return self._runtime_data.appliance.programs[default_program]

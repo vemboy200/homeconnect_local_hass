@@ -25,7 +25,9 @@ async def test_setup(
 
     state = hass.states.get("binary_sensor.fake_brand_homeappliance_binarysensor")
     assert state
-    assert state.state == STATE_OFF
+    # No value reported yet: unknown, not off (a sim's never-set
+    # RemoteControlStartAllowed showed as "off" while Start still went through).
+    assert state.state == STATE_UNKNOWN
     assert state.name == "Fake_brand HomeAppliance BinarySensor"
     assert state.attributes[ATTR_FRIENDLY_NAME] == "Fake_brand HomeAppliance BinarySensor"
 
@@ -56,6 +58,12 @@ async def test_update(
 
     state = hass.states.get(entity_id)
     assert state.state == STATE_OFF
+
+    await mock_appliance.entities["Test.BinarySensor"].update({"value": None})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == STATE_UNKNOWN
 
 
 async def test_connection_sensor_clean_disconnect_attribute(
