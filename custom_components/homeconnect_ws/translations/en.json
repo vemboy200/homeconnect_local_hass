@@ -4331,6 +4331,9 @@
       },
       "button_refrigerator_open_door": {
         "name": "Open door"
+      },
+      "button_open_door": {
+        "name": "Open door"
       }
     },
     "number": {
