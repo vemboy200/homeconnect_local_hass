@@ -31,3 +31,4 @@ ported:
 excluded:
   278: Remaining program time as a timestamp sensor (declined)
   460: Version 2 config entry setup fixes (upstream's setup path, which the fork doesn't use)
+  530: "fix: keep controls available during transient read-only access (closed upstream on 2026-10-17)"
