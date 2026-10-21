@@ -1816,7 +1816,24 @@
           "cooking_oven_program_dish_subsequentcooking": "Subsequent Cooking",
           "dishcare_dishwasher_program_intensivesuper": "IntensiveSuper",
           "dishcare_dishwasher_program_shorthygiene": "ShortHygiene",
-          "dishcare_dishwasher_program_quickp": "QuickP"
+          "dishcare_dishwasher_program_quickp": "QuickP",
+          "cooking_oven_program_cleaning_cleaningprogram": "Cleaning: Cleaning Programme",
+          "cooking_oven_program_heatingmode_doughproving": "Dough Proving",
+          "cooking_oven_program_heatingmode_fullgrill01steam": "Full Surface Grill Setting 1 + Humidity",
+          "cooking_oven_program_heatingmode_fullgrill02steam": "Full Surface Grill Setting 2 + Humidity",
+          "cooking_oven_program_heatingmode_hotair100steam": "Hot Air + 100% Humidity",
+          "cooking_oven_program_heatingmode_hotair30steam": "Hot Air + 30% Humidity",
+          "cooking_oven_program_heatingmode_hotair60steam": "Hot Air + 60% Humidity",
+          "cooking_oven_program_heatingmode_hotair80steam": "Hot Air + 80% Humidity",
+          "cooking_oven_program_heatingmode_hotairbottomheat": "Hot Air + Bottom Heat",
+          "cooking_oven_program_heatingmode_hotairthirdbottomheat": "Hot Air + 1/3 Bottom Heat",
+          "cooking_oven_program_heatingmode_regenerating": "Reheating",
+          "cooking_oven_program_heatingmode_roaster": "Roaster Function",
+          "cooking_oven_program_heatingmode_slowcooksteam": "Low-Temperature Cooking",
+          "cooking_oven_program_heatingmode_thirdtopbottomheat": "1/3 Top + Bottom Heat",
+          "cooking_oven_program_heatingmode_topheat": "Top Heat",
+          "cooking_oven_program_heatingmode_topthirdbottomheat": "Top + 1/3 Bottom Heat",
+          "cooking_oven_program_heatingmode_vaccumcooking": "Sous-Vide Cooking"
         }
       },
       "sensor_rinse_aid": {
@@ -3434,7 +3451,24 @@
           "cooking_oven_program_dish_subsequentcooking": "Subsequent Cooking",
           "dishcare_dishwasher_program_intensivesuper": "IntensiveSuper",
           "dishcare_dishwasher_program_shorthygiene": "ShortHygiene",
-          "dishcare_dishwasher_program_quickp": "QuickP"
+          "dishcare_dishwasher_program_quickp": "QuickP",
+          "cooking_oven_program_cleaning_cleaningprogram": "Cleaning: Cleaning Programme",
+          "cooking_oven_program_heatingmode_doughproving": "Dough Proving",
+          "cooking_oven_program_heatingmode_fullgrill01steam": "Full Surface Grill Setting 1 + Humidity",
+          "cooking_oven_program_heatingmode_fullgrill02steam": "Full Surface Grill Setting 2 + Humidity",
+          "cooking_oven_program_heatingmode_hotair100steam": "Hot Air + 100% Humidity",
+          "cooking_oven_program_heatingmode_hotair30steam": "Hot Air + 30% Humidity",
+          "cooking_oven_program_heatingmode_hotair60steam": "Hot Air + 60% Humidity",
+          "cooking_oven_program_heatingmode_hotair80steam": "Hot Air + 80% Humidity",
+          "cooking_oven_program_heatingmode_hotairbottomheat": "Hot Air + Bottom Heat",
+          "cooking_oven_program_heatingmode_hotairthirdbottomheat": "Hot Air + 1/3 Bottom Heat",
+          "cooking_oven_program_heatingmode_regenerating": "Reheating",
+          "cooking_oven_program_heatingmode_roaster": "Roaster Function",
+          "cooking_oven_program_heatingmode_slowcooksteam": "Low-Temperature Cooking",
+          "cooking_oven_program_heatingmode_thirdtopbottomheat": "1/3 Top + Bottom Heat",
+          "cooking_oven_program_heatingmode_topheat": "Top Heat",
+          "cooking_oven_program_heatingmode_topthirdbottomheat": "Top + 1/3 Bottom Heat",
+          "cooking_oven_program_heatingmode_vaccumcooking": "Sous-Vide Cooking"
         }
       },
       "select_sensitivity_turbidity": {
