@@ -78,6 +78,12 @@ Some entites are excluded from this integration on purpose, even though the Home
   - Updated when a program ends, and kept when Home Assistant reconnects to the appliance
 - Condensate container alert (dryer)
   - Alerts when the condensate/water container needs emptying
+- Drying finished and cool-down phase (dryer)
+  - On when the drying ends, and while the dryer cools the laundry down
+- Cleaning and refill reminders (dryer)
+  - Clean the lint filter, the self-cleaning module or the EasyClean filter, and refill the refresher container
+- Evaporator frozen (dryer)
+  - A problem sensor, disabled by default like the other problem sensors
 
 ## Oven
 

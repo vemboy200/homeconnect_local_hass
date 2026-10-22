@@ -321,6 +321,31 @@
       "binary_sensor_maintenance_reminder": {
         "name": "Ciclo di cura raccomandato"
       },
+      "binary_sensor_drying_process_finished": {
+        "name": "Asciugatura terminata"
+      },
+      "binary_sensor_cool_down_phase_running": {
+        "name": "Fase di raffreddamento"
+      },
+      "binary_sensor_refresher_container_empty": {
+        "name": "Contenitore refresher",
+        "state": {
+          "on": "Vuoto",
+          "off": "OK"
+        }
+      },
+      "binary_sensor_clean_lint_filter": {
+        "name": "Pulire il filtro lanugine"
+      },
+      "binary_sensor_clean_self_cleaning_module": {
+        "name": "Pulire il modulo autopulente"
+      },
+      "binary_sensor_easyclean_filter_reminder": {
+        "name": "Pulire il filtro EasyClean"
+      },
+      "binary_sensor_evaporator_frozen": {
+        "name": "Evaporatore ghiacciato"
+      },
       "binary_sensor_supply_voltage_too_low": {
         "name": "Tensione di alimentazione bassa"
       },
@@ -412,6 +437,7 @@
           "door_not_unlockable": "Porta non sbloccabile",
           "draining_not_possible": "Drenaggio non possibile",
           "drain_pump_blocked": "Pompa di drenaggio bloccata",
+          "evaporator_frozen": "Evaporatore ghiacciato",
           "fatal_error_occurred": "Errore generale",
           "idos_open_tray": "Cassetto detersivo aperto",
           "idos_unit_defect": "Difetto unità i-DOS",

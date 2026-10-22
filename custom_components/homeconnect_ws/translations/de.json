@@ -416,6 +416,31 @@
       "binary_sensor_maintenance_reminder": {
         "name": "Maschinenwartungsprogramm empfohlen"
       },
+      "binary_sensor_drying_process_finished": {
+        "name": "Trocknen beendet"
+      },
+      "binary_sensor_cool_down_phase_running": {
+        "name": "Abkühlphase"
+      },
+      "binary_sensor_refresher_container_empty": {
+        "name": "Refresher-Behälter",
+        "state": {
+          "on": "Leer",
+          "off": "OK"
+        }
+      },
+      "binary_sensor_clean_lint_filter": {
+        "name": "Flusensieb reinigen"
+      },
+      "binary_sensor_clean_self_cleaning_module": {
+        "name": "Selbstreinigungsmodul reinigen"
+      },
+      "binary_sensor_easyclean_filter_reminder": {
+        "name": "EasyClean-Filter reinigen"
+      },
+      "binary_sensor_evaporator_frozen": {
+        "name": "Verdampfer vereist"
+      },
       "binary_sensor_program_aborted": {
         "name": "Programm abgebrochen"
       },
@@ -698,6 +723,7 @@
           "door_not_unlockable": "Tür nicht entriegelbar",
           "draining_not_possible": "Abpumpen nicht möglich",
           "drain_pump_blocked": "Ablaufpumpe blockiert",
+          "evaporator_frozen": "Verdampfer vereist",
           "fatal_error_occurred": "Schwerwiegender Fehler",
           "flexspray_error_blocked": "FlexSpray blockiert",
           "flexspray_error_general": "FlexSpray Fehler",

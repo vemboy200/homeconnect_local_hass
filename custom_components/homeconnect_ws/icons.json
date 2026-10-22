@@ -350,7 +350,28 @@
             "binary_sensor_coffee_outlet_missing": {
                 "default": "mdi:coffee-off-outline"
             },
-            "binary_sensor_coffee_close_door": {}
+            "binary_sensor_coffee_close_door": {},
+            "binary_sensor_drying_process_finished": {
+                "default": "mdi:tumble-dryer"
+            },
+            "binary_sensor_cool_down_phase_running": {
+                "default": "mdi:snowflake-thermometer"
+            },
+            "binary_sensor_refresher_container_empty": {
+                "default": "mdi:spray-bottle"
+            },
+            "binary_sensor_clean_lint_filter": {
+                "default": "mdi:air-filter"
+            },
+            "binary_sensor_clean_self_cleaning_module": {
+                "default": "mdi:broom"
+            },
+            "binary_sensor_easyclean_filter_reminder": {
+                "default": "mdi:filter-variant"
+            },
+            "binary_sensor_evaporator_frozen": {
+                "default": "mdi:snowflake-alert"
+            }
         },
         "sensor": {
             "sensor_stopwatch_time": {

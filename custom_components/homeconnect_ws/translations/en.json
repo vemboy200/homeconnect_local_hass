@@ -408,6 +408,31 @@
       "binary_sensor_maintenance_reminder": {
         "name": "Care Cycle Recommended"
       },
+      "binary_sensor_drying_process_finished": {
+        "name": "Drying finished"
+      },
+      "binary_sensor_cool_down_phase_running": {
+        "name": "Cool-down phase"
+      },
+      "binary_sensor_refresher_container_empty": {
+        "name": "Refresher container",
+        "state": {
+          "on": "Empty",
+          "off": "OK"
+        }
+      },
+      "binary_sensor_clean_lint_filter": {
+        "name": "Clean lint filter"
+      },
+      "binary_sensor_clean_self_cleaning_module": {
+        "name": "Clean self-cleaning module"
+      },
+      "binary_sensor_easyclean_filter_reminder": {
+        "name": "Clean EasyClean filter"
+      },
+      "binary_sensor_evaporator_frozen": {
+        "name": "Evaporator frozen"
+      },
       "binary_sensor_machinecarereminder": {
         "name": "Machine Care",
         "state": {
@@ -694,6 +719,7 @@
           "door_not_unlockable": "Door can't be unlocked",
           "draining_not_possible": "Draining not possible",
           "drain_pump_blocked": "Drain pump blocked",
+          "evaporator_frozen": "Evaporator frozen",
           "fatal_error_occurred": "Fatal error",
           "flexspray_error_blocked": "FlexSpray blocked",
           "flexspray_error_general": "FlexSpray error",
