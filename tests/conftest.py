@@ -13,6 +13,7 @@ from custom_components import homeconnect_ws
 from custom_components.homeconnect_ws import coordinator, entity_descriptions
 from custom_components.homeconnect_ws.const import DOMAIN
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.syrupy import HomeAssistantSnapshotExtension
 
 from . import MockApplianceFactory, appliance_class, make_appliance
 
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from home_disconnect import Appliance
+    from syrupy.assertion import SnapshotAssertion
 
 from .const import (
     DEVICE_DESCRIPTION,
@@ -129,6 +131,12 @@ def mock_homeconnect_appliance() -> MockApplianceFactory:
         return make_appliance(description or {}, **kwargs)
 
     return go
+
+
+@pytest.fixture
+def snapshot(snapshot: SnapshotAssertion) -> SnapshotAssertion:
+    """Return snapshot assertion fixture with the Home Assistant extension, as core's does."""
+    return snapshot.use_extension(HomeAssistantSnapshotExtension)
 
 
 @pytest.fixture
