@@ -206,3 +206,10 @@ def answer_network_info(appliance: Appliance, interfaces: list[dict[str, Any]]) 
         return await respond(message)
 
     appliance.session.request.side_effect = _respond
+
+
+async def drop_connection(appliance: Appliance, close_code: int) -> None:
+    """End the appliance's connection with this WebSocket close code, as the library reports it."""
+    appliance.session.connected = False
+    appliance.session.close_code = close_code
+    await appliance._set_state(ConnectionState.DISCONNECTED)

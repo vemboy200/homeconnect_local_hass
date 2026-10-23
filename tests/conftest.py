@@ -40,6 +40,8 @@ from .const import (
     MOCK_TLS_DEVICE_INFO,
     MOCK_TLS_FEATURE_MAPPING_XML,
     MOCK_TLS_PAYLOAD,
+    WASHER_CONFIG_DATA,
+    WASHER_DESCRIPTION,
 )
 
 
@@ -161,11 +163,20 @@ def mock_config_entry() -> MockConfigEntry:
 
 
 @pytest.fixture
-def mock_dishwasher(monkeypatch: pytest.MonkeyPatch) -> Appliance:
+def dishwasher_description(request: pytest.FixtureRequest) -> dict[str, Any]:
+    """Return the dishwasher's description; parametrize indirectly to change it."""
+    return getattr(request, "param", deepcopy(DISHWASHER_DESCRIPTION))
+
+
+@pytest.fixture
+def mock_dishwasher(
+    monkeypatch: pytest.MonkeyPatch, dishwasher_description: dict[str, Any]
+) -> Appliance:
     """Mock the coordinator's Appliance as a dishwasher in the middle of a program."""
-    appliance = make_appliance(DISHWASHER_DESCRIPTION)
+    appliance = make_appliance(dishwasher_description)
     appliance.entities.apply(
         [
+            {"uid": 539, "value": 2},  # PowerState: On
             {"uid": 552, "value": 3},  # OperationState: Run
             {"uid": 4096, "value": 2},  # ProgramPhase: MainWash
             {"uid": 4626, "value": 1},  # SaltNearlyEmpty: Present
@@ -174,6 +185,34 @@ def mock_dishwasher(monkeypatch: pytest.MonkeyPatch) -> Appliance:
             {"uid": 561, "value": 60},  # EnergyForecast
             {"uid": 562, "value": 50},  # WaterForecast
             {"uid": 256, "value": 8193},  # ActiveProgram: Eco50
+        ]
+    )
+    monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))
+    return appliance
+
+
+@pytest.fixture
+def washer_config_entry() -> MockConfigEntry:
+    """Return the washer's config entry, not set up yet."""
+    return MockConfigEntry(
+        domain=DOMAIN,
+        data=deepcopy(WASHER_CONFIG_DATA),
+        unique_id=WASHER_CONFIG_DATA["device_id"],
+    )
+
+
+@pytest.fixture
+def mock_washer(monkeypatch: pytest.MonkeyPatch) -> Appliance:
+    """Mock the coordinator's Appliance as a washer in the middle of a program."""
+    appliance = make_appliance(WASHER_DESCRIPTION)
+    appliance.entities.apply(
+        [
+            {"uid": 539, "value": 2},  # PowerState: On
+            {"uid": 552, "value": 3},  # OperationState: Run
+            {"uid": 528, "value": 2557},  # ElapsedProgramTime
+            {"uid": 542, "value": 84},  # ProgramProgress
+            {"uid": 544, "value": 1800},  # RemainingProgramTime
+            {"uid": 256, "value": 32768},  # ActiveProgram: Cotton
         ]
     )
     monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))

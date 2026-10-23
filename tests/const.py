@@ -649,6 +649,15 @@ DISHWASHER_DESCRIPTION = {
             "access": Access.READ,
         },
     ],
+    "setting": [
+        {
+            "uid": 539,
+            "name": "BSH.Common.Setting.PowerState",
+            "enumeration": {"1": "Off", "2": "On"},
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+    ],
     "event": [
         {
             "uid": uid,
@@ -697,4 +706,71 @@ DISHWASHER_CONFIG_DATA = {
     CONF_DESCRIPTION: DISHWASHER_DESCRIPTION,
     CONF_DEVICE_ID: "Test_Dishwasher_ID",
     CONF_NAME: "Fake_Brand Dishwasher",
+}
+
+WASHER_INFO = {
+    **MOCK_APPLIANCE_INFO,
+    "type": "Washer",
+    "mac": "78-43-F2-23-C8-D9",
+    "serialNumber": "Fake_washer_serialNumber",
+}
+
+# A washer's program sensors (names, UIDs and enums from a Bosch WNC254A0BY, plus the
+# ElapsedProgramTime ovens report)
+WASHER_DESCRIPTION = {
+    "status": [
+        {
+            "uid": 552,
+            "name": "BSH.Common.Status.OperationState",
+            "enumeration": {
+                "0": "Inactive",
+                "1": "Ready",
+                "2": "DelayedStart",
+                "3": "Run",
+                "4": "Pause",
+                "5": "ActionRequired",
+                "6": "Finished",
+                "7": "Error",
+                "8": "Aborting",
+            },
+            "available": True,
+            "access": Access.READ,
+        },
+    ],
+    "setting": [
+        {
+            "uid": 539,
+            "name": "BSH.Common.Setting.PowerState",
+            "enumeration": {"0": "MainsOff", "1": "Off", "2": "On", "3": "Standby"},
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+    ],
+    "option": [
+        {"uid": uid, "name": f"BSH.Common.Option.{name}", "available": True, "access": Access.READ}
+        for uid, name in (
+            (528, "ElapsedProgramTime"),
+            (542, "ProgramProgress"),
+            (544, "RemainingProgramTime"),
+        )
+    ],
+    "program": [{"uid": 32768, "name": "LaundryCare.Washer.Program.Cotton", "available": True}],
+    "selectedProgram": {
+        "uid": 257,
+        "name": "BSH.Common.Root.SelectedProgram",
+        "access": Access.READ_WRITE,
+    },
+    "activeProgram": {
+        "uid": 256,
+        "name": "BSH.Common.Root.ActiveProgram",
+        "access": Access.READ,
+    },
+    "info": WASHER_INFO,
+}
+
+WASHER_CONFIG_DATA = {
+    **MOCK_CONFIG_DATA,
+    CONF_DESCRIPTION: WASHER_DESCRIPTION,
+    CONF_DEVICE_ID: "Test_Washer_ID",
+    CONF_NAME: "Fake_Brand Washer",
 }
