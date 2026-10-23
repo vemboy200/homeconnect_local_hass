@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any
 
 from custom_components.homeconnect_ws.entity_descriptions.cooking import (
     generate_oven_event,
+)
+from custom_components.homeconnect_ws.sensor import (
     generate_oven_temperatures,
     generate_oven_water_tank,
 )

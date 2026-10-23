@@ -7,13 +7,11 @@ from typing import TYPE_CHECKING
 from home_disconnect.keys import EventKey, OptionKey, SettingKey, StatusKey
 from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
 from homeassistant.components.number import NumberDeviceClass, NumberMode
-from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.components.switch.const import SwitchDeviceClass
 from homeassistant.const import (
     PERCENTAGE,
     REVOLUTIONS_PER_MINUTE,
     EntityCategory,
-    UnitOfMass,
     UnitOfTime,
     UnitOfVolume,
 )
@@ -23,7 +21,6 @@ from .descriptions_definitions import (
     HCLightEntityDescription,
     HCNumberEntityDescription,
     HCSelectEntityDescription,
-    HCSensorEntityDescription,
     HCSwitchEntityDescription,
 )
 
@@ -64,71 +61,6 @@ def generate_speed_perfect(appliance: Appliance) -> HCSwitchEntityDescription | 
 
 
 LAUNDRY_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
-    "sensor": [
-        HCSensorEntityDescription(
-            key="sensor_laundry_reload",
-            entity=StatusKey.LAUNDRY_CARE_COMMON_LAUNDRY_RELOAD,
-            device_class=SensorDeviceClass.ENUM,
-            has_state_translation=True,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_laundry_process_phase",
-            entity=OptionKey.LAUNDRY_CARE_COMMON_PROCESS_PHASE,
-            device_class=SensorDeviceClass.ENUM,
-            has_state_translation=True,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_dryer_process_phase",
-            entity=OptionKey.LAUNDRY_CARE_DRYER_PROCESS_PHASE,
-            device_class=SensorDeviceClass.ENUM,
-            has_state_translation=True,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_laundry_load_recommendation",
-            entity=OptionKey.LAUNDRY_CARE_COMMON_LOAD_RECOMMENDATION,
-            device_class=SensorDeviceClass.WEIGHT,
-            native_unit_of_measurement=UnitOfMass.GRAMS,
-            suggested_unit_of_measurement=UnitOfMass.KILOGRAMS,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_laundry_load",
-            entity=StatusKey.LAUNDRY_CARE_WASHER_PROCESSING_DATA_LAUNDRY_LOAD,
-            device_class=SensorDeviceClass.WEIGHT,
-            state_class=SensorStateClass.MEASUREMENT,
-            native_unit_of_measurement=UnitOfMass.GRAMS,
-            suggested_unit_of_measurement=UnitOfMass.KILOGRAMS,
-            # 0 means the load hasn't been measured yet
-            value_fn=lambda value: value or None,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_laundry_detergent_consumed",
-            entity=StatusKey.LAUNDRY_CARE_WASHER_DETERGENT_ALL_CONSUMED,
-            device_class=SensorDeviceClass.VOLUME,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-            native_unit_of_measurement=UnitOfVolume.MILLILITERS,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_laundry_softener_consumed",
-            entity=StatusKey.LAUNDRY_CARE_WASHER_SOFTENER_ALL_CONSUMED,
-            device_class=SensorDeviceClass.VOLUME,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-            native_unit_of_measurement=UnitOfVolume.MILLILITERS,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_laundry_status_idos1_fill_level",
-            entity=StatusKey.LAUNDRY_CARE_WASHER_I_DOS_1_FILL_LEVEL,
-            device_class=SensorDeviceClass.ENUM,
-            has_state_translation=True,
-            entity_registry_enabled_default=False,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_laundry_status_idos2_fill_level",
-            entity=StatusKey.LAUNDRY_CARE_WASHER_I_DOS_2_FILL_LEVEL,
-            device_class=SensorDeviceClass.ENUM,
-            has_state_translation=True,
-            entity_registry_enabled_default=False,
-        ),
-    ],
     "binary_sensor": [
         HCBinarySensorEntityDescription(
             key="binary_sensor_refresher_level",

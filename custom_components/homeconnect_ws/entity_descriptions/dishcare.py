@@ -4,17 +4,12 @@ from __future__ import annotations
 
 from home_disconnect.keys import EventKey, OptionKey, SettingKey, StatusKey
 from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
-from homeassistant.components.sensor import (
-    SensorDeviceClass,
-    SensorStateClass,
-)
 from homeassistant.components.switch.const import SwitchDeviceClass
 from homeassistant.const import EntityCategory
 
 from .descriptions_definitions import (
     HCBinarySensorEntityDescription,
     HCSelectEntityDescription,
-    HCSensorEntityDescription,
     HCSwitchEntityDescription,
     _EntityDescriptionsDefinitionsType,
 )
@@ -129,26 +124,6 @@ DISHCARE_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity_registry_enabled_default=False,
             value_on={"Present", "Confirmed"},
             value_off={"Off"},
-        ),
-    ],
-    "event_sensor": [
-        HCSensorEntityDescription(
-            key="sensor_rinse_aid",
-            entities=[
-                EventKey.DISHCARE_DISHWASHER_RINSE_AID_LACK,
-                EventKey.DISHCARE_DISHWASHER_RINSE_AID_NEARLY_EMPTY,
-            ],
-            device_class=SensorDeviceClass.ENUM,
-            options=["empty", "nearly_empty", "full"],
-        ),
-        HCSensorEntityDescription(
-            key="sensor_salt",
-            entities=[
-                EventKey.DISHCARE_DISHWASHER_SALT_LACK,
-                EventKey.DISHCARE_DISHWASHER_SALT_NEARLY_EMPTY,
-            ],
-            device_class=SensorDeviceClass.ENUM,
-            options=["empty", "nearly_empty", "full"],
         ),
     ],
     "select": [
@@ -281,22 +256,6 @@ DISHCARE_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity_category=EntityCategory.CONFIG,
             entity_registry_enabled_default=False,
             has_state_translation=True,
-        ),
-    ],
-    "sensor": [
-        HCSensorEntityDescription(
-            key="sensor_program_phase",
-            entity=StatusKey.DISHCARE_DISHWASHER_PROGRAM_PHASE,
-            device_class=SensorDeviceClass.ENUM,
-            has_state_translation=True,
-            force_value_when_no_active_program="none",
-        ),
-        HCSensorEntityDescription(
-            key="sensor_machine_care_reminder",
-            entity=StatusKey.DISHCARE_DISHWASHER_MACHINE_CARE_REMINDER_REMAINING_PROGRAM_RUNS,
-            entity_category=EntityCategory.DIAGNOSTIC,
-            # The unit's text is in the translations (unit_of_measurement).
-            state_class=SensorStateClass.MEASUREMENT,
         ),
     ],
     "switch": [

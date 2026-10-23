@@ -72,7 +72,7 @@ As of 2026-10-12, with home-disconnect 2.0.0b3 and Home Connect Local 2.0.0b0 (b
 What's left before Phase 2:
 
 - **A stable home-disconnect 2.0.0** for core to pin. It waits on the Home Connect Local 2.0 betas being tested on real appliances (hoods, washers and dryers, program starts and delays, setup), and on the heartbeat change (home-disconnect #20).
-- **The entity description layout** from [Decisions to make first](#decisions-to-make-first) (descriptions per platform file). Planned for v2.0.0's entity cleanup, not done yet.
+- **The entity description layout** from [Decisions to make first](#decisions-to-make-first) (descriptions per platform file). Every generator builds one platform only (#236), and the sensor platform's descriptions are in `sensor.py`, which is what the initial PR copies. Each other platform moves into its own file just before its core follow-up PR, not before v2.0.0.
 
 ### 1. License the library (blocker)
 

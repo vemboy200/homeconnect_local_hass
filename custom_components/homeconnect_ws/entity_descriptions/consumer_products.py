@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from home_disconnect.keys import EventKey, OptionKey, SettingKey, StatusKey
+from home_disconnect.keys import EventKey, OptionKey, SettingKey
 from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
 from homeassistant.components.number import NumberDeviceClass, NumberMode
-from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.switch.const import SwitchDeviceClass
 from homeassistant.const import EntityCategory, UnitOfVolume
 
@@ -15,7 +15,6 @@ from .descriptions_definitions import (
     HCBinarySensorEntityDescription,
     HCNumberEntityDescription,
     HCSelectEntityDescription,
-    HCSensorEntityDescription,
     HCSwitchEntityDescription,
 )
 
@@ -94,68 +93,6 @@ CONSUMER_PRODUCTS_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             in_problem_sensor=False,
             value_on={"Present", "Confirmed"},
             value_off={"Off"},
-        ),
-    ],
-    "event_sensor": [
-        HCSensorEntityDescription(
-            key="sensor_water_tank",
-            entities=[
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_WATER_TANK_EMPTY,
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_WATER_TANK_NEARLY_EMPTY,
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_WATER_TANK_NOT_INSERTED,
-            ],
-            device_class=SensorDeviceClass.ENUM,
-            options=["empty", "nearly_empty", "not_inserted", "full"],
-        ),
-        HCSensorEntityDescription(
-            key="sensor_drip_tray",
-            entities=[
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_DRIP_TRAY_FULL,
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_DRIP_TRAY_NOT_INSERTED,
-            ],
-            device_class=SensorDeviceClass.ENUM,
-            options=["full", "not_inserted", "ok"],
-        ),
-        HCSensorEntityDescription(
-            key="sensor_coffee_descaling",
-            entities=[
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_DEVICE_DESCALING_BLOCKAGE,
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_DEVICE_DESCALING_OVERDUE,
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_DEVICE_SHOULD_BE_DESCALED,
-            ],
-            device_class=SensorDeviceClass.ENUM,
-            options=["blocked", "overdue", "due", "ok"],
-        ),
-        HCSensorEntityDescription(
-            key="sensor_coffee_care_program_step",
-            entities=[
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_EMPTY_DRIP_TRAY,
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_EMPTY_DRIP_TRAY_REMOVE_CONTAINER,
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_THROW_CLEANING_DISC_IN_THE_DRAWER,
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_FILL_DESCALER,
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_EMPTY_MILK_TANK,
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_PLACE_EMPTY_GLASS_UNDER_OUTLET,
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_PLACE_CONTAINER_UNDER_OUTLET,
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_CLEAN_MILK_TANK,
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_CLEAN_FILL_WATER_TANK,
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_REMOVE_CONTAINER_UNDER_OUTLET,
-                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_SERVICE_PROGRAM_FINISHED,
-            ],
-            device_class=SensorDeviceClass.ENUM,
-            options=[
-                "empty_drip_tray",
-                "empty_drip_tray_remove_container",
-                "insert_cleaning_tablet",
-                "fill_descaler",
-                "empty_milk_container",
-                "place_empty_glass",
-                "place_container",
-                "clean_milk_container",
-                "rinse_and_fill_water_tank",
-                "remove_container",
-                "finished",
-                "none",
-            ],
         ),
     ],
     "select": [
@@ -311,87 +248,6 @@ CONSUMER_PRODUCTS_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity_category=EntityCategory.CONFIG,
             entity_registry_enabled_default=False,
             mode=NumberMode.AUTO,
-        ),
-    ],
-    "sensor": [
-        HCSensorEntityDescription(
-            key="sensor_countdown_calc_n_clean",
-            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTDOWN_CALC_N_CLEAN,
-            entity_registry_enabled_default=False,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_countdown_cleaning",
-            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTDOWN_CLEANING,
-            entity_registry_enabled_default=False,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_countdown_descaling",
-            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTDOWN_DESCALING,
-            entity_registry_enabled_default=False,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_countdown_water_filter",
-            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTDOWN_WATERFILTER,
-            entity_registry_enabled_default=False,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_count_ristretto_espresso",
-            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTER_RISTRETTO_ESPRESSO,
-            entity_registry_enabled_default=False,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_count_coffee",
-            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTER_COFFEE,
-            entity_registry_enabled_default=False,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_count_coffee_milk",
-            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTER_COFFEE_AND_MILK,
-            entity_registry_enabled_default=False,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_count_frothy_milk",
-            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTER_FROTHY_MILK,
-            entity_registry_enabled_default=False,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_count_hot_milk",
-            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTER_HOT_MILK,
-            entity_registry_enabled_default=False,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_count_hot_water",
-            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTER_HOT_WATER,
-            entity_registry_enabled_default=False,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_count_hot_water_cups",
-            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTER_HOT_WATER_CUPS,
-            entity_registry_enabled_default=False,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_count_powder_coffee",
-            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTER_POWDER_COFFEE,
-            entity_registry_enabled_default=False,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_coffeemaker_process_phase",
-            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_PROCESS_PHASE,
-            entity_registry_enabled_default=False,
-            device_class=SensorDeviceClass.ENUM,
-            has_state_translation=True,
         ),
     ],
 }

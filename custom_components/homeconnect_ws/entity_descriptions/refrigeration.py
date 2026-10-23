@@ -8,7 +8,7 @@ from home_disconnect.entities import Access
 from home_disconnect.keys import CommandKey, EventKey, SettingKey, StatusKey
 from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
 from homeassistant.components.number import NumberDeviceClass, NumberMode
-from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.switch.const import SwitchDeviceClass
 from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfTemperature, UnitOfTime
 
@@ -18,7 +18,6 @@ from .descriptions_definitions import (
     HCLightEntityDescription,
     HCNumberEntityDescription,
     HCSelectEntityDescription,
-    HCSensorEntityDescription,
     HCSwitchEntityDescription,
     _EntityDescriptionsDefinitionsType,
 )
@@ -272,28 +271,6 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
         HCButtonEntityDescription(
             key="button_refrigerator_open_door",
             entity=CommandKey.BSH_COMMON_OPEN_DOOR,
-            entity_registry_enabled_default=False,
-        ),
-    ],
-    "sensor": [
-        HCSensorEntityDescription(
-            key="sensor_water_filter_saturation",
-            entity=StatusKey.REFRIGERATION_COMMON_DISPENSER_WATER_FILTER_SATURATION,
-            native_unit_of_measurement=PERCENTAGE,
-            state_class=SensorStateClass.MEASUREMENT,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_temperature_ambient",
-            entity=StatusKey.REFRIGERATION_FRIDGE_FREEZER_TEMPERATURE_AMBIENT,
-            alternate_entities=(StatusKey.REFRIGERATION_COMMON_TEMPERATURE_AMBIENT,),
-            device_class=SensorDeviceClass.TEMPERATURE,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_temperature_memory_freezer",
-            entity=StatusKey.REFRIGERATION_COMMON_FREEZER_MEMORY_TEMPERATURE,
-            device_class=SensorDeviceClass.TEMPERATURE,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
             entity_registry_enabled_default=False,
         ),
     ],
