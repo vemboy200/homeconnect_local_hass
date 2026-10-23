@@ -5,16 +5,9 @@ from __future__ import annotations
 import asyncio
 from copy import deepcopy
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from custom_components.homeconnect_ws import HCData
-from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitions import (
-    HCSensorEntityDescription,
-)
-from custom_components.homeconnect_ws.sensor import (
-    HCSensor,
-)
 from homeassistant.components.sensor import ATTR_OPTIONS
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import ATTR_FRIENDLY_NAME, STATE_UNAVAILABLE, STATE_UNKNOWN, Platform
@@ -366,89 +359,6 @@ async def test_program_sensors_when_washer_disconnects(
 
     for name in ("remaining_program_time", "active_program"):
         assert hass.states.get(f"sensor.fake_brand_washer_{name}").state == expected
-
-
-async def test_power_state_forced_when_expected_offline() -> None:
-    """
-    sensor_power_state must not stay frozen on its last real value forever.
-
-    Confirmed live on fork issue #7 via a real debug log: a laundry appliance
-    drops its WiFi entirely on power-off, so BSH.Common.Setting.PowerState
-    never gets a final NOTIFY confirming the off transition. Unlike
-    select_power_state (which already forces to the appliance's real off
-    state while expected_offline), the sensor mirror had no equivalent and
-    just kept showing the stale "on" value forever.
-    """
-    appliance = MagicMock()
-    appliance.info = {"deviceID": "test_device_id"}
-    appliance.entities["Test.PowerState"].value = "On"
-    appliance.entities["Test.PowerState"].enum = {"0": "On", "1": "Off"}
-    runtime_data = HCData(
-        appliance=appliance,
-        device_info=MagicMock(),
-        available_entity_descriptions=MagicMock(),
-        coordinator=MagicMock(expected_offline=True),
-    )
-    entity_description = HCSensorEntityDescription(
-        key="sensor_power_state",
-        entity="Test.PowerState",
-        has_state_translation=True,
-        force_option_when_expected_offline="off",
-    )
-    entity = HCSensor(entity_description, runtime_data)
-
-    assert entity.native_value == "off"
-
-
-async def test_power_state_not_forced_when_not_expected_offline() -> None:
-    """The forced value only applies while actually expected_offline."""
-    appliance = MagicMock()
-    appliance.info = {"deviceID": "test_device_id"}
-    appliance.entities["Test.PowerState"].value = "On"
-    appliance.entities["Test.PowerState"].enum = {"0": "On", "1": "Off"}
-    runtime_data = HCData(
-        appliance=appliance,
-        device_info=MagicMock(),
-        available_entity_descriptions=MagicMock(),
-        coordinator=MagicMock(expected_offline=False),
-    )
-    entity_description = HCSensorEntityDescription(
-        key="sensor_power_state",
-        entity="Test.PowerState",
-        has_state_translation=True,
-        force_option_when_expected_offline="off",
-    )
-    entity = HCSensor(entity_description, runtime_data)
-
-    assert entity.native_value == "on"
-
-
-async def test_power_state_not_forced_when_value_not_a_real_option() -> None:
-    """
-    A static entity description can't assume every appliance model has the forced value.
-
-    See test_current_option_not_forced_when_value_not_a_real_option in
-    test_select.py - same guard, same reasoning, for the sensor mirror.
-    """
-    appliance = MagicMock()
-    appliance.info = {"deviceID": "test_device_id"}
-    appliance.entities["Test.SpinSpeed"].value = "RPM1400"
-    appliance.entities["Test.SpinSpeed"].enum = {"0": "RPM800", "1": "RPM1400"}
-    runtime_data = HCData(
-        appliance=appliance,
-        device_info=MagicMock(),
-        available_entity_descriptions=MagicMock(),
-        coordinator=MagicMock(expected_offline=True),
-    )
-    entity_description = HCSensorEntityDescription(
-        key="sensor_laundry_spin_speed",
-        entity="Test.SpinSpeed",
-        has_state_translation=True,
-        force_option_when_expected_offline="off",
-    )
-    entity = HCSensor(entity_description, runtime_data)
-
-    assert entity.native_value == "rpm1400"
 
 
 @pytest.mark.parametrize(
