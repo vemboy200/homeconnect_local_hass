@@ -20,15 +20,33 @@ from custom_components.homeconnect_ws.sensor import (
 )
 from home_disconnect.entities import Access
 from homeassistant.components.sensor import ATTR_OPTIONS
-from homeassistant.const import ATTR_FRIENDLY_NAME
+from homeassistant.const import ATTR_FRIENDLY_NAME, Platform
 from homeassistant.helpers.entity import Entity as HAEntity
+from pytest_homeassistant_custom_component.common import snapshot_platform
 
-from . import setup_config_entry, update_entity
+from . import setup_config_entry, setup_integration, update_entity
 from .const import MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
     from home_disconnect import Appliance
     from homeassistant.core import HomeAssistant
+    from homeassistant.helpers import entity_registry as er
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from syrupy.assertion import SnapshotAssertion
+
+
+@pytest.mark.usefixtures("entity_registry_enabled_by_default", "mock_dishwasher")
+async def test_sensors(
+    hass: HomeAssistant,
+    entity_registry: er.EntityRegistry,
+    snapshot: SnapshotAssertion,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """Test the sensor entities of a dishwasher in the middle of a program."""
+    with patch("custom_components.homeconnect_ws.PLATFORMS", [Platform.SENSOR]):
+        await setup_integration(hass, mock_config_entry)
+
+    await snapshot_platform(hass, entity_registry, snapshot, mock_config_entry.entry_id)
 
 
 async def test_setup(

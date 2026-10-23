@@ -607,3 +607,94 @@ MOCK_CONFIG_DATA = {
     CONF_DEVICE_ID: "Test_Device_ID",
     CONF_NAME: "Fake_Brand HomeAppliance",
 }
+
+
+DISHWASHER_INFO = {
+    **MOCK_APPLIANCE_INFO,
+    "type": "Dishwasher",
+    "mac": "78-43-F2-23-C8-D8",
+    "serialNumber": "Fake_dishwasher_serialNumber",
+}
+
+# A dishwasher with every sensor its real profile gets (names, UIDs and enums
+# from a Thermador DWHD660WFP)
+DISHWASHER_DESCRIPTION = {
+    "status": [
+        {
+            "uid": 552,
+            "name": "BSH.Common.Status.OperationState",
+            "enumeration": {
+                "0": "Inactive",
+                "1": "Ready",
+                "2": "DelayedStart",
+                "3": "Run",
+                "5": "ActionRequired",
+                "6": "Finished",
+                "8": "Aborting",
+            },
+            "available": True,
+            "access": Access.READ,
+        },
+        {
+            "uid": 4096,
+            "name": "Dishcare.Dishwasher.Status.ProgramPhase",
+            "enumeration": {
+                "0": "None",
+                "1": "PreRinse",
+                "2": "MainWash",
+                "3": "FinalRinse",
+                "4": "Drying",
+            },
+            "available": True,
+            "access": Access.READ,
+        },
+    ],
+    "event": [
+        {
+            "uid": uid,
+            "name": f"Dishcare.Dishwasher.Event.{name}",
+            "enumeration": {"0": "Off", "1": "Present", "2": "Confirmed"},
+            "available": True,
+            "access": Access.READ,
+        }
+        for uid, name in (
+            (4624, "SaltLack"),
+            (4625, "RinseAidLack"),
+            (4626, "SaltNearlyEmpty"),
+            (4627, "RinseAidNearlyEmpty"),
+        )
+    ],
+    "option": [
+        {"uid": uid, "name": f"BSH.Common.Option.{name}", "available": True, "access": Access.READ}
+        for uid, name in (
+            (542, "ProgramProgress"),
+            (544, "RemainingProgramTime"),
+            (549, "RemainingProgramTimeIsEstimated"),
+            (558, "StartInRelative"),
+            (561, "EnergyForecast"),
+            (562, "WaterForecast"),
+        )
+    ],
+    "program": [
+        {"uid": uid, "name": f"Dishcare.Dishwasher.Program.{name}", "available": True}
+        for uid, name in ((8193, "Eco50"), (8194, "Auto2"), (8195, "Quick45"))
+    ],
+    "selectedProgram": {
+        "uid": 257,
+        "name": "BSH.Common.Root.SelectedProgram",
+        "access": Access.READ_WRITE,
+    },
+    "activeProgram": {
+        "uid": 256,
+        "name": "BSH.Common.Root.ActiveProgram",
+        "access": Access.READ_WRITE,
+    },
+    "info": DISHWASHER_INFO,
+}
+
+DISHWASHER_CONFIG_DATA = {
+    **MOCK_CONFIG_DATA,
+    CONF_DESCRIPTION: DISHWASHER_DESCRIPTION,
+    CONF_DEVICE_ID: "Test_Dishwasher_ID",
+    CONF_NAME: "Fake_Brand Dishwasher",
+}
