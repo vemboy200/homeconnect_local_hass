@@ -161,6 +161,7 @@ The first core PR is as small as core allows: **one platform (`sensor`), the con
 - Every translation file except English: core keeps `strings.json` and translations come from Lokalise. The German requirement in this repository doesn't carry over.
 - Anything written defensively for states the data model already rules out. Reviewers ask "why can this be None?", and if the honest answer is "it can't", the code goes.
 - Extra state attributes on the initial PR's sensors: `Is Estimated` on the remaining program time, `Auto Counting` on the oven's cooking times and `Type` on the hob zones. Core discourages new state attributes, so each one either becomes its own entity or is dropped (see [State attributes](#state-attributes-and-the-readonly-attribute)).
+- Behavior that departs from core's `home_connect`, so the initial PR has nothing that needs arguing (see [Overrides that come later](#overrides-that-come-later)): staying available after a washer's or dryer's clean close (`coordinator.expected_offline`, `clear_on_expected_offline`), and showing elapsed time and progress the appliance flags unavailable (`available_while_program_active`, `available_with_remaining_time`). In the core copy a sensor is unavailable whenever the appliance isn't connected or flags it unavailable.
 - The grouped event sensors (`HCEventSensor`, e.g. the coffee maker's Descaling sensor). They read events the same way the event binary sensors do (see [Event sensors](#event-sensors-present-and-confirmed)), so they come over with the `binary_sensor` PR and that question is explained once.
 
 ### Pre-flight
@@ -313,9 +314,18 @@ The "Delay start" number (v2.0.0, replacing 1.9.0's select from #148 and the Sta
 
 It's one entity per appliance, so there are no longer two controls for one option. The remaining problem for core: **its state lives only in Home Assistant**, not on the appliance, which reviewers usually push back on. The answer is #146: on some appliances the delay can't be stored anywhere else, and its value is always the delay itself, where `FinishInRelative` would be the program's duration plus the delay. A writable "Start in" number was considered (write right away, hold the value only when the appliance refuses), but on `FinishInRelative` appliances the shown value would have to be converted with a duration that changes with the program, and which path an appliance takes would only be known after a failed write.
 
-### Corrections for stale values
+### Program sensors
 
-Some values are overridden because the appliance leaves them stale, for example program phase and progress, which freeze at their last running value once an appliance powers itself off while staying connected (`_no_active_program_and_off` in `sensor.py`). These correct wrong data instead of hiding real data, so they're fine in core. Each one needs a comment naming the appliance it was confirmed on, and a test.
+Program phase, progress, remaining, elapsed and estimated time are only available while the operation state is DelayedStart, Run, Pause or Finished (`program_sensor`), the same rule core's `home_connect` uses for its program sensors (`HomeConnectProgramSensor`). Otherwise the appliance leaves the last value standing (a Bosch dishwasher's phase stuck on "Drying", issue #302). The custom integration used to force the phase to "none" and follow ActiveProgram and PowerState instead; that showed a value the appliance never reported, so it was replaced in v2.0.0.
+
+### Overrides that come later
+
+Each of these departs from core's `home_connect`, so it stays out of the initial PR and comes as its own follow-up PR with its argument:
+
+- **Washers and dryers stay available after a clean close.** They turn their WiFi off when powered off, so they close the connection on purpose (WebSocket code 1000), where a drop is 1006 (fork issue #7). The cloud API can't tell these apart: its `DISCONNECTED` event has no reason. Precedent: ESPHome keeps a deep-sleep device's entities available after an expected disconnect (`has_deep_sleep` and `expected_disconnect` in `esphome/entity.py`), and unavailable after an unexpected one. Program sensors clear on a clean close instead of keeping the last running value.
+- **Power shows "off" after a washer's or dryer's clean close** (`force_off_when_expected_offline`, `force_option_when_expected_offline` on the power select). The clean close is the appliance's own power-off signal, so "off" is inferred from something it did report. Comes with the switch and select platforms.
+- **The spin speed select shows "off" after a clean close.** That isn't the appliance's state, only a display cleanup; decide when the select platform goes in, probably drop it.
+- **Elapsed time and progress shown although the appliance flags them unavailable** while a program runs (a Thermador PRG486WDH oven's elapsed time; a dryer's progress, fork issue #206). The cloud API doesn't have that flag, so cloud users see these values: this is parity.
 
 ## Open questions
 

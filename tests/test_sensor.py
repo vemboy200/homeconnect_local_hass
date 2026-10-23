@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from copy import deepcopy
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
@@ -21,7 +20,7 @@ from . import (
     setup_integration,
     update_entity,
 )
-from .const import DISHWASHER_DESCRIPTION, MOCK_CONFIG_DATA
+from .const import MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
     from home_disconnect import Appliance
@@ -362,66 +361,40 @@ async def test_program_sensors_when_washer_disconnects(
 
 
 @pytest.mark.parametrize(
-    ("active_program", "power_state", "phase", "progress"),
+    ("operation_state", "available"),
     [
-        # Nothing running and off: the phase and progress the appliance stopped updating
-        (None, 1, "none", STATE_UNAVAILABLE),
-        (8193, 1, "mainwash", "40"),
-        (None, 2, "mainwash", "40"),
+        (2, True),  # DelayedStart
+        (3, True),  # Run
+        (6, True),  # Finished
+        (0, False),  # Inactive
+        (1, False),  # Ready
     ],
 )
 @pytest.mark.usefixtures("entity_registry_enabled_by_default")
-async def test_phase_and_progress_when_idle_and_off(
+async def test_program_sensors_follow_operation_state(
     hass: HomeAssistant,
     mock_dishwasher: Appliance,
     mock_config_entry: MockConfigEntry,
-    active_program: int | None,
-    power_state: int,
-    phase: str,
-    progress: str,
+    operation_state: int,
+    *,
+    available: bool,
 ) -> None:
     """
-    Once nothing runs and the dishwasher is off, phase shows none and progress goes unavailable.
+    Program sensors are only available while a program is delayed, running, paused or finished.
 
-    The appliance stops updating them once idle (issue #302), so they follow
-    ActiveProgram and PowerState instead; progress matches Home Connect Cloud.
+    Like core home_connect's program sensors. Otherwise the appliance leaves the
+    last value standing, such as a phase stuck on "Drying" (issue #302).
     """
     await setup_integration(hass, mock_config_entry)
 
-    await update_entity(mock_dishwasher.entities.active_program, {"value": active_program})
     await update_entity(
-        mock_dishwasher.entities["BSH.Common.Setting.PowerState"], {"value": power_state}
+        mock_dishwasher.entities["BSH.Common.Status.OperationState"], {"value": operation_state}
     )
     await hass.async_block_till_done()
 
-    assert hass.states.get("sensor.fake_brand_dishwasher_program_phase").state == phase
-    assert hass.states.get("sensor.fake_brand_dishwasher_program_progress").state == progress
-
-
-_PHASE_WITHOUT_NONE = deepcopy(DISHWASHER_DESCRIPTION)
-_PHASE_WITHOUT_NONE["status"][1]["enumeration"] = {"0": "Idle", "2": "MainWash"}
-
-
-@pytest.mark.parametrize("dishwasher_description", [_PHASE_WITHOUT_NONE], indirect=True)
-async def test_phase_not_forced_to_value_appliance_lacks(
-    hass: HomeAssistant,
-    mock_dishwasher: Appliance,
-    mock_config_entry: MockConfigEntry,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """
-    A phase stays as it is when the appliance has no "None" phase to show.
-
-    Showing a value outside the sensor's options makes Home Assistant reject it.
-    """
-    await setup_integration(hass, mock_config_entry)
-
-    await update_entity(mock_dishwasher.entities.active_program, {"value": None})
-    await update_entity(mock_dishwasher.entities["BSH.Common.Setting.PowerState"], {"value": 1})
-    await hass.async_block_till_done()
-
-    assert hass.states.get("sensor.fake_brand_dishwasher_program_phase").state == "mainwash"
-    assert "not in the list of options" not in caplog.text
+    for name in ("program_phase", "program_progress", "remaining_program_time"):
+        state = hass.states.get(f"sensor.fake_brand_dishwasher_{name}")
+        assert (state.state != STATE_UNAVAILABLE) is available, name
 
 
 async def test_elapsed_time_shown_while_program_runs(

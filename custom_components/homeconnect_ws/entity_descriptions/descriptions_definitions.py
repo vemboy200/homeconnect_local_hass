@@ -96,21 +96,10 @@ class HCSensorEntityDescription(
     available_access: tuple[Access, ...] = (Access.READ, Access.READ_WRITE)
     has_state_translation: bool = False
     mapping: dict[str, str] | None = None
-    # Some appliances stop reporting an Option-based status (phase, progress)
-    # once a program finishes instead of resetting it themselves - it stays
-    # frozen on its last in-progress-looking value even though active_program
-    # has already gone None and the appliance is powered off (confirmed live
-    # on a Bosch dishwasher, issue #302: program_phase stuck on "Drying" at
-    # 0% remaining time for as long as the appliance sat idle and off).
-    # Forces this enum sensor to a specific value in that state instead -
-    # only while both conditions hold, and only to a value this appliance's
-    # own enum actually has (see HCSelectEntityDescription.force_option_when_expected_offline).
-    force_value_when_no_active_program: str | None = None
-    # Same trigger as force_value_when_no_active_program, but for a sensor
-    # with no sensible idle value of its own (e.g. program_progress) - goes
-    # unavailable instead, matching how the Home Connect Cloud app itself
-    # handles progress once there's nothing in progress.
-    unavailable_when_no_active_program: bool = False
+    # Only available while a program is delayed, running, paused or finished, like core
+    # home_connect's program sensors. Otherwise the appliance leaves the last value
+    # standing (a Bosch dishwasher's phase stuck on "Drying", issue #302).
+    program_sensor: bool = False
     # Some appliances flag an Option unavailable while still counting it: a
     # Thermador PRG486WDH oven running a heating mode with no timer set
     # reports ElapsedProgramTime as available=false while its value keeps
