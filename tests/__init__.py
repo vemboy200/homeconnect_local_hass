@@ -194,3 +194,15 @@ async def setup_integration(hass: HomeAssistant, config_entry: MockConfigEntry) 
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
+
+
+def answer_network_info(appliance: Appliance, interfaces: list[dict[str, Any]]) -> None:
+    """Have the appliance answer /ni/info with these interfaces."""
+    respond = appliance.session.request.side_effect
+
+    async def _respond(message: Message) -> Message:
+        if message.resource == "/ni/info":
+            return message.response(interfaces)
+        return await respond(message)
+
+    appliance.session.request.side_effect = _respond

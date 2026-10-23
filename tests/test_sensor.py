@@ -2,33 +2,32 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from custom_components.homeconnect_ws import HCData
-from custom_components.homeconnect_ws.entity import HCEntity
 from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitions import (
     HCSensorEntityDescription,
 )
 from custom_components.homeconnect_ws.sensor import (
     HCActiveProgram,
-    HCIPv4Address,
-    HCIPv6Address,
     HCSensor,
-    HCWiFI,
 )
 from home_disconnect.entities import Access
 from homeassistant.components.sensor import ATTR_OPTIONS
-from homeassistant.const import ATTR_FRIENDLY_NAME, Platform
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import ATTR_FRIENDLY_NAME, STATE_UNKNOWN, Platform
 from homeassistant.helpers.entity import Entity as HAEntity
 from pytest_homeassistant_custom_component.common import snapshot_platform
 
-from . import setup_config_entry, setup_integration, update_entity
+from . import answer_network_info, setup_config_entry, setup_integration, update_entity
 from .const import MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
     from home_disconnect import Appliance
+    from home_disconnect.messages import Message
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers import entity_registry as er
     from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -244,116 +243,88 @@ async def test_update_active_program(
     assert state.state == "Named Favorite"
 
 
-async def test_wifi_update_handles_no_network_info() -> None:
-    """
-    WiFi update must not crash when the coordinator has nothing to give it yet.
-
-    The not-connected/not-yet-fetched case itself is handled by
-    HomeConnectCoordinator.async_get_network_info (see test_coordinator.py) -
-    this only checks that HCWiFI copes with that method returning None, e.g.
-    before the appliance's first handshake completes.
-    """
-    appliance = MagicMock()
-    appliance.info = {"deviceID": "test_device_id"}
-    coordinator = MagicMock()
-    coordinator.async_get_network_info = AsyncMock(return_value=None)
-    runtime_data = HCData(
-        appliance=appliance,
-        device_info=MagicMock(),
-        available_entity_descriptions=MagicMock(),
-        coordinator=coordinator,
-    )
-    entity_description = HCSensorEntityDescription(key="sensor_wifi_signal_strength")
-    entity = HCWiFI(entity_description, runtime_data)
-
-    await entity.async_update()
-
-    assert entity.native_value is None
-
-
-async def test_ipv4_address_update() -> None:
-    """The ipv4 sensor reads ipV4.ipAddress and exposes the rest as attributes."""
-    appliance = MagicMock()
-    appliance.info = {"deviceID": "test_device_id"}
-    coordinator = MagicMock()
-    coordinator.async_get_network_info = AsyncMock(
-        return_value=[
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
+async def test_network_sensors(
+    hass: HomeAssistant,
+    mock_dishwasher: Appliance,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """The WiFi and IP address sensors show what the appliance answers on /ni/info."""
+    answer_network_info(
+        mock_dishwasher,
+        [
             {
+                "interfaceID": 0,
+                "type": "WiFi",
+                "rssi": -58,
                 "ipV4": {
                     "ipAddress": "192.168.1.50",
                     "prefixSize": 24,
                     "gateway": "192.168.1.1",
                     "dnsServer": "192.168.1.1",
-                }
+                },
             }
-        ]
+        ],
     )
-    runtime_data = HCData(
-        appliance=appliance,
-        device_info=MagicMock(),
-        available_entity_descriptions=MagicMock(),
-        coordinator=coordinator,
-    )
-    entity_description = HCSensorEntityDescription(key="sensor_ipv4_address")
-    entity = HCIPv4Address(entity_description, runtime_data)
+    await setup_integration(hass, mock_config_entry)
 
-    await entity.async_update()
-
-    assert entity.native_value == "192.168.1.50"
-    assert entity.extra_state_attributes == {
-        "prefix_size": 24,
-        "gateway": "192.168.1.1",
-        "dns_server": "192.168.1.1",
-    }
+    assert hass.states.get("sensor.fake_brand_dishwasher_wifi_signal_strength").state == "-58"
+    ipv4 = hass.states.get("sensor.fake_brand_dishwasher_ipv4_address")
+    assert ipv4.state == "192.168.1.50"
+    assert ipv4.attributes["prefix_size"] == 24
+    assert ipv4.attributes["gateway"] == "192.168.1.1"
+    assert ipv4.attributes["dns_server"] == "192.168.1.1"
+    # An appliance with no IPv6 address just has no value, not an error
+    ipv6 = hass.states.get("sensor.fake_brand_dishwasher_ipv6_address")
+    assert ipv6.state == STATE_UNKNOWN
+    assert "gateway" not in ipv6.attributes
 
 
-async def test_ipv6_address_update_missing_interface() -> None:
-    """An appliance with no IPv6 address just clears the sensor, not an error."""
-    appliance = MagicMock()
-    appliance.info = {"deviceID": "test_device_id"}
-    coordinator = MagicMock()
-    coordinator.async_get_network_info = AsyncMock(return_value=[{"ipV4": {"ipAddress": "x"}}])
-    runtime_data = HCData(
-        appliance=appliance,
-        device_info=MagicMock(),
-        available_entity_descriptions=MagicMock(),
-        coordinator=coordinator,
-    )
-    entity_description = HCSensorEntityDescription(key="sensor_ipv6_address")
-    entity = HCIPv6Address(entity_description, runtime_data)
-
-    await entity.async_update()
-
-    assert entity.native_value is None
-    assert entity.extra_state_attributes == {}
-
-
-@pytest.mark.parametrize(
-    ("entity_class", "key"),
-    [(HCWiFI, "sensor_wifi_signal_strength"), (HCIPv4Address, "sensor_ipv4_address")],
-)
-async def test_network_info_first_poll_does_not_block_setup(
-    entity_class: type[HCWiFI | HCIPv4Address], key: str
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
+async def test_network_sensors_without_network_service(
+    hass: HomeAssistant,
+    mock_dishwasher: Appliance,
+    mock_config_entry: MockConfigEntry,
 ) -> None:
-    """The first /ni/info poll is scheduled, not awaited, so a slow appliance can't stall setup."""
-    appliance = MagicMock()
-    appliance.info = {"deviceID": "test_device_id"}
-    coordinator = MagicMock()
-    coordinator.async_get_network_info = AsyncMock(side_effect=AssertionError("awaited"))
-    runtime_data = HCData(
-        appliance=appliance,
-        device_info=MagicMock(),
-        available_entity_descriptions=MagicMock(),
-        coordinator=coordinator,
-    )
-    entity = entity_class(HCSensorEntityDescription(key=key), runtime_data)
-    entity.async_schedule_update_ha_state = MagicMock()
+    """An appliance without the /ni service gets network sensors without a value."""
+    del mock_dishwasher.session.service_versions["ni"]
+    await setup_integration(hass, mock_config_entry)
 
-    with patch.object(HCEntity, "async_added_to_hass", AsyncMock()):
-        await entity.async_added_to_hass()
+    assert mock_config_entry.state is ConfigEntryState.LOADED
+    for name in ("wifi_signal_strength", "ipv4_address", "ipv6_address"):
+        assert hass.states.get(f"sensor.fake_brand_dishwasher_{name}").state == STATE_UNKNOWN
 
-    entity.async_schedule_update_ha_state.assert_called_once_with(force_refresh=True)
-    coordinator.async_get_network_info.assert_not_awaited()
+
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
+async def test_network_info_does_not_block_setup(
+    hass: HomeAssistant,
+    mock_dishwasher: Appliance,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """A slow /ni/info answer doesn't hold up setup; the sensors fill in once it comes."""
+    answered = asyncio.Event()
+    respond = mock_dishwasher.session.request.side_effect
+
+    async def _slow_network_info(message: Message) -> Message:
+        if message.resource == "/ni/info":
+            await answered.wait()
+            return message.response([{"interfaceID": 0, "type": "WiFi", "rssi": -58}])
+        return await respond(message)
+
+    mock_dishwasher.session.request.side_effect = _slow_network_info
+    mock_config_entry.add_to_hass(hass)
+    # Not async_block_till_done(): that would wait for the unanswered request too
+    async with asyncio.timeout(5):
+        assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+
+    assert mock_config_entry.state is ConfigEntryState.LOADED
+    entity_id = "sensor.fake_brand_dishwasher_wifi_signal_strength"
+    assert hass.states.get(entity_id).state == STATE_UNKNOWN
+
+    answered.set()
+    await hass.async_block_till_done()
+
+    assert hass.states.get(entity_id).state == "-58"
 
 
 async def test_native_value_cleared_when_expected_offline() -> None:
