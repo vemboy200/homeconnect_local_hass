@@ -95,9 +95,6 @@ class HCSensorEntityDescription(
 
     available_access: tuple[Access, ...] = (Access.READ, Access.READ_WRITE)
     has_state_translation: bool = False
-    # See HCSelectEntityDescription.force_option_when_expected_offline - same
-    # race, but for a read-only enum sensor instead of the select.
-    force_option_when_expected_offline: str | None = None
     mapping: dict[str, str] | None = None
     # Some appliances stop reporting an Option-based status (phase, progress)
     # once a program finishes instead of resetting it themselves - it stays
@@ -107,7 +104,7 @@ class HCSensorEntityDescription(
     # 0% remaining time for as long as the appliance sat idle and off).
     # Forces this enum sensor to a specific value in that state instead -
     # only while both conditions hold, and only to a value this appliance's
-    # own enum actually has (see force_option_when_expected_offline above).
+    # own enum actually has (see HCSelectEntityDescription.force_option_when_expected_offline).
     force_value_when_no_active_program: str | None = None
     # Same trigger as force_value_when_no_active_program, but for a sensor
     # with no sensible idle value of its own (e.g. program_progress) - goes
