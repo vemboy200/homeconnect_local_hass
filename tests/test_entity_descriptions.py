@@ -25,9 +25,7 @@ from custom_components.homeconnect_ws.entity_descriptions import (
 )
 from custom_components.homeconnect_ws.entity_descriptions.common import (
     COMMON_ENTITY_DESCRIPTIONS,
-    generate_active_program,
     generate_door_binary_sensor,
-    generate_door_sensor,
     generate_power_select,
     generate_power_switch,
     generate_program,
@@ -45,6 +43,10 @@ from custom_components.homeconnect_ws.entity_descriptions.refrigeration import (
 )
 from custom_components.homeconnect_ws.helpers import merge_dicts
 from custom_components.homeconnect_ws.select import HCSelect
+from custom_components.homeconnect_ws.sensor import (
+    generate_active_program,
+    generate_door_sensor,
+)
 from home_disconnect import Access, Execution
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.switch import SwitchDeviceClass

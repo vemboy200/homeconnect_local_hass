@@ -8,7 +8,7 @@ from unittest.mock import Mock
 
 from custom_components import homeconnect_ws
 from custom_components.homeconnect_ws import coordinator, entity_descriptions
-from custom_components.homeconnect_ws.entity_descriptions.common import (
+from custom_components.homeconnect_ws.sensor import (
     ENERGY_CONSUMED_LAST,
     PROGRAM_SESSION_SUMMARY,
     WATER_CONSUMED_LAST,

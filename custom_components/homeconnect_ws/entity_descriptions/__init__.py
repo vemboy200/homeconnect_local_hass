@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, cast
 from homeassistant.const import UnitOfTemperature
 
 from custom_components.homeconnect_ws.helpers import merge_dicts
+from custom_components.homeconnect_ws.sensor import SENSOR_ENTITY_DESCRIPTIONS
 
 from .common import COMMON_ENTITY_DESCRIPTIONS
 from .consumer_products import CONSUMER_PRODUCTS_ENTITY_DESCRIPTIONS
@@ -56,6 +57,7 @@ def get_all_entity_description() -> _EntityDescriptionsDefinitionsType:
             DISHCARE_ENTITY_DESCRIPTIONS,
             LAUNDRY_ENTITY_DESCRIPTIONS,
             REFRIGERATION_ENTITY_DESCRIPTIONS,
+            SENSOR_ENTITY_DESCRIPTIONS,
         )
     return ALL_ENTITY_DESCRIPTIONS
 

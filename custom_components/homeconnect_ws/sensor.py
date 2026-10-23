@@ -7,33 +7,45 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from home_disconnect.entities import Access, Program
-from home_disconnect.keys import OptionKey, RootKey, SettingKey
+from home_disconnect.keys import EventKey, OptionKey, RootKey, SettingKey, StatusKey
 from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.const import (
+    PERCENTAGE,
+    SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+    EntityCategory,
+    UnitOfEnergy,
+    UnitOfMass,
+    UnitOfTemperature,
+    UnitOfTime,
+    UnitOfVolume,
+)
 
 from .entity import HCEntity
+from .entity_descriptions.common import POWER_OFF_STATE_NAMES, door_state_count, program_names
+from .entity_descriptions.cooking import oven_status_cavities
 from .entity_descriptions.descriptions_definitions import (
     HCBinarySensorEntityDescription,
     HCSensorEntityDescription,
+    _EntityDescriptionsDefinitionsType,
+    keep_known_events,
 )
 from .helpers import binary_is_on, create_entities, entity_is_available
 
 _LOGGER = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from home_disconnect import Appliance
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.typing import StateType
 
     from . import HCConfigEntry, HCData
 
 PARALLEL_UPDATES = 0
 
-# Mirrors entity_descriptions.common.POWER_OFF_STATE_NAMES - kept local rather
-# than shared since this is the only place outside fan.py that needs it, and
-# importing across the entity_descriptions/helpers boundary here risks a
-# circular import (entity_descriptions already imports from helpers).
-_POWER_OFF_STATE_NAMES = ("Off", "MainsOff")
 _POWER_STATE_ENTITY = SettingKey.BSH_COMMON_POWER_STATE
 _ACTIVE_PROGRAM_ENTITY = RootKey.BSH_COMMON_ACTIVE_PROGRAM
 _REMAINING_PROGRAM_TIME_ENTITY = OptionKey.BSH_COMMON_REMAINING_PROGRAM_TIME
@@ -54,7 +66,7 @@ def _no_active_program_and_off(appliance: Appliance) -> bool:
     if appliance.active_program is not None:
         return False
     power_state = appliance.entities.get(_POWER_STATE_ENTITY)
-    return power_state is not None and power_state.value in _POWER_OFF_STATE_NAMES
+    return power_state is not None and power_state.value in POWER_OFF_STATE_NAMES
 
 
 # HCWiFI and the ipv4/ipv6 address sensors are the only should_poll entities in
@@ -76,6 +88,875 @@ _WIFI_STRENGTH_ICONS = (
     (80, "mdi:wifi-strength-2"),
     (90, "mdi:wifi-strength-1"),
 )
+
+
+# Entity descriptions
+
+
+def generate_door_sensor(appliance: Appliance) -> HCSensorEntityDescription | None:
+    """Get the Door sensor description, for a door with more than two states."""
+    count = door_state_count(appliance)
+    if count is None or count <= 2:
+        return None
+    return HCSensorEntityDescription(
+        key="sensor_door_state",
+        entity=StatusKey.BSH_COMMON_DOOR_STATE,
+        device_class=SensorDeviceClass.ENUM,
+        has_state_translation=True,
+    )
+
+
+def generate_active_program(appliance: Appliance) -> HCSensorEntityDescription | None:
+    """Get the Active program sensor description."""
+    if not (programs := program_names(appliance)):
+        return None
+    return HCSensorEntityDescription(
+        key="sensor_active_program",
+        entity=RootKey.BSH_COMMON_ACTIVE_PROGRAM,
+        device_class=SensorDeviceClass.ENUM,
+        has_state_translation=False,
+        mapping=programs,
+        clear_on_expected_offline=True,
+    )
+
+
+PROGRAM_SESSION_SUMMARY = StatusKey.BSH_COMMON_PROGRAM_SESSION_SUMMARY_LATEST
+
+
+ENERGY_CONSUMED_LAST = StatusKey.BSH_COMMON_PROGRAM_LAST_ENERGY_CONSUMED
+
+
+WATER_CONSUMED_LAST = StatusKey.BSH_COMMON_PROGRAM_LAST_WATER_CONSUMED
+
+
+def session_summary_detail(appliance: Appliance, uid: int) -> object:
+    """Get a value from the details of the latest Program Session Summary."""
+    summary = appliance.entities.get(PROGRAM_SESSION_SUMMARY)
+    if summary is None or not isinstance(summary.value, dict):
+        return None
+    for run in reversed(summary.value.get("sequence", [])):
+        for detail in run.get("details", []):
+            if detail.get("uid") == uid:
+                return detail.get("value")
+    return None
+
+
+def last_program_value(appliance: Appliance, name: str) -> float | None:
+    """
+    Get the value of a Program.Last status.
+
+    Falls back to the latest Program Session Summary: a Bosch WGH24400IT
+    washer leaves the Program.Last statuses empty after reconnecting, while
+    the summary still lists them.
+    """
+    status = appliance.entities[name]
+    value = status.value
+    if value is None:
+        value = session_summary_detail(appliance, status.uid)
+    return value if isinstance(value, int | float) else None
+
+
+def generate_last_program_consumption(appliance: Appliance) -> list[HCSensorEntityDescription]:
+    """
+    Get the energy and water consumption of the last program.
+
+    When the appliance has a Program Session Summary, the sensors follow it
+    instead of the Program.Last status, so they still get a value while the
+    status is empty, and they listen to the status too.
+    """
+    descriptions: list[HCSensorEntityDescription] = []
+    summary = PROGRAM_SESSION_SUMMARY if PROGRAM_SESSION_SUMMARY in appliance.entities else None
+
+    def value_fn(name: str, scale: int = 1) -> Callable[[StateType], StateType]:
+        def read(_: StateType) -> StateType:
+            value = last_program_value(appliance, name)
+            return None if value is None else value / scale
+
+        return read
+
+    if ENERGY_CONSUMED_LAST in appliance.entities:
+        descriptions.append(
+            HCSensorEntityDescription(
+                key="sensor_energy_consumed_last",
+                entity=summary or ENERGY_CONSUMED_LAST,
+                entities=[ENERGY_CONSUMED_LAST] if summary else None,
+                device_class=SensorDeviceClass.ENERGY,
+                native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+                suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+                value_fn=value_fn(ENERGY_CONSUMED_LAST),
+            )
+        )
+    if WATER_CONSUMED_LAST in appliance.entities:
+        descriptions.append(
+            HCSensorEntityDescription(
+                key="sensor_water_consumed_last",
+                entity=summary or WATER_CONSUMED_LAST,
+                entities=[WATER_CONSUMED_LAST] if summary else None,
+                device_class=SensorDeviceClass.WATER,
+                native_unit_of_measurement=UnitOfVolume.LITERS,
+                # Reported in mL, which the water device class doesn't take
+                value_fn=value_fn(WATER_CONSUMED_LAST, scale=1000),
+            )
+        )
+    return descriptions
+
+
+def generate_wifi(appliance: Appliance) -> HCSensorEntityDescription:  # noqa: ARG001
+    """
+    Get WiFi sensor description.
+
+    Always uses the polling HCWiFI sensor (queries /ni/info directly) rather than
+    the appliance's BSH.Common.Status.WiFiSignalStrength status entity: that status
+    is only ever populated once at connect and is never pushed again afterward, so
+    it goes permanently stale until the next reconnect.
+    """
+    return HCSensorEntityDescription(
+        key="sensor_wifi_signal_strength",
+        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
+        native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    )
+
+
+def generate_ipv4(appliance: Appliance) -> HCSensorEntityDescription:  # noqa: ARG001
+    """Get IPv4 address sensor description. Polled the same way as generate_wifi."""
+    return HCSensorEntityDescription(
+        key="sensor_ipv4_address",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    )
+
+
+def generate_ipv6(appliance: Appliance) -> HCSensorEntityDescription:  # noqa: ARG001
+    """Get IPv6 address sensor description. Polled the same way as generate_wifi."""
+    return HCSensorEntityDescription(
+        key="sensor_ipv6_address",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    )
+
+
+def _temperature_entity(
+    appliance: Appliance,
+    base: str,
+) -> tuple[str, UnitOfTemperature] | None:
+    """Return the first temperature entity present on the appliance."""
+    for suffix, unit in (
+        ("CurrentTemperature", UnitOfTemperature.CELSIUS),
+        ("CurrentTemperatureFahrenheit", UnitOfTemperature.FAHRENHEIT),
+    ):
+        entity = f"{base}{suffix}"
+        if entity in appliance.entities:
+            return entity, unit
+    return None
+
+
+def _meatprobe_entity(
+    appliance: Appliance,
+    cavity: str,
+) -> tuple[str, UnitOfTemperature] | None:
+    """Return the first meat-probe temperature entity present on the appliance."""
+    base = f"Cooking.Oven.Status.Cavity.{cavity}."
+    for suffix, unit in (
+        ("CurrentMeatprobeTemperature", UnitOfTemperature.CELSIUS),
+        ("CurrentMeatprobeTemperatureFahrenheit", UnitOfTemperature.FAHRENHEIT),
+        ("MeatProbeTemperatureFahrenheit", UnitOfTemperature.FAHRENHEIT),
+    ):
+        entity = f"{base}{suffix}"
+        if entity in appliance.entities:
+            return entity, unit
+    return None
+
+
+def generate_oven_water_tank(appliance: Appliance) -> list[HCSensorEntityDescription]:
+    """Get the per-cavity Water tank descriptions."""
+    descriptions = []
+    for group, group_name in oven_status_cavities(appliance).items():
+        entities = [
+            f"Cooking.Oven.Status.Cavity.{group}.WaterTankUnplugged",
+            f"Cooking.Oven.Status.Cavity.{group}.WaterTankEmpty",
+        ]
+        water_tank = keep_known_events(
+            HCSensorEntityDescription(
+                key=f"sensor_oven_water_tank_{group}",
+                translation_key="sensor_oven_water_tank_group",
+                translation_placeholders={"group_name": group_name},
+                entities=entities,
+                device_class=SensorDeviceClass.ENUM,
+                options=["unplugged", "empty", "ok"],
+            ),
+            appliance.entities,
+        )
+        if water_tank is not None:
+            descriptions.append(water_tank)
+    return descriptions
+
+
+def generate_oven_temperatures(appliance: Appliance) -> list[HCSensorEntityDescription]:
+    """Get the per-cavity Current temperature and Meat probe temperature descriptions."""
+    descriptions = []
+    for group, group_name in oven_status_cavities(appliance).items():
+        # Temperature (Celsius or Fahrenheit depending on appliance locale)
+        cavity_base = f"Cooking.Oven.Status.Cavity.{group}."
+        if temperature := _temperature_entity(appliance, cavity_base):
+            entity, unit = temperature
+            descriptions.append(
+                HCSensorEntityDescription(
+                    key=f"sensor_oven_current_temperature_{group}",
+                    translation_key="sensor_oven_current_temperature_group",
+                    translation_placeholders={"group_name": group_name},
+                    entity=entity,
+                    device_class=SensorDeviceClass.TEMPERATURE,
+                    native_unit_of_measurement=unit,
+                )
+            )
+
+        if meatprobe := _meatprobe_entity(appliance, group):
+            entity, unit = meatprobe
+            descriptions.append(
+                HCSensorEntityDescription(
+                    key=f"sensor_oven_current_meatprobe_temperature_{group}",
+                    translation_key="sensor_oven_current_meatprobe_temperature",
+                    translation_placeholders={"group_name": group_name},
+                    entity=entity,
+                    device_class=SensorDeviceClass.TEMPERATURE,
+                    native_unit_of_measurement=unit,
+                )
+            )
+    return descriptions
+
+
+def generate_hob_zones(appliance: Appliance) -> list[HCSensorEntityDescription]:
+    """Get the per-zone Hob descriptions."""
+    groups = appliance.group_ids(StatusKey.COOKING_HOB_ZONE)
+    descriptions: list[HCSensorEntityDescription] = []
+    for group in groups:
+        group_name = f" {int(group)}"
+        if len(groups) == 1:
+            group_name = ""
+
+        # State
+        entity = f"Cooking.Hob.Status.Zone.{group}.State"
+        if entity in appliance.entities:
+            descriptions.append(
+                HCSensorEntityDescription(
+                    key=f"sensor_hob_zone_{group}_state",
+                    translation_key="sensor_hob_zone_state",
+                    translation_placeholders={"group_name": group_name},
+                    entity=entity,
+                    device_class=SensorDeviceClass.ENUM,
+                    has_state_translation=True,
+                    extra_attributes=[
+                        {
+                            "name": "Type",
+                            "entity": f"Cooking.Hob.Status.Zone.{group}.Type",
+                        }
+                    ],
+                )
+            )
+
+        # OperationState
+        entity = f"Cooking.Hob.Status.Zone.{group}.OperationState"
+        if entity in appliance.entities:
+            descriptions.append(
+                HCSensorEntityDescription(
+                    key=f"sensor_hob_zone_{group}_operationstate",
+                    translation_key="sensor_hob_zone_operationstate",
+                    translation_placeholders={"group_name": group_name},
+                    entity=entity,
+                    device_class=SensorDeviceClass.ENUM,
+                    has_state_translation=True,
+                )
+            )
+
+        # PowerLevel
+        entity = f"Cooking.Hob.Status.Zone.{group}.PowerLevel"
+        if entity in appliance.entities:
+            descriptions.append(
+                HCSensorEntityDescription(
+                    key=f"sensor_hob_zone_{group}_power_level",
+                    translation_key="sensor_hob_zone_power_level",
+                    translation_placeholders={"group_name": group_name},
+                    entity=entity,
+                    device_class=SensorDeviceClass.ENUM,
+                    has_state_translation=True,
+                )
+            )
+
+        # FryingSensorLevel
+        entity = f"Cooking.Hob.Status.Zone.{group}.FryingSensorLevel"
+        if entity in appliance.entities:
+            descriptions.append(
+                HCSensorEntityDescription(
+                    key=f"sensor_hob_zone_{group}_frying_sensor_level",
+                    translation_key="sensor_hob_zone_frying_sensor_level",
+                    translation_placeholders={"group_name": group_name},
+                    entity=entity,
+                    device_class=SensorDeviceClass.ENUM,
+                    has_state_translation=True,
+                )
+            )
+
+        # CurrentTemperature
+        entity = f"Cooking.Hob.Status.Zone.{group}.CurrentTemperature"
+        if entity in appliance.entities:
+            descriptions.append(
+                HCSensorEntityDescription(
+                    key=f"sensor_hob_zone_{group}_current_temperature",
+                    translation_key="sensor_hob_zone_current_temperature",
+                    translation_placeholders={"group_name": group_name},
+                    entity=entity,
+                    device_class=SensorDeviceClass.TEMPERATURE,
+                    native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+                )
+            )
+
+        # HeatupProgress
+        entity = f"Cooking.Hob.Status.Zone.{group}.HeatupProgress"
+        if entity in appliance.entities:
+            descriptions.append(
+                HCSensorEntityDescription(
+                    key=f"sensor_hob_zone_{group}_heatup_progress",
+                    translation_key="sensor_hob_zone_heatup_progress",
+                    translation_placeholders={"group_name": group_name},
+                    entity=entity,
+                    native_unit_of_measurement=PERCENTAGE,
+                )
+            )
+
+        # Duration
+        entity = f"Cooking.Hob.Status.Zone.{group}.Duration"
+        if entity in appliance.entities:
+            descriptions.append(
+                HCSensorEntityDescription(
+                    key=f"sensor_hob_zone_{group}_duration",
+                    translation_key="sensor_hob_zone_duration",
+                    translation_placeholders={"group_name": group_name},
+                    entity=entity,
+                    device_class=SensorDeviceClass.DURATION,
+                    native_unit_of_measurement=UnitOfTime.SECONDS,
+                    suggested_unit_of_measurement=UnitOfTime.MINUTES,
+                )
+            )
+
+        # ElapsedProgramTime
+        entity = f"Cooking.Hob.Status.Zone.{group}.ElapsedProgramTime"
+        extra_entity = f"Cooking.Hob.Status.Zone.{group}.ElapsedProgramTime.AutoCounting"
+        if entity in appliance.entities:
+            descriptions.append(
+                HCSensorEntityDescription(
+                    key=f"sensor_hob_zone_{group}_elapsed_program_time",
+                    translation_key="sensor_hob_zone_elapsed_program_time",
+                    translation_placeholders={"group_name": group_name},
+                    entity=entity,
+                    device_class=SensorDeviceClass.DURATION,
+                    native_unit_of_measurement=UnitOfTime.SECONDS,
+                    suggested_unit_of_measurement=UnitOfTime.MINUTES,
+                    extra_attributes=[{"name": "Auto Counting", "entity": extra_entity}],
+                )
+            )
+
+        # RemainingProgramTime
+        entity = f"Cooking.Hob.Status.Zone.{group}.RemainingProgramTime"
+        extra_entity = f"Cooking.Hob.Status.Zone.{group}.RemainingProgramTime.AutoCounting"
+        if entity in appliance.entities:
+            descriptions.append(
+                HCSensorEntityDescription(
+                    key=f"sensor_hob_zone_{group}_remaining_program_time",
+                    translation_key="sensor_hob_zone_remaining_program_time",
+                    translation_placeholders={"group_name": group_name},
+                    entity=entity,
+                    device_class=SensorDeviceClass.DURATION,
+                    native_unit_of_measurement=UnitOfTime.SECONDS,
+                    suggested_unit_of_measurement=UnitOfTime.MINUTES,
+                    extra_attributes=[{"name": "Auto Counting", "entity": extra_entity}],
+                )
+            )
+
+        # ProgramProgress
+        entity = f"Cooking.Hob.Status.Zone.{group}.ProgramProgress"
+        if entity in appliance.entities:
+            descriptions.append(
+                HCSensorEntityDescription(
+                    key=f"sensor_hob_zone_{group}_program_progress",
+                    translation_key="sensor_hob_zone_program_progress",
+                    translation_placeholders={"group_name": group_name},
+                    entity=entity,
+                    native_unit_of_measurement=PERCENTAGE,
+                )
+            )
+
+    return descriptions
+
+
+SENSOR_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
+    "sensor": [
+        # BSH.Common
+        generate_door_sensor,
+        generate_last_program_consumption,
+        # Gaggenau BO470112 and BS474112 (upstream #513)
+        HCSensorEntityDescription(
+            key="sensor_stopwatch_time",
+            entity=StatusKey.BSH_COMMON_STOP_WATCH_TIME,
+            device_class=SensorDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.SECONDS,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_stopwatch_state",
+            entity=StatusKey.BSH_COMMON_STOP_WATCH_STATE,
+            device_class=SensorDeviceClass.ENUM,
+            has_state_translation=True,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_remaining_program_time",
+            entity=OptionKey.BSH_COMMON_REMAINING_PROGRAM_TIME,
+            device_class=SensorDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.SECONDS,
+            suggested_unit_of_measurement=UnitOfTime.HOURS,
+            extra_attributes=[
+                {
+                    "name": "Is Estimated",
+                    "entity": OptionKey.BSH_COMMON_REMAINING_PROGRAM_TIME_IS_ESTIMATED,
+                }
+            ],
+            clear_on_expected_offline=True,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_elapsed_program_time",
+            entity=OptionKey.BSH_COMMON_ELAPSED_PROGRAM_TIME,
+            device_class=SensorDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.SECONDS,
+            suggested_unit_of_measurement=UnitOfTime.HOURS,
+            clear_on_expected_offline=True,
+            available_while_program_active=True,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_program_progress",
+            entity=OptionKey.BSH_COMMON_PROGRAM_PROGRESS,
+            native_unit_of_measurement=PERCENTAGE,
+            clear_on_expected_offline=True,
+            unavailable_when_no_active_program=True,
+            available_with_remaining_time=True,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_water_forecast",
+            entity=OptionKey.BSH_COMMON_WATER_FORECAST,
+            native_unit_of_measurement=PERCENTAGE,
+            entity_category=EntityCategory.DIAGNOSTIC,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_energy_forecast",
+            entity=OptionKey.BSH_COMMON_ENERGY_FORECAST,
+            native_unit_of_measurement=PERCENTAGE,
+            entity_category=EntityCategory.DIAGNOSTIC,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_operation_state",
+            entity=StatusKey.BSH_COMMON_OPERATION_STATE,
+            device_class=SensorDeviceClass.ENUM,
+            has_state_translation=True,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_start_in",
+            entity=OptionKey.BSH_COMMON_START_IN_RELATIVE,
+            device_class=SensorDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.SECONDS,
+            suggested_unit_of_measurement=UnitOfTime.HOURS,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_finish_in",
+            entity=OptionKey.BSH_COMMON_FINISH_IN_RELATIVE,
+            device_class=SensorDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.SECONDS,
+            suggested_unit_of_measurement=UnitOfTime.HOURS,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_count_started",
+            entity=StatusKey.BSH_COMMON_PROGRAM_ALL_COUNT_STARTED,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            entity_registry_enabled_default=False,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+            extra_attributes=[
+                {
+                    "name": "Last Start",
+                    "entity": StatusKey.BSH_COMMON_PROGRAM_SESSION_SUMMARY_LATEST,
+                    "value_fn": lambda entity: (
+                        entity.value["start"] if entity.value is not None else None
+                    ),
+                },
+                {
+                    "name": "Last End",
+                    "entity": StatusKey.BSH_COMMON_PROGRAM_SESSION_SUMMARY_LATEST,
+                    "value_fn": lambda entity: (
+                        entity.value["end"] if entity.value is not None else None
+                    ),
+                },
+            ],
+        ),
+        HCSensorEntityDescription(
+            key="sensor_count_completed",
+            entity=StatusKey.BSH_COMMON_PROGRAM_ALL_COUNT_COMPLETED,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            entity_registry_enabled_default=False,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_energy_consumed",
+            entity=StatusKey.BSH_COMMON_PROGRAM_ALL_ENERGY_CONSUMED,
+            device_class=SensorDeviceClass.ENERGY,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+            native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+            suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_water_consumed",
+            entity=StatusKey.BSH_COMMON_PROGRAM_ALL_WATER_CONSUMED,
+            device_class=SensorDeviceClass.WATER,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+            native_unit_of_measurement=UnitOfVolume.LITERS,
+            # Reported in mL, which the water device class doesn't take
+            value_fn=lambda value: value / 1000 if isinstance(value, int | float) else None,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_end_trigger",
+            entity=StatusKey.BSH_COMMON_PROGRAM_RUN_DETAIL_END_TRIGGER,
+            device_class=SensorDeviceClass.ENUM,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            entity_registry_enabled_default=False,
+            has_state_translation=True,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_flex_start",
+            entity=StatusKey.BSH_COMMON_FLEX_START,
+            device_class=SensorDeviceClass.ENUM,
+            has_state_translation=True,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_estimated_remaining_program_time",
+            entity=OptionKey.BSH_COMMON_ESTIMATED_TOTAL_PROGRAM_TIME,
+            device_class=SensorDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.SECONDS,
+            suggested_unit_of_measurement=UnitOfTime.HOURS,
+            clear_on_expected_offline=True,
+            available_with_remaining_time=True,
+        ),
+        # Coffee machines
+        HCSensorEntityDescription(
+            key="sensor_countdown_calc_n_clean",
+            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTDOWN_CALC_N_CLEAN,
+            entity_registry_enabled_default=False,
+            state_class=SensorStateClass.MEASUREMENT,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_countdown_cleaning",
+            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTDOWN_CLEANING,
+            entity_registry_enabled_default=False,
+            state_class=SensorStateClass.MEASUREMENT,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_countdown_descaling",
+            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTDOWN_DESCALING,
+            entity_registry_enabled_default=False,
+            state_class=SensorStateClass.MEASUREMENT,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_countdown_water_filter",
+            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTDOWN_WATERFILTER,
+            entity_registry_enabled_default=False,
+            state_class=SensorStateClass.MEASUREMENT,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_count_ristretto_espresso",
+            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTER_RISTRETTO_ESPRESSO,
+            entity_registry_enabled_default=False,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_count_coffee",
+            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTER_COFFEE,
+            entity_registry_enabled_default=False,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_count_coffee_milk",
+            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTER_COFFEE_AND_MILK,
+            entity_registry_enabled_default=False,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_count_frothy_milk",
+            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTER_FROTHY_MILK,
+            entity_registry_enabled_default=False,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_count_hot_milk",
+            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTER_HOT_MILK,
+            entity_registry_enabled_default=False,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_count_hot_water",
+            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTER_HOT_WATER,
+            entity_registry_enabled_default=False,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_count_hot_water_cups",
+            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTER_HOT_WATER_CUPS,
+            entity_registry_enabled_default=False,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_count_powder_coffee",
+            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_BEVERAGE_COUNTER_POWDER_COFFEE,
+            entity_registry_enabled_default=False,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_coffeemaker_process_phase",
+            entity=StatusKey.CONSUMER_PRODUCTS_COFFEE_MAKER_PROCESS_PHASE,
+            entity_registry_enabled_default=False,
+            device_class=SensorDeviceClass.ENUM,
+            has_state_translation=True,
+        ),
+        # Cooking
+        generate_oven_temperatures,
+        generate_hob_zones,
+        HCSensorEntityDescription(
+            key="sensor_heatup_progress",
+            entity=OptionKey.COOKING_OVEN_HEATUP_PROGRESS,
+            native_unit_of_measurement=PERCENTAGE,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_grease_filter_saturation",
+            entity=StatusKey.COOKING_HOOD_GREASE_FILTER_SATURATION,
+            native_unit_of_measurement=PERCENTAGE,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_carbon_filter_saturation",
+            entity=StatusKey.COOKING_HOOD_CARBON_FILTER_SATURATION,
+            native_unit_of_measurement=PERCENTAGE,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_oven_water_tank",
+            entities=[
+                StatusKey.COOKING_OVEN_WATER_TANK_UNPLUGGED,
+                StatusKey.COOKING_OVEN_WATER_TANK_EMPTY,
+            ],
+            device_class=SensorDeviceClass.ENUM,
+            options=["unplugged", "empty", "ok"],
+        ),
+        HCSensorEntityDescription(
+            key="sensor_oven_current_temperature",
+            entity=StatusKey.COOKING_OVEN_CURRENT_CAVITY_TEMPERATURE,
+            device_class=SensorDeviceClass.TEMPERATURE,
+            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_oven_current_meatprobe_temperature",
+            entity=StatusKey.COOKING_OVEN_CURRENT_MEATPROBE_TEMPERATURE,
+            device_class=SensorDeviceClass.TEMPERATURE,
+            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_oven_current_meatprobe_temperature_fahrenheit",
+            translation_key="sensor_oven_current_meatprobe_temperature",
+            entity=StatusKey.COOKING_OVEN_CURRENT_MEATPROBE_TEMPERATURE_FAHRENHEIT,
+            device_class=SensorDeviceClass.TEMPERATURE,
+            native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
+        ),
+        # Dishwashers
+        HCSensorEntityDescription(
+            key="sensor_program_phase",
+            entity=StatusKey.DISHCARE_DISHWASHER_PROGRAM_PHASE,
+            device_class=SensorDeviceClass.ENUM,
+            has_state_translation=True,
+            force_value_when_no_active_program="none",
+        ),
+        HCSensorEntityDescription(
+            key="sensor_machine_care_reminder",
+            entity=StatusKey.DISHCARE_DISHWASHER_MACHINE_CARE_REMINDER_REMAINING_PROGRAM_RUNS,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            # The unit's text is in the translations (unit_of_measurement).
+            state_class=SensorStateClass.MEASUREMENT,
+        ),
+        # Laundry
+        HCSensorEntityDescription(
+            key="sensor_laundry_reload",
+            entity=StatusKey.LAUNDRY_CARE_COMMON_LAUNDRY_RELOAD,
+            device_class=SensorDeviceClass.ENUM,
+            has_state_translation=True,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_laundry_process_phase",
+            entity=OptionKey.LAUNDRY_CARE_COMMON_PROCESS_PHASE,
+            device_class=SensorDeviceClass.ENUM,
+            has_state_translation=True,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_dryer_process_phase",
+            entity=OptionKey.LAUNDRY_CARE_DRYER_PROCESS_PHASE,
+            device_class=SensorDeviceClass.ENUM,
+            has_state_translation=True,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_laundry_load_recommendation",
+            entity=OptionKey.LAUNDRY_CARE_COMMON_LOAD_RECOMMENDATION,
+            device_class=SensorDeviceClass.WEIGHT,
+            native_unit_of_measurement=UnitOfMass.GRAMS,
+            suggested_unit_of_measurement=UnitOfMass.KILOGRAMS,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_laundry_load",
+            entity=StatusKey.LAUNDRY_CARE_WASHER_PROCESSING_DATA_LAUNDRY_LOAD,
+            device_class=SensorDeviceClass.WEIGHT,
+            state_class=SensorStateClass.MEASUREMENT,
+            native_unit_of_measurement=UnitOfMass.GRAMS,
+            suggested_unit_of_measurement=UnitOfMass.KILOGRAMS,
+            # 0 means the load hasn't been measured yet
+            value_fn=lambda value: value or None,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_laundry_detergent_consumed",
+            entity=StatusKey.LAUNDRY_CARE_WASHER_DETERGENT_ALL_CONSUMED,
+            device_class=SensorDeviceClass.VOLUME,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+            native_unit_of_measurement=UnitOfVolume.MILLILITERS,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_laundry_softener_consumed",
+            entity=StatusKey.LAUNDRY_CARE_WASHER_SOFTENER_ALL_CONSUMED,
+            device_class=SensorDeviceClass.VOLUME,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+            native_unit_of_measurement=UnitOfVolume.MILLILITERS,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_laundry_status_idos1_fill_level",
+            entity=StatusKey.LAUNDRY_CARE_WASHER_I_DOS_1_FILL_LEVEL,
+            device_class=SensorDeviceClass.ENUM,
+            has_state_translation=True,
+            entity_registry_enabled_default=False,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_laundry_status_idos2_fill_level",
+            entity=StatusKey.LAUNDRY_CARE_WASHER_I_DOS_2_FILL_LEVEL,
+            device_class=SensorDeviceClass.ENUM,
+            has_state_translation=True,
+            entity_registry_enabled_default=False,
+        ),
+        # Refrigeration
+        HCSensorEntityDescription(
+            key="sensor_water_filter_saturation",
+            entity=StatusKey.REFRIGERATION_COMMON_DISPENSER_WATER_FILTER_SATURATION,
+            native_unit_of_measurement=PERCENTAGE,
+            state_class=SensorStateClass.MEASUREMENT,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_temperature_ambient",
+            entity=StatusKey.REFRIGERATION_FRIDGE_FREEZER_TEMPERATURE_AMBIENT,
+            alternate_entities=(StatusKey.REFRIGERATION_COMMON_TEMPERATURE_AMBIENT,),
+            device_class=SensorDeviceClass.TEMPERATURE,
+            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        ),
+        HCSensorEntityDescription(
+            key="sensor_temperature_memory_freezer",
+            entity=StatusKey.REFRIGERATION_COMMON_FREEZER_MEMORY_TEMPERATURE,
+            device_class=SensorDeviceClass.TEMPERATURE,
+            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+            entity_registry_enabled_default=False,
+        ),
+    ],
+    "event_sensor": [
+        # Coffee machines
+        HCSensorEntityDescription(
+            key="sensor_water_tank",
+            entities=[
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_WATER_TANK_EMPTY,
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_WATER_TANK_NEARLY_EMPTY,
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_WATER_TANK_NOT_INSERTED,
+            ],
+            device_class=SensorDeviceClass.ENUM,
+            options=["empty", "nearly_empty", "not_inserted", "full"],
+        ),
+        HCSensorEntityDescription(
+            key="sensor_drip_tray",
+            entities=[
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_DRIP_TRAY_FULL,
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_DRIP_TRAY_NOT_INSERTED,
+            ],
+            device_class=SensorDeviceClass.ENUM,
+            options=["full", "not_inserted", "ok"],
+        ),
+        HCSensorEntityDescription(
+            key="sensor_coffee_descaling",
+            entities=[
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_DEVICE_DESCALING_BLOCKAGE,
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_DEVICE_DESCALING_OVERDUE,
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_DEVICE_SHOULD_BE_DESCALED,
+            ],
+            device_class=SensorDeviceClass.ENUM,
+            options=["blocked", "overdue", "due", "ok"],
+        ),
+        HCSensorEntityDescription(
+            key="sensor_coffee_care_program_step",
+            entities=[
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_EMPTY_DRIP_TRAY,
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_EMPTY_DRIP_TRAY_REMOVE_CONTAINER,
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_THROW_CLEANING_DISC_IN_THE_DRAWER,
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_FILL_DESCALER,
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_EMPTY_MILK_TANK,
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_PLACE_EMPTY_GLASS_UNDER_OUTLET,
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_PLACE_CONTAINER_UNDER_OUTLET,
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_CLEAN_MILK_TANK,
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_CLEAN_FILL_WATER_TANK,
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_REMOVE_CONTAINER_UNDER_OUTLET,
+                EventKey.CONSUMER_PRODUCTS_COFFEE_MAKER_SERVICE_PROGRAM_FINISHED,
+            ],
+            device_class=SensorDeviceClass.ENUM,
+            options=[
+                "empty_drip_tray",
+                "empty_drip_tray_remove_container",
+                "insert_cleaning_tablet",
+                "fill_descaler",
+                "empty_milk_container",
+                "place_empty_glass",
+                "place_container",
+                "clean_milk_container",
+                "rinse_and_fill_water_tank",
+                "remove_container",
+                "finished",
+                "none",
+            ],
+        ),
+        # Cooking
+        generate_oven_water_tank,
+        # Dishwashers
+        HCSensorEntityDescription(
+            key="sensor_rinse_aid",
+            entities=[
+                EventKey.DISHCARE_DISHWASHER_RINSE_AID_LACK,
+                EventKey.DISHCARE_DISHWASHER_RINSE_AID_NEARLY_EMPTY,
+            ],
+            device_class=SensorDeviceClass.ENUM,
+            options=["empty", "nearly_empty", "full"],
+        ),
+        HCSensorEntityDescription(
+            key="sensor_salt",
+            entities=[
+                EventKey.DISHCARE_DISHWASHER_SALT_LACK,
+                EventKey.DISHCARE_DISHWASHER_SALT_NEARLY_EMPTY,
+            ],
+            device_class=SensorDeviceClass.ENUM,
+            options=["empty", "nearly_empty", "full"],
+        ),
+    ],
+    "active_program": [generate_active_program],
+    "wifi": [generate_wifi],
+    "ipv4": [generate_ipv4],
+    "ipv6": [generate_ipv6],
+}
 
 
 async def async_setup_entry(

@@ -18,17 +18,12 @@ from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
 from homeassistant.components.number import NumberDeviceClass, NumberMode
 from homeassistant.components.sensor import (
     SensorDeviceClass,
-    SensorStateClass,
 )
 from homeassistant.components.switch.const import SwitchDeviceClass
 from homeassistant.components.update import UpdateDeviceClass
 from homeassistant.const import (
-    PERCENTAGE,
-    SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
     EntityCategory,
-    UnitOfEnergy,
     UnitOfTime,
-    UnitOfVolume,
 )
 from homeassistant.util import dt as dt_util
 
@@ -39,17 +34,13 @@ from .descriptions_definitions import (
     HCButtonEntityDescription,
     HCNumberEntityDescription,
     HCSelectEntityDescription,
-    HCSensorEntityDescription,
     HCSwitchEntityDescription,
     HCUpdateEntityDescription,
     _EntityDescriptionsDefinitionsType,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from home_disconnect import Appliance
-    from homeassistant.helpers.typing import StateType
 
 
 POWER_SWITCH_VALUE_MAPINGS = (
@@ -220,7 +211,7 @@ def _power_off_option(states: list[str]) -> str | None:
     return next((name.lower() for name in POWER_OFF_STATE_NAMES if name in states), None)
 
 
-def _door_state_count(appliance: Appliance) -> int | None:
+def door_state_count(appliance: Appliance) -> int | None:
     """Return how many states the door has, if the appliance reports one."""
     entity = appliance.entities.get(StatusKey.BSH_COMMON_DOOR_STATE)
     return None if entity is None else len(entity.enum or {})
@@ -234,7 +225,7 @@ def generate_door_binary_sensor(appliance: Appliance) -> HCBinarySensorEntityDes
     closed, and an enum sensor when it has more states (e.g. locked or ajar),
     which a binary sensor can't tell apart (generate_door_sensor).
     """
-    count = _door_state_count(appliance)
+    count = door_state_count(appliance)
     if count is None or count > 2:
         return None
     return HCBinarySensorEntityDescription(
@@ -246,20 +237,7 @@ def generate_door_binary_sensor(appliance: Appliance) -> HCBinarySensorEntityDes
     )
 
 
-def generate_door_sensor(appliance: Appliance) -> HCSensorEntityDescription | None:
-    """Get the Door sensor description, for a door with more than two states."""
-    count = _door_state_count(appliance)
-    if count is None or count <= 2:
-        return None
-    return HCSensorEntityDescription(
-        key="sensor_door_state",
-        entity=StatusKey.BSH_COMMON_DOOR_STATE,
-        device_class=SensorDeviceClass.ENUM,
-        has_state_translation=True,
-    )
-
-
-def _program_names(appliance: Appliance) -> dict[str, str]:
+def program_names(appliance: Appliance) -> dict[str, str]:
     """Return each program's name, sorted by program."""
     favorites = {
         f"BSH.Common.Program.Favorite.{favorite}": favorite
@@ -288,142 +266,15 @@ def _program_names(appliance: Appliance) -> dict[str, str]:
     return {i: programs[i] for i in programs_keys}
 
 
-def generate_active_program(appliance: Appliance) -> HCSensorEntityDescription | None:
-    """Get the Active program sensor description."""
-    if not (programs := _program_names(appliance)):
-        return None
-    return HCSensorEntityDescription(
-        key="sensor_active_program",
-        entity=RootKey.BSH_COMMON_ACTIVE_PROGRAM,
-        device_class=SensorDeviceClass.ENUM,
-        has_state_translation=False,
-        mapping=programs,
-        clear_on_expected_offline=True,
-    )
-
-
 def generate_program(appliance: Appliance) -> HCSelectEntityDescription | None:
     """Get the Program select description."""
-    if not (programs := _program_names(appliance)):
+    if not (programs := program_names(appliance)):
         return None
     return HCSelectEntityDescription(
         key="select_program",
         entity=RootKey.BSH_COMMON_SELECTED_PROGRAM,
         has_state_translation=False,
         mapping=programs,
-    )
-
-
-PROGRAM_SESSION_SUMMARY = StatusKey.BSH_COMMON_PROGRAM_SESSION_SUMMARY_LATEST
-ENERGY_CONSUMED_LAST = StatusKey.BSH_COMMON_PROGRAM_LAST_ENERGY_CONSUMED
-WATER_CONSUMED_LAST = StatusKey.BSH_COMMON_PROGRAM_LAST_WATER_CONSUMED
-
-
-def session_summary_detail(appliance: Appliance, uid: int) -> object:
-    """Get a value from the details of the latest Program Session Summary."""
-    summary = appliance.entities.get(PROGRAM_SESSION_SUMMARY)
-    if summary is None or not isinstance(summary.value, dict):
-        return None
-    for run in reversed(summary.value.get("sequence", [])):
-        for detail in run.get("details", []):
-            if detail.get("uid") == uid:
-                return detail.get("value")
-    return None
-
-
-def last_program_value(appliance: Appliance, name: str) -> float | None:
-    """
-    Get the value of a Program.Last status.
-
-    Falls back to the latest Program Session Summary: a Bosch WGH24400IT
-    washer leaves the Program.Last statuses empty after reconnecting, while
-    the summary still lists them.
-    """
-    status = appliance.entities[name]
-    value = status.value
-    if value is None:
-        value = session_summary_detail(appliance, status.uid)
-    return value if isinstance(value, int | float) else None
-
-
-def generate_last_program_consumption(appliance: Appliance) -> list[HCSensorEntityDescription]:
-    """
-    Get the energy and water consumption of the last program.
-
-    When the appliance has a Program Session Summary, the sensors follow it
-    instead of the Program.Last status, so they still get a value while the
-    status is empty, and they listen to the status too.
-    """
-    descriptions: list[HCSensorEntityDescription] = []
-    summary = PROGRAM_SESSION_SUMMARY if PROGRAM_SESSION_SUMMARY in appliance.entities else None
-
-    def value_fn(name: str, scale: int = 1) -> Callable[[StateType], StateType]:
-        def read(_: StateType) -> StateType:
-            value = last_program_value(appliance, name)
-            return None if value is None else value / scale
-
-        return read
-
-    if ENERGY_CONSUMED_LAST in appliance.entities:
-        descriptions.append(
-            HCSensorEntityDescription(
-                key="sensor_energy_consumed_last",
-                entity=summary or ENERGY_CONSUMED_LAST,
-                entities=[ENERGY_CONSUMED_LAST] if summary else None,
-                device_class=SensorDeviceClass.ENERGY,
-                native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-                suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-                value_fn=value_fn(ENERGY_CONSUMED_LAST),
-            )
-        )
-    if WATER_CONSUMED_LAST in appliance.entities:
-        descriptions.append(
-            HCSensorEntityDescription(
-                key="sensor_water_consumed_last",
-                entity=summary or WATER_CONSUMED_LAST,
-                entities=[WATER_CONSUMED_LAST] if summary else None,
-                device_class=SensorDeviceClass.WATER,
-                native_unit_of_measurement=UnitOfVolume.LITERS,
-                # Reported in mL, which the water device class doesn't take
-                value_fn=value_fn(WATER_CONSUMED_LAST, scale=1000),
-            )
-        )
-    return descriptions
-
-
-def generate_wifi(appliance: Appliance) -> HCSensorEntityDescription:  # noqa: ARG001
-    """
-    Get WiFi sensor description.
-
-    Always uses the polling HCWiFI sensor (queries /ni/info directly) rather than
-    the appliance's BSH.Common.Status.WiFiSignalStrength status entity: that status
-    is only ever populated once at connect and is never pushed again afterward, so
-    it goes permanently stale until the next reconnect.
-    """
-    return HCSensorEntityDescription(
-        key="sensor_wifi_signal_strength",
-        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
-        native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
-    )
-
-
-def generate_ipv4(appliance: Appliance) -> HCSensorEntityDescription:  # noqa: ARG001
-    """Get IPv4 address sensor description. Polled the same way as generate_wifi."""
-    return HCSensorEntityDescription(
-        key="sensor_ipv4_address",
-        entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
-    )
-
-
-def generate_ipv6(appliance: Appliance) -> HCSensorEntityDescription:  # noqa: ARG001
-    """Get IPv6 address sensor description. Polled the same way as generate_wifi."""
-    return HCSensorEntityDescription(
-        key="sensor_ipv6_address",
-        entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
     )
 
 
@@ -682,156 +533,6 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
         ),
         generate_temperature_unit,
     ],
-    "sensor": [
-        generate_door_sensor,
-        generate_last_program_consumption,
-        # Gaggenau BO470112 and BS474112 (upstream #513)
-        HCSensorEntityDescription(
-            key="sensor_stopwatch_time",
-            entity=StatusKey.BSH_COMMON_STOP_WATCH_TIME,
-            device_class=SensorDeviceClass.DURATION,
-            native_unit_of_measurement=UnitOfTime.SECONDS,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_stopwatch_state",
-            entity=StatusKey.BSH_COMMON_STOP_WATCH_STATE,
-            device_class=SensorDeviceClass.ENUM,
-            has_state_translation=True,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_remaining_program_time",
-            entity=OptionKey.BSH_COMMON_REMAINING_PROGRAM_TIME,
-            device_class=SensorDeviceClass.DURATION,
-            native_unit_of_measurement=UnitOfTime.SECONDS,
-            suggested_unit_of_measurement=UnitOfTime.HOURS,
-            extra_attributes=[
-                {
-                    "name": "Is Estimated",
-                    "entity": OptionKey.BSH_COMMON_REMAINING_PROGRAM_TIME_IS_ESTIMATED,
-                }
-            ],
-            clear_on_expected_offline=True,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_elapsed_program_time",
-            entity=OptionKey.BSH_COMMON_ELAPSED_PROGRAM_TIME,
-            device_class=SensorDeviceClass.DURATION,
-            native_unit_of_measurement=UnitOfTime.SECONDS,
-            suggested_unit_of_measurement=UnitOfTime.HOURS,
-            clear_on_expected_offline=True,
-            available_while_program_active=True,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_program_progress",
-            entity=OptionKey.BSH_COMMON_PROGRAM_PROGRESS,
-            native_unit_of_measurement=PERCENTAGE,
-            clear_on_expected_offline=True,
-            unavailable_when_no_active_program=True,
-            available_with_remaining_time=True,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_water_forecast",
-            entity=OptionKey.BSH_COMMON_WATER_FORECAST,
-            native_unit_of_measurement=PERCENTAGE,
-            entity_category=EntityCategory.DIAGNOSTIC,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_energy_forecast",
-            entity=OptionKey.BSH_COMMON_ENERGY_FORECAST,
-            native_unit_of_measurement=PERCENTAGE,
-            entity_category=EntityCategory.DIAGNOSTIC,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_operation_state",
-            entity=StatusKey.BSH_COMMON_OPERATION_STATE,
-            device_class=SensorDeviceClass.ENUM,
-            has_state_translation=True,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_start_in",
-            entity=OptionKey.BSH_COMMON_START_IN_RELATIVE,
-            device_class=SensorDeviceClass.DURATION,
-            native_unit_of_measurement=UnitOfTime.SECONDS,
-            suggested_unit_of_measurement=UnitOfTime.HOURS,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_finish_in",
-            entity=OptionKey.BSH_COMMON_FINISH_IN_RELATIVE,
-            device_class=SensorDeviceClass.DURATION,
-            native_unit_of_measurement=UnitOfTime.SECONDS,
-            suggested_unit_of_measurement=UnitOfTime.HOURS,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_count_started",
-            entity=StatusKey.BSH_COMMON_PROGRAM_ALL_COUNT_STARTED,
-            entity_category=EntityCategory.DIAGNOSTIC,
-            entity_registry_enabled_default=False,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-            extra_attributes=[
-                {
-                    "name": "Last Start",
-                    "entity": StatusKey.BSH_COMMON_PROGRAM_SESSION_SUMMARY_LATEST,
-                    "value_fn": lambda entity: (
-                        entity.value["start"] if entity.value is not None else None
-                    ),
-                },
-                {
-                    "name": "Last End",
-                    "entity": StatusKey.BSH_COMMON_PROGRAM_SESSION_SUMMARY_LATEST,
-                    "value_fn": lambda entity: (
-                        entity.value["end"] if entity.value is not None else None
-                    ),
-                },
-            ],
-        ),
-        HCSensorEntityDescription(
-            key="sensor_count_completed",
-            entity=StatusKey.BSH_COMMON_PROGRAM_ALL_COUNT_COMPLETED,
-            entity_category=EntityCategory.DIAGNOSTIC,
-            entity_registry_enabled_default=False,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_energy_consumed",
-            entity=StatusKey.BSH_COMMON_PROGRAM_ALL_ENERGY_CONSUMED,
-            device_class=SensorDeviceClass.ENERGY,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-            native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-            suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_water_consumed",
-            entity=StatusKey.BSH_COMMON_PROGRAM_ALL_WATER_CONSUMED,
-            device_class=SensorDeviceClass.WATER,
-            state_class=SensorStateClass.TOTAL_INCREASING,
-            native_unit_of_measurement=UnitOfVolume.LITERS,
-            # Reported in mL, which the water device class doesn't take
-            value_fn=lambda value: value / 1000 if isinstance(value, int | float) else None,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_end_trigger",
-            entity=StatusKey.BSH_COMMON_PROGRAM_RUN_DETAIL_END_TRIGGER,
-            device_class=SensorDeviceClass.ENUM,
-            entity_category=EntityCategory.DIAGNOSTIC,
-            entity_registry_enabled_default=False,
-            has_state_translation=True,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_flex_start",
-            entity=StatusKey.BSH_COMMON_FLEX_START,
-            device_class=SensorDeviceClass.ENUM,
-            has_state_translation=True,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_estimated_remaining_program_time",
-            entity=OptionKey.BSH_COMMON_ESTIMATED_TOTAL_PROGRAM_TIME,
-            device_class=SensorDeviceClass.DURATION,
-            native_unit_of_measurement=UnitOfTime.SECONDS,
-            suggested_unit_of_measurement=UnitOfTime.HOURS,
-            clear_on_expected_offline=True,
-            available_with_remaining_time=True,
-        ),
-    ],
     "start_button": [generate_start_button],
     "delay_start": [generate_delay_start],
     "switch": [
@@ -889,10 +590,6 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             mode=NumberMode.BOX,
         ),
     ],
-    "wifi": [generate_wifi],
-    "ipv4": [generate_ipv4],
-    "ipv6": [generate_ipv6],
     "update": [generate_software_download_update, generate_software_update],
-    "active_program": [generate_active_program],
     "program": [generate_program],
 }

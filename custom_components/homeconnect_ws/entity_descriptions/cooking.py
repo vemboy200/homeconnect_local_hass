@@ -8,10 +8,8 @@ from home_disconnect.entities import Access
 from home_disconnect.keys import CommandKey, EventKey, OptionKey, ProgramKey, SettingKey, StatusKey
 from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
 from homeassistant.components.number import NumberDeviceClass, NumberMode
-from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.switch.const import SwitchDeviceClass
 from homeassistant.const import (
-    PERCENTAGE,
     EntityCategory,
     UnitOfMass,
     UnitOfTemperature,
@@ -25,48 +23,14 @@ from .descriptions_definitions import (
     HCLightEntityDescription,
     HCNumberEntityDescription,
     HCSelectEntityDescription,
-    HCSensorEntityDescription,
     HCSwitchEntityDescription,
     _EntityDescriptionsDefinitionsType,
-    keep_known_events,
 )
 
 if TYPE_CHECKING:
     from home_disconnect import Appliance
 
 _VENTING_PROGRAM = ProgramKey.COOKING_COMMON_HOOD_VENTING
-
-
-def _temperature_entity(
-    appliance: Appliance,
-    base: str,
-) -> tuple[str, UnitOfTemperature] | None:
-    """Return the first temperature entity present on the appliance."""
-    for suffix, unit in (
-        ("CurrentTemperature", UnitOfTemperature.CELSIUS),
-        ("CurrentTemperatureFahrenheit", UnitOfTemperature.FAHRENHEIT),
-    ):
-        entity = f"{base}{suffix}"
-        if entity in appliance.entities:
-            return entity, unit
-    return None
-
-
-def _meatprobe_entity(
-    appliance: Appliance,
-    cavity: str,
-) -> tuple[str, UnitOfTemperature] | None:
-    """Return the first meat-probe temperature entity present on the appliance."""
-    base = f"Cooking.Oven.Status.Cavity.{cavity}."
-    for suffix, unit in (
-        ("CurrentMeatprobeTemperature", UnitOfTemperature.CELSIUS),
-        ("CurrentMeatprobeTemperatureFahrenheit", UnitOfTemperature.FAHRENHEIT),
-        ("MeatProbeTemperatureFahrenheit", UnitOfTemperature.FAHRENHEIT),
-    ):
-        entity = f"{base}{suffix}"
-        if entity in appliance.entities:
-            return entity, unit
-    return None
 
 
 # The fields a cavity reports only so the Home Connect app can draw the
@@ -90,7 +54,7 @@ def _is_layout_only_cavity(appliance: Appliance, cavity: str) -> bool:
     )
 
 
-def _oven_status_cavities(appliance: Appliance) -> dict[str, str]:
+def oven_status_cavities(appliance: Appliance) -> dict[str, str]:
     """
     Return each status cavity with its name suffix.
 
@@ -103,70 +67,12 @@ def _oven_status_cavities(appliance: Appliance) -> dict[str, str]:
     return {group: "" if len(real_cavities) <= 1 else f" {int(group)}" for group in groups}
 
 
-def generate_oven_water_tank(appliance: Appliance) -> list[HCSensorEntityDescription]:
-    """Get the per-cavity Water tank descriptions."""
-    descriptions = []
-    for group, group_name in _oven_status_cavities(appliance).items():
-        entities = [
-            f"Cooking.Oven.Status.Cavity.{group}.WaterTankUnplugged",
-            f"Cooking.Oven.Status.Cavity.{group}.WaterTankEmpty",
-        ]
-        water_tank = keep_known_events(
-            HCSensorEntityDescription(
-                key=f"sensor_oven_water_tank_{group}",
-                translation_key="sensor_oven_water_tank_group",
-                translation_placeholders={"group_name": group_name},
-                entities=entities,
-                device_class=SensorDeviceClass.ENUM,
-                options=["unplugged", "empty", "ok"],
-            ),
-            appliance.entities,
-        )
-        if water_tank is not None:
-            descriptions.append(water_tank)
-    return descriptions
-
-
-def generate_oven_temperatures(appliance: Appliance) -> list[HCSensorEntityDescription]:
-    """Get the per-cavity Current temperature and Meat probe temperature descriptions."""
-    descriptions = []
-    for group, group_name in _oven_status_cavities(appliance).items():
-        # Temperature (Celsius or Fahrenheit depending on appliance locale)
-        cavity_base = f"Cooking.Oven.Status.Cavity.{group}."
-        if temperature := _temperature_entity(appliance, cavity_base):
-            entity, unit = temperature
-            descriptions.append(
-                HCSensorEntityDescription(
-                    key=f"sensor_oven_current_temperature_{group}",
-                    translation_key="sensor_oven_current_temperature_group",
-                    translation_placeholders={"group_name": group_name},
-                    entity=entity,
-                    device_class=SensorDeviceClass.TEMPERATURE,
-                    native_unit_of_measurement=unit,
-                )
-            )
-
-        if meatprobe := _meatprobe_entity(appliance, group):
-            entity, unit = meatprobe
-            descriptions.append(
-                HCSensorEntityDescription(
-                    key=f"sensor_oven_current_meatprobe_temperature_{group}",
-                    translation_key="sensor_oven_current_meatprobe_temperature",
-                    translation_placeholders={"group_name": group_name},
-                    entity=entity,
-                    device_class=SensorDeviceClass.TEMPERATURE,
-                    native_unit_of_measurement=unit,
-                )
-            )
-    return descriptions
-
-
 def generate_cavity_meatprobe_plugged(
     appliance: Appliance,
 ) -> list[HCBinarySensorEntityDescription]:
     """Get the per-cavity Meat probe plugged descriptions."""
     descriptions = []
-    for group, group_name in _oven_status_cavities(appliance).items():
+    for group, group_name in oven_status_cavities(appliance).items():
         entity = f"Cooking.Oven.Status.Cavity.{group}.MeatprobePlugged"
         if entity in appliance.entities:
             descriptions.append(
@@ -318,169 +224,6 @@ def generate_hood_fan(appliance: Appliance) -> HCFanEntityDescription | None:
     )
 
 
-def generate_hob_zones(appliance: Appliance) -> list[HCSensorEntityDescription]:
-    """Get the per-zone Hob descriptions."""
-    groups = appliance.group_ids(StatusKey.COOKING_HOB_ZONE)
-    descriptions: list[HCSensorEntityDescription] = []
-    for group in groups:
-        group_name = f" {int(group)}"
-        if len(groups) == 1:
-            group_name = ""
-
-        # State
-        entity = f"Cooking.Hob.Status.Zone.{group}.State"
-        if entity in appliance.entities:
-            descriptions.append(
-                HCSensorEntityDescription(
-                    key=f"sensor_hob_zone_{group}_state",
-                    translation_key="sensor_hob_zone_state",
-                    translation_placeholders={"group_name": group_name},
-                    entity=entity,
-                    device_class=SensorDeviceClass.ENUM,
-                    has_state_translation=True,
-                    extra_attributes=[
-                        {
-                            "name": "Type",
-                            "entity": f"Cooking.Hob.Status.Zone.{group}.Type",
-                        }
-                    ],
-                )
-            )
-
-        # OperationState
-        entity = f"Cooking.Hob.Status.Zone.{group}.OperationState"
-        if entity in appliance.entities:
-            descriptions.append(
-                HCSensorEntityDescription(
-                    key=f"sensor_hob_zone_{group}_operationstate",
-                    translation_key="sensor_hob_zone_operationstate",
-                    translation_placeholders={"group_name": group_name},
-                    entity=entity,
-                    device_class=SensorDeviceClass.ENUM,
-                    has_state_translation=True,
-                )
-            )
-
-        # PowerLevel
-        entity = f"Cooking.Hob.Status.Zone.{group}.PowerLevel"
-        if entity in appliance.entities:
-            descriptions.append(
-                HCSensorEntityDescription(
-                    key=f"sensor_hob_zone_{group}_power_level",
-                    translation_key="sensor_hob_zone_power_level",
-                    translation_placeholders={"group_name": group_name},
-                    entity=entity,
-                    device_class=SensorDeviceClass.ENUM,
-                    has_state_translation=True,
-                )
-            )
-
-        # FryingSensorLevel
-        entity = f"Cooking.Hob.Status.Zone.{group}.FryingSensorLevel"
-        if entity in appliance.entities:
-            descriptions.append(
-                HCSensorEntityDescription(
-                    key=f"sensor_hob_zone_{group}_frying_sensor_level",
-                    translation_key="sensor_hob_zone_frying_sensor_level",
-                    translation_placeholders={"group_name": group_name},
-                    entity=entity,
-                    device_class=SensorDeviceClass.ENUM,
-                    has_state_translation=True,
-                )
-            )
-
-        # CurrentTemperature
-        entity = f"Cooking.Hob.Status.Zone.{group}.CurrentTemperature"
-        if entity in appliance.entities:
-            descriptions.append(
-                HCSensorEntityDescription(
-                    key=f"sensor_hob_zone_{group}_current_temperature",
-                    translation_key="sensor_hob_zone_current_temperature",
-                    translation_placeholders={"group_name": group_name},
-                    entity=entity,
-                    device_class=SensorDeviceClass.TEMPERATURE,
-                    native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-                )
-            )
-
-        # HeatupProgress
-        entity = f"Cooking.Hob.Status.Zone.{group}.HeatupProgress"
-        if entity in appliance.entities:
-            descriptions.append(
-                HCSensorEntityDescription(
-                    key=f"sensor_hob_zone_{group}_heatup_progress",
-                    translation_key="sensor_hob_zone_heatup_progress",
-                    translation_placeholders={"group_name": group_name},
-                    entity=entity,
-                    native_unit_of_measurement=PERCENTAGE,
-                )
-            )
-
-        # Duration
-        entity = f"Cooking.Hob.Status.Zone.{group}.Duration"
-        if entity in appliance.entities:
-            descriptions.append(
-                HCSensorEntityDescription(
-                    key=f"sensor_hob_zone_{group}_duration",
-                    translation_key="sensor_hob_zone_duration",
-                    translation_placeholders={"group_name": group_name},
-                    entity=entity,
-                    device_class=SensorDeviceClass.DURATION,
-                    native_unit_of_measurement=UnitOfTime.SECONDS,
-                    suggested_unit_of_measurement=UnitOfTime.MINUTES,
-                )
-            )
-
-        # ElapsedProgramTime
-        entity = f"Cooking.Hob.Status.Zone.{group}.ElapsedProgramTime"
-        extra_entity = f"Cooking.Hob.Status.Zone.{group}.ElapsedProgramTime.AutoCounting"
-        if entity in appliance.entities:
-            descriptions.append(
-                HCSensorEntityDescription(
-                    key=f"sensor_hob_zone_{group}_elapsed_program_time",
-                    translation_key="sensor_hob_zone_elapsed_program_time",
-                    translation_placeholders={"group_name": group_name},
-                    entity=entity,
-                    device_class=SensorDeviceClass.DURATION,
-                    native_unit_of_measurement=UnitOfTime.SECONDS,
-                    suggested_unit_of_measurement=UnitOfTime.MINUTES,
-                    extra_attributes=[{"name": "Auto Counting", "entity": extra_entity}],
-                )
-            )
-
-        # RemainingProgramTime
-        entity = f"Cooking.Hob.Status.Zone.{group}.RemainingProgramTime"
-        extra_entity = f"Cooking.Hob.Status.Zone.{group}.RemainingProgramTime.AutoCounting"
-        if entity in appliance.entities:
-            descriptions.append(
-                HCSensorEntityDescription(
-                    key=f"sensor_hob_zone_{group}_remaining_program_time",
-                    translation_key="sensor_hob_zone_remaining_program_time",
-                    translation_placeholders={"group_name": group_name},
-                    entity=entity,
-                    device_class=SensorDeviceClass.DURATION,
-                    native_unit_of_measurement=UnitOfTime.SECONDS,
-                    suggested_unit_of_measurement=UnitOfTime.MINUTES,
-                    extra_attributes=[{"name": "Auto Counting", "entity": extra_entity}],
-                )
-            )
-
-        # ProgramProgress
-        entity = f"Cooking.Hob.Status.Zone.{group}.ProgramProgress"
-        if entity in appliance.entities:
-            descriptions.append(
-                HCSensorEntityDescription(
-                    key=f"sensor_hob_zone_{group}_program_progress",
-                    translation_key="sensor_hob_zone_program_progress",
-                    translation_placeholders={"group_name": group_name},
-                    entity=entity,
-                    native_unit_of_measurement=PERCENTAGE,
-                )
-            )
-
-    return descriptions
-
-
 def generate_hood_light(appliance: Appliance) -> HCLightEntityDescription | None:
     """Get Hood light description."""
 
@@ -542,54 +285,6 @@ def generate_oven_cavity_light(appliance: Appliance) -> HCLightEntityDescription
 
 
 COOKING_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
-    "sensor": [
-        generate_oven_temperatures,
-        generate_hob_zones,
-        HCSensorEntityDescription(
-            key="sensor_heatup_progress",
-            entity=OptionKey.COOKING_OVEN_HEATUP_PROGRESS,
-            native_unit_of_measurement=PERCENTAGE,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_grease_filter_saturation",
-            entity=StatusKey.COOKING_HOOD_GREASE_FILTER_SATURATION,
-            native_unit_of_measurement=PERCENTAGE,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_carbon_filter_saturation",
-            entity=StatusKey.COOKING_HOOD_CARBON_FILTER_SATURATION,
-            native_unit_of_measurement=PERCENTAGE,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_oven_water_tank",
-            entities=[
-                StatusKey.COOKING_OVEN_WATER_TANK_UNPLUGGED,
-                StatusKey.COOKING_OVEN_WATER_TANK_EMPTY,
-            ],
-            device_class=SensorDeviceClass.ENUM,
-            options=["unplugged", "empty", "ok"],
-        ),
-        HCSensorEntityDescription(
-            key="sensor_oven_current_temperature",
-            entity=StatusKey.COOKING_OVEN_CURRENT_CAVITY_TEMPERATURE,
-            device_class=SensorDeviceClass.TEMPERATURE,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_oven_current_meatprobe_temperature",
-            entity=StatusKey.COOKING_OVEN_CURRENT_MEATPROBE_TEMPERATURE,
-            device_class=SensorDeviceClass.TEMPERATURE,
-            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        ),
-        HCSensorEntityDescription(
-            key="sensor_oven_current_meatprobe_temperature_fahrenheit",
-            translation_key="sensor_oven_current_meatprobe_temperature",
-            entity=StatusKey.COOKING_OVEN_CURRENT_MEATPROBE_TEMPERATURE_FAHRENHEIT,
-            device_class=SensorDeviceClass.TEMPERATURE,
-            native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
-        ),
-    ],
-    "event_sensor": [generate_oven_water_tank],
     "number": [
         generate_oven_settings,
         HCNumberEntityDescription(
