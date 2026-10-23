@@ -81,7 +81,7 @@ async def test_without_last_program_statuses(
 ) -> None:
     """Appliances without Program.Last statuses get no sensors."""
     appliance = await mock_homeconnect_appliance(description={"status": [SUMMARY_STATUS]})
-    assert generate_last_program_consumption(appliance)["sensor"] == []
+    assert generate_last_program_consumption(appliance) == []
 
 
 async def test_follows_the_status_without_a_summary(
@@ -91,7 +91,7 @@ async def test_follows_the_status_without_a_summary(
     appliance = await mock_homeconnect_appliance(
         description={"status": [ENERGY_STATUS, WATER_STATUS]}
     )
-    energy, water = generate_last_program_consumption(appliance)["sensor"]
+    energy, water = generate_last_program_consumption(appliance)
 
     assert energy.key == "sensor_energy_consumed_last"
     assert energy.entity == ENERGY_CONSUMED_LAST
@@ -116,7 +116,7 @@ async def test_falls_back_to_the_session_summary(
     appliance = await mock_homeconnect_appliance(
         description={"status": [ENERGY_STATUS, WATER_STATUS, SUMMARY_STATUS]}
     )
-    energy, water = generate_last_program_consumption(appliance)["sensor"]
+    energy, water = generate_last_program_consumption(appliance)
 
     assert energy.entity == PROGRAM_SESSION_SUMMARY
     assert energy.entities == [ENERGY_CONSUMED_LAST]
@@ -151,7 +151,7 @@ async def test_sensors_in_home_assistant(
     appliance = make_appliance(description)
     monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))
     descriptions = {key: [] for key in ENTITY_DESCRIPTIONS}
-    descriptions["sensor"] = generate_last_program_consumption(appliance)["sensor"]
+    descriptions["sensor"] = generate_last_program_consumption(appliance)
     for module in (entity_descriptions, homeconnect_ws):
         monkeypatch.setattr(module, "get_available_entities", Mock(return_value=descriptions))
     assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
