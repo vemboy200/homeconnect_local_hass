@@ -5,12 +5,15 @@ from __future__ import annotations
 import json
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock, patch
 from zipfile import ZipFile
 
 import pytest
 from custom_components import homeconnect_ws
 from custom_components.homeconnect_ws import coordinator, entity_descriptions
+from custom_components.homeconnect_ws.const import DOMAIN
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.syrupy import HomeAssistantSnapshotExtension
 
 from . import MockApplianceFactory, appliance_class, make_appliance
 
@@ -19,9 +22,12 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from home_disconnect import Appliance
+    from syrupy.assertion import SnapshotAssertion
 
 from .const import (
     DEVICE_DESCRIPTION,
+    DISHWASHER_CONFIG_DATA,
+    DISHWASHER_DESCRIPTION,
     ENTITY_DESCRIPTIONS,
     MOCK_AES_DESCRIPTION_XML,
     MOCK_AES_DEVICE_ID,
@@ -125,3 +131,50 @@ def mock_homeconnect_appliance() -> MockApplianceFactory:
         return make_appliance(description or {}, **kwargs)
 
     return go
+
+
+@pytest.fixture
+def snapshot(snapshot: SnapshotAssertion) -> SnapshotAssertion:
+    """Return snapshot assertion fixture with the Home Assistant extension, as core's does."""
+    return snapshot.use_extension(HomeAssistantSnapshotExtension)
+
+
+@pytest.fixture
+def entity_registry_enabled_by_default() -> Generator[None]:
+    """Enable entities that are disabled by default, as core's fixture of the same name does."""
+    with patch(
+        "homeassistant.helpers.entity.Entity.entity_registry_enabled_default",
+        new_callable=PropertyMock,
+        return_value=True,
+    ):
+        yield
+
+
+@pytest.fixture
+def mock_config_entry() -> MockConfigEntry:
+    """Return the dishwasher's config entry, not set up yet."""
+    return MockConfigEntry(
+        domain=DOMAIN,
+        data=deepcopy(DISHWASHER_CONFIG_DATA),
+        unique_id=DISHWASHER_CONFIG_DATA["device_id"],
+    )
+
+
+@pytest.fixture
+def mock_dishwasher(monkeypatch: pytest.MonkeyPatch) -> Appliance:
+    """Mock the coordinator's Appliance as a dishwasher in the middle of a program."""
+    appliance = make_appliance(DISHWASHER_DESCRIPTION)
+    appliance.entities.apply(
+        [
+            {"uid": 552, "value": 3},  # OperationState: Run
+            {"uid": 4096, "value": 2},  # ProgramPhase: MainWash
+            {"uid": 4626, "value": 1},  # SaltNearlyEmpty: Present
+            {"uid": 542, "value": 40},  # ProgramProgress
+            {"uid": 544, "value": 3600},  # RemainingProgramTime
+            {"uid": 561, "value": 60},  # EnergyForecast
+            {"uid": 562, "value": 50},  # WaterForecast
+            {"uid": 256, "value": 8193},  # ActiveProgram: Eco50
+        ]
+    )
+    monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))
+    return appliance
