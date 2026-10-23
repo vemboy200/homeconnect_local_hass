@@ -35,7 +35,6 @@ from homeassistant.util import dt as dt_util
 from custom_components.homeconnect_ws.helpers import delay_start_entity
 
 from .descriptions_definitions import (
-    EntityDescriptions,
     HCBinarySensorEntityDescription,
     HCButtonEntityDescription,
     HCNumberEntityDescription,
@@ -142,58 +141,71 @@ def generate_delay_start(appliance: Appliance) -> HCNumberEntityDescription | No
     )
 
 
-def generate_power_switch(appliance: Appliance) -> EntityDescriptions:
+def _settable_power_states(appliance: Appliance) -> list[str] | None:
     """
-    Get the Power entity description: one switch or select.
+    Return the PowerState values the appliance can be set to, if it has one.
 
-    A switch when the appliance switches between two states (on and off, or on
-    and standby), and a select for anything else. There's no read-only sensor:
-    while the appliance locks its power state, the switch or select shows it
-    read-only, like the Home Connect app does. The profile's access can't
-    decide this, since a profile marking it "read" doesn't mean it stays that
-    way (fork issue #7's washer was turned off through it).
+    In the appliance's own order, so the select's options don't reorder
+    between restarts.
     """
-    entity_descriptions = EntityDescriptions()
     entity = appliance.entities.get(SettingKey.BSH_COMMON_POWER_STATE)
     if entity is None:
-        return entity_descriptions
-
+        return None
     entity_min = getattr(entity, "min", None)
     entity_max = getattr(entity, "max", None)
-    # In the appliance's own order, so the select's options don't reorder
-    # between restarts
-    settable_states = [
+    return [
         value
         for key, value in sorted((entity.enum or {}).items(), key=lambda item: int(item[0]))
         if entity_min is None or entity_max is None or entity_min <= int(key) <= entity_max
     ]
 
-    for mapping in POWER_SWITCH_VALUE_MAPINGS:
-        if set(settable_states) == set(mapping):
-            entity_descriptions["switch"] = [
-                HCSwitchEntityDescription(
-                    key="switch_power_state",
-                    entity=SettingKey.BSH_COMMON_POWER_STATE,
-                    device_class=SwitchDeviceClass.SWITCH,
-                    value_mapping=mapping,
-                    # MainsOff, Standby (when "On" is the on side) and Off all
-                    # mean not on, even the ones the switch never sets.
-                    on_values=tuple(sorted({mapping[0], "On"})),
-                    force_off_when_expected_offline=True,
-                )
-            ]
-            return entity_descriptions
 
-    entity_descriptions["select"] = [
-        HCSelectEntityDescription(
-            key="select_power_state",
-            entity=SettingKey.BSH_COMMON_POWER_STATE,
-            options=[value.lower() for value in settable_states],
-            has_state_translation=True,
-            force_option_when_expected_offline=_power_off_option(settable_states),
-        )
-    ]
-    return entity_descriptions
+def _power_switch_mapping(states: list[str]) -> tuple[str, str] | None:
+    """Return the switch's (on, off) pair, if the states are exactly one."""
+    return next(
+        (mapping for mapping in POWER_SWITCH_VALUE_MAPINGS if set(states) == set(mapping)), None
+    )
+
+
+def generate_power_switch(appliance: Appliance) -> HCSwitchEntityDescription | None:
+    """
+    Get the Power switch description.
+
+    Power gets one entity: a switch when the appliance switches between two
+    states (on and off, or on and standby), and a select for anything else
+    (generate_power_select). There's no read-only sensor: while the appliance
+    locks its power state, the switch or select shows it read-only, like the
+    Home Connect app does. The profile's access can't decide this, since a
+    profile marking it "read" doesn't mean it stays that way (fork issue #7's
+    washer was turned off through it).
+    """
+    states = _settable_power_states(appliance)
+    if states is None or (mapping := _power_switch_mapping(states)) is None:
+        return None
+    return HCSwitchEntityDescription(
+        key="switch_power_state",
+        entity=SettingKey.BSH_COMMON_POWER_STATE,
+        device_class=SwitchDeviceClass.SWITCH,
+        value_mapping=mapping,
+        # MainsOff, Standby (when "On" is the on side) and Off all
+        # mean not on, even the ones the switch never sets.
+        on_values=tuple(sorted({mapping[0], "On"})),
+        force_off_when_expected_offline=True,
+    )
+
+
+def generate_power_select(appliance: Appliance) -> HCSelectEntityDescription | None:
+    """Get the Power select description, for a power state that isn't a switch."""
+    states = _settable_power_states(appliance)
+    if states is None or _power_switch_mapping(states) is not None:
+        return None
+    return HCSelectEntityDescription(
+        key="select_power_state",
+        entity=SettingKey.BSH_COMMON_POWER_STATE,
+        options=[value.lower() for value in states],
+        has_state_translation=True,
+        force_option_when_expected_offline=_power_off_option(states),
+    )
 
 
 def _power_off_option(states: list[str]) -> str | None:
@@ -208,42 +220,47 @@ def _power_off_option(states: list[str]) -> str | None:
     return next((name.lower() for name in POWER_OFF_STATE_NAMES if name in states), None)
 
 
-def generate_door_state(appliance: Appliance) -> EntityDescriptions:
-    """
-    Get the Door entity description: one binary sensor or sensor.
-
-    A binary sensor when the door is only open or closed, and an enum sensor
-    when it has more states (e.g. locked or ajar), which a binary sensor can't
-    tell apart.
-    """
-    entity_descriptions = EntityDescriptions()
+def _door_state_count(appliance: Appliance) -> int | None:
+    """Return how many states the door has, if the appliance reports one."""
     entity = appliance.entities.get(StatusKey.BSH_COMMON_DOOR_STATE)
-    if entity is None:
-        return entity_descriptions
-    if len(entity.enum or {}) > 2:
-        entity_descriptions["sensor"] = [
-            HCSensorEntityDescription(
-                key="sensor_door_state",
-                entity=StatusKey.BSH_COMMON_DOOR_STATE,
-                device_class=SensorDeviceClass.ENUM,
-                has_state_translation=True,
-            )
-        ]
-    else:
-        entity_descriptions["binary_sensor"] = [
-            HCBinarySensorEntityDescription(
-                key="binary_sensor_door_state",
-                entity=StatusKey.BSH_COMMON_DOOR_STATE,
-                device_class=BinarySensorDeviceClass.DOOR,
-                value_on={"Open", "Ajar"},
-                value_off={"Closed", "Locked"},
-            )
-        ]
-    return entity_descriptions
+    return None if entity is None else len(entity.enum or {})
 
 
-def generate_program(appliance: Appliance) -> EntityDescriptions:
-    """Get Door program select and sensor description."""
+def generate_door_binary_sensor(appliance: Appliance) -> HCBinarySensorEntityDescription | None:
+    """
+    Get the Door binary sensor description.
+
+    Door gets one entity: a binary sensor when the door is only open or
+    closed, and an enum sensor when it has more states (e.g. locked or ajar),
+    which a binary sensor can't tell apart (generate_door_sensor).
+    """
+    count = _door_state_count(appliance)
+    if count is None or count > 2:
+        return None
+    return HCBinarySensorEntityDescription(
+        key="binary_sensor_door_state",
+        entity=StatusKey.BSH_COMMON_DOOR_STATE,
+        device_class=BinarySensorDeviceClass.DOOR,
+        value_on={"Open", "Ajar"},
+        value_off={"Closed", "Locked"},
+    )
+
+
+def generate_door_sensor(appliance: Appliance) -> HCSensorEntityDescription | None:
+    """Get the Door sensor description, for a door with more than two states."""
+    count = _door_state_count(appliance)
+    if count is None or count <= 2:
+        return None
+    return HCSensorEntityDescription(
+        key="sensor_door_state",
+        entity=StatusKey.BSH_COMMON_DOOR_STATE,
+        device_class=SensorDeviceClass.ENUM,
+        has_state_translation=True,
+    )
+
+
+def _program_names(appliance: Appliance) -> dict[str, str]:
+    """Return each program's name, sorted by program."""
     favorites = {
         f"BSH.Common.Program.Favorite.{favorite}": favorite
         for favorite in appliance.group_ids(ProgramKey.BSH_COMMON_FAVORITE)
@@ -268,30 +285,33 @@ def generate_program(appliance: Appliance) -> EntityDescriptions:
     # sort programs
     programs_keys = list(programs.keys())
     programs_keys.sort()
-    sorted_programs = {i: programs[i] for i in programs_keys}
+    return {i: programs[i] for i in programs_keys}
 
-    descriptions = EntityDescriptions()
-    if programs:
-        descriptions["active_program"] = [
-            HCSensorEntityDescription(
-                key="sensor_active_program",
-                entity=RootKey.BSH_COMMON_ACTIVE_PROGRAM,
-                device_class=SensorDeviceClass.ENUM,
-                has_state_translation=False,
-                mapping=sorted_programs,
-                clear_on_expected_offline=True,
-            )
-        ]
-        descriptions["program"] = [
-            HCSelectEntityDescription(
-                key="select_program",
-                entity=RootKey.BSH_COMMON_SELECTED_PROGRAM,
-                has_state_translation=False,
-                mapping=sorted_programs,
-            )
-        ]
 
-    return descriptions
+def generate_active_program(appliance: Appliance) -> HCSensorEntityDescription | None:
+    """Get the Active program sensor description."""
+    if not (programs := _program_names(appliance)):
+        return None
+    return HCSensorEntityDescription(
+        key="sensor_active_program",
+        entity=RootKey.BSH_COMMON_ACTIVE_PROGRAM,
+        device_class=SensorDeviceClass.ENUM,
+        has_state_translation=False,
+        mapping=programs,
+        clear_on_expected_offline=True,
+    )
+
+
+def generate_program(appliance: Appliance) -> HCSelectEntityDescription | None:
+    """Get the Program select description."""
+    if not (programs := _program_names(appliance)):
+        return None
+    return HCSelectEntityDescription(
+        key="select_program",
+        entity=RootKey.BSH_COMMON_SELECTED_PROGRAM,
+        has_state_translation=False,
+        mapping=programs,
+    )
 
 
 PROGRAM_SESSION_SUMMARY = StatusKey.BSH_COMMON_PROGRAM_SESSION_SUMMARY_LATEST
@@ -326,7 +346,7 @@ def last_program_value(appliance: Appliance, name: str) -> float | None:
     return value if isinstance(value, int | float) else None
 
 
-def generate_last_program_consumption(appliance: Appliance) -> EntityDescriptions:
+def generate_last_program_consumption(appliance: Appliance) -> list[HCSensorEntityDescription]:
     """
     Get the energy and water consumption of the last program.
 
@@ -334,7 +354,7 @@ def generate_last_program_consumption(appliance: Appliance) -> EntityDescription
     instead of the Program.Last status, so they still get a value while the
     status is empty, and they listen to the status too.
     """
-    descriptions = EntityDescriptions(sensor=[])
+    descriptions: list[HCSensorEntityDescription] = []
     summary = PROGRAM_SESSION_SUMMARY if PROGRAM_SESSION_SUMMARY in appliance.entities else None
 
     def value_fn(name: str, scale: int = 1) -> Callable[[StateType], StateType]:
@@ -345,7 +365,7 @@ def generate_last_program_consumption(appliance: Appliance) -> EntityDescription
         return read
 
     if ENERGY_CONSUMED_LAST in appliance.entities:
-        descriptions["sensor"].append(
+        descriptions.append(
             HCSensorEntityDescription(
                 key="sensor_energy_consumed_last",
                 entity=summary or ENERGY_CONSUMED_LAST,
@@ -357,7 +377,7 @@ def generate_last_program_consumption(appliance: Appliance) -> EntityDescription
             )
         )
     if WATER_CONSUMED_LAST in appliance.entities:
-        descriptions["sensor"].append(
+        descriptions.append(
             HCSensorEntityDescription(
                 key="sensor_water_consumed_last",
                 entity=summary or WATER_CONSUMED_LAST,
@@ -515,6 +535,7 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
         ),
     ],
     "binary_sensor": [
+        generate_door_binary_sensor,
         HCBinarySensorEntityDescription(
             key="binary_sensor_aqua_stop",
             device_class=BinarySensorDeviceClass.PROBLEM,
@@ -623,6 +644,7 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
         ),
     ],
     "select": [
+        generate_power_select,
         HCSelectEntityDescription(
             key="select_remote_control_level",
             entity=SettingKey.BSH_COMMON_REMOTE_CONTROL_LEVEL,
@@ -661,6 +683,8 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
         generate_temperature_unit,
     ],
     "sensor": [
+        generate_door_sensor,
+        generate_last_program_consumption,
         # Gaggenau BO470112 and BS474112 (upstream #513)
         HCSensorEntityDescription(
             key="sensor_stopwatch_time",
@@ -811,6 +835,7 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
     "start_button": [generate_start_button],
     "delay_start": [generate_delay_start],
     "switch": [
+        generate_power_switch,
         # Dishwashers and dryers both have Half load, under their own names
         HCSwitchEntityDescription(
             key="switch_half_load",
@@ -868,10 +893,6 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
     "ipv4": [generate_ipv4],
     "ipv6": [generate_ipv6],
     "update": [generate_software_download_update, generate_software_update],
-    "dynamic": [
-        generate_power_switch,
-        generate_door_state,
-        generate_program,
-        generate_last_program_consumption,
-    ],
+    "active_program": [generate_active_program],
+    "program": [generate_program],
 }

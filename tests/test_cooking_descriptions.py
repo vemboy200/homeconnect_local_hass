@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING, Any
 
 from custom_components.homeconnect_ws.entity_descriptions.cooking import (
     generate_oven_event,
-    generate_oven_status,
+    generate_oven_temperatures,
+    generate_oven_water_tank,
 )
 from home_disconnect import Access
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
     from . import MockApplianceFactory
 
 
-async def test_generate_oven_status_fahrenheit_cavity(
+async def test_generate_oven_temperatures_fahrenheit_cavity(
     mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """US ovens expose Fahrenheit cavity temperatures on the local API."""
@@ -37,22 +38,16 @@ async def test_generate_oven_status_fahrenheit_cavity(
         ]
     }
     appliance = await mock_homeconnect_appliance(description=description)
-    descriptions = generate_oven_status(appliance)
+    descriptions = generate_oven_temperatures(appliance)
 
-    assert len(descriptions["sensor"]) == 2
-    assert (
-        descriptions["sensor"][0].entity
-        == "Cooking.Oven.Status.Cavity.001.CurrentTemperatureFahrenheit"
-    )
-    assert descriptions["sensor"][0].native_unit_of_measurement == UnitOfTemperature.FAHRENHEIT
-    assert (
-        descriptions["sensor"][1].entity
-        == "Cooking.Oven.Status.Cavity.001.MeatProbeTemperatureFahrenheit"
-    )
-    assert descriptions["sensor"][1].native_unit_of_measurement == UnitOfTemperature.FAHRENHEIT
+    assert len(descriptions) == 2
+    assert descriptions[0].entity == "Cooking.Oven.Status.Cavity.001.CurrentTemperatureFahrenheit"
+    assert descriptions[0].native_unit_of_measurement == UnitOfTemperature.FAHRENHEIT
+    assert descriptions[1].entity == "Cooking.Oven.Status.Cavity.001.MeatProbeTemperatureFahrenheit"
+    assert descriptions[1].native_unit_of_measurement == UnitOfTemperature.FAHRENHEIT
 
 
-async def test_generate_oven_status_prefers_celsius_cavity(
+async def test_generate_oven_temperatures_prefers_celsius_cavity(
     mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """Celsius cavity temperature is used when both units are present."""
@@ -73,11 +68,11 @@ async def test_generate_oven_status_prefers_celsius_cavity(
         ]
     }
     appliance = await mock_homeconnect_appliance(description=description)
-    descriptions = generate_oven_status(appliance)
+    descriptions = generate_oven_temperatures(appliance)
 
-    assert len(descriptions["sensor"]) == 1
-    assert descriptions["sensor"][0].entity == "Cooking.Oven.Status.Cavity.001.CurrentTemperature"
-    assert descriptions["sensor"][0].native_unit_of_measurement == UnitOfTemperature.CELSIUS
+    assert len(descriptions) == 1
+    assert descriptions[0].entity == "Cooking.Oven.Status.Cavity.001.CurrentTemperature"
+    assert descriptions[0].native_unit_of_measurement == UnitOfTemperature.CELSIUS
 
 
 def _cavity_status(uid: int, cavity: str, field: str) -> dict[str, Any]:
@@ -111,10 +106,10 @@ async def test_layout_only_cavity_adds_no_name_suffix(
         ]
     }
     appliance = await mock_homeconnect_appliance(description=description)
-    descriptions = generate_oven_status(appliance)
+    descriptions = generate_oven_temperatures(appliance)
 
-    assert len(descriptions["sensor"]) == 1
-    assert descriptions["sensor"][0].translation_placeholders == {"group_name": ""}
+    assert len(descriptions) == 1
+    assert descriptions[0].translation_placeholders == {"group_name": ""}
 
 
 async def test_two_real_cavities_keep_name_suffix(
@@ -128,14 +123,14 @@ async def test_two_real_cavities_keep_name_suffix(
         ]
     }
     appliance = await mock_homeconnect_appliance(description=description)
-    descriptions = generate_oven_status(appliance)
+    descriptions = generate_oven_temperatures(appliance)
 
     assert sorted(
-        description.translation_placeholders["group_name"] for description in descriptions["sensor"]
+        description.translation_placeholders["group_name"] for description in descriptions
     ) == [" 1", " 2"]
 
 
-async def test_generate_oven_status_water_tank_partial(
+async def test_generate_oven_water_tank_partial(
     mock_homeconnect_appliance: MockApplianceFactory,
 ) -> None:
     """A cavity with only one water tank status still gets the sensor."""
@@ -150,13 +145,11 @@ async def test_generate_oven_status_water_tank_partial(
         ]
     }
     appliance = await mock_homeconnect_appliance(description=description)
-    descriptions = generate_oven_status(appliance)
+    descriptions = generate_oven_water_tank(appliance)
 
-    assert len(descriptions["event_sensor"]) == 1
-    assert descriptions["event_sensor"][0].entities == [
-        "Cooking.Oven.Status.Cavity.001.WaterTankEmpty"
-    ]
-    assert descriptions["event_sensor"][0].options == ["empty", "ok"]
+    assert len(descriptions) == 1
+    assert descriptions[0].entities == ["Cooking.Oven.Status.Cavity.001.WaterTankEmpty"]
+    assert descriptions[0].options == ["empty", "ok"]
 
 
 def _cavity_event(uid: int, cavity: str, name: str) -> dict[str, Any]:
@@ -183,8 +176,7 @@ async def test_generate_oven_event_cooking_hints(
     }
     appliance = await mock_homeconnect_appliance(description=description)
     sensors = {
-        description.translation_key: description
-        for description in generate_oven_event(appliance)["binary_sensor"]
+        description.translation_key: description for description in generate_oven_event(appliance)
     }
 
     assert sorted(sensors) == [
@@ -216,7 +208,7 @@ async def test_generate_oven_event_cooking_hints_per_cavity(
         ]
     }
     appliance = await mock_homeconnect_appliance(description=description)
-    sensors = generate_oven_event(appliance)["binary_sensor"]
+    sensors = generate_oven_event(appliance)
 
     assert [sensor.key for sensor in sensors] == [
         "binary_sensor_oven_program_finished_001",

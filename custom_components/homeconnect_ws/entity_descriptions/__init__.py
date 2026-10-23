@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import replace
 from typing import TYPE_CHECKING, cast
 
@@ -14,7 +15,6 @@ from .common import COMMON_ENTITY_DESCRIPTIONS
 from .consumer_products import CONSUMER_PRODUCTS_ENTITY_DESCRIPTIONS
 from .cooking import COOKING_ENTITY_DESCRIPTIONS
 from .descriptions_definitions import (
-    EntityDescriptions,
     HCBinarySensorEntityDescription,
     HCButtonEntityDescription,
     HCEntityDescription,
@@ -60,13 +60,16 @@ def get_all_entity_description() -> _EntityDescriptionsDefinitionsType:
     return ALL_ENTITY_DESCRIPTIONS
 
 
-def _resolve_description(
+def _resolve_descriptions(
     description: HCEntityDescription
-    | Callable[[Appliance], HCEntityDescription | EntityDescriptions | None],
+    | Callable[[Appliance], HCEntityDescription | Sequence[HCEntityDescription] | None],
     appliance: Appliance,
-) -> HCEntityDescription | None:
+) -> list[HCEntityDescription]:
     """
-    Resolve a single per-type description entry to a concrete instance, if any.
+    Resolve a single per-type description entry to the descriptions it stands for.
+
+    A generator builds none, one, or a list (e.g. one per oven cavity) for
+    this appliance.
 
     Note: HA's frozen_or_thawed EntityDescription machinery clones these
     classes into homeassistant.util.frozen_dataclass_compat at runtime, so
@@ -76,11 +79,13 @@ def _resolve_description(
     function.
     """
     if not callable(description):
-        return description
-    dynamic_result = description(appliance)
-    if not dynamic_result:
-        return None
-    return cast("HCEntityDescription", dynamic_result)
+        return [description]
+    result = description(appliance)
+    if result is None:
+        return []
+    if isinstance(result, Sequence):
+        return list(result)
+    return [result]
 
 
 def _available_description(
@@ -151,28 +156,13 @@ def get_available_entities(
     }
     appliance_entities = set(appliance.entities)
     for description_type, descriptions in get_all_entity_description().items():
-        # dynamic descriptions: each callable builds a full set of new
-        # entities (across types) for this specific appliance.
-        if description_type == "dynamic":
-            for descriptions_fn in descriptions:
-                if not callable(descriptions_fn):
-                    continue
-                dynamic_result = descriptions_fn(appliance)
-                if not isinstance(dynamic_result, dict):
-                    continue
-                dynamic_descriptions = cast("_EntityDescriptionsType", dynamic_result)
-                for key, value in dynamic_descriptions.items():
-                    available_entities[key].extend(value)
-            continue
         for description in descriptions:
-            resolved_description = _resolve_description(description, appliance)
-            if resolved_description is None:
-                continue
-            available_description = _available_description(
-                description_type, resolved_description, appliance_entities
-            )
-            if available_description is not None:
-                available_entities[description_type].append(available_description)
+            for resolved_description in _resolve_descriptions(description, appliance):
+                available_description = _available_description(
+                    description_type, resolved_description, appliance_entities
+                )
+                if available_description is not None:
+                    available_entities[description_type].append(available_description)
     for available_type, available in available_entities.items():
         available_entities[available_type] = _one_temperature_unit(
             _first_per_key(available), temperature_unit
@@ -230,7 +220,6 @@ def _first_per_key(descriptions: list[HCEntityDescription]) -> list[HCEntityDesc
 
 
 __all__ = [
-    "EntityDescriptions",
     "HCBinarySensorEntityDescription",
     "HCButtonEntityDescription",
     "HCEntityDescription",

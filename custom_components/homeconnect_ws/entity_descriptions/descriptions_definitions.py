@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Container
+from collections.abc import Awaitable, Callable, Container, Sequence
 from dataclasses import replace
 from typing import TYPE_CHECKING, Literal, NotRequired, TypedDict
 
@@ -214,28 +214,6 @@ class HCUpdateEntityDescription(
     command_entity: str | None = None
 
 
-class EntityDescriptions(TypedDict, total=False):
-    """Entity descriptions by type; a "dynamic" generator fills in only the relevant keys."""
-
-    button: list[HCButtonEntityDescription]
-    active_program: list[HCSensorEntityDescription]
-    binary_sensor: list[HCBinarySensorEntityDescription]
-    event_sensor: list[HCSensorEntityDescription]
-    number: list[HCNumberEntityDescription]
-    program: list[HCSelectEntityDescription]
-    select: list[HCSelectEntityDescription]
-    sensor: list[HCSensorEntityDescription]
-    start_button: list[HCButtonEntityDescription]
-    delay_start: list[HCNumberEntityDescription]
-    switch: list[HCSwitchEntityDescription]
-    wifi: list[HCSensorEntityDescription]
-    ipv4: list[HCSensorEntityDescription]
-    ipv6: list[HCSensorEntityDescription]
-    light: list[HCLightEntityDescription]
-    fan: list[HCFanEntityDescription]
-    update: list[HCUpdateEntityDescription]
-
-
 _EntityDescriptionsDefinitionsType = dict[
     Literal[
         "button",
@@ -255,10 +233,10 @@ _EntityDescriptionsDefinitionsType = dict[
         "light",
         "fan",
         "update",
-        "dynamic",
     ],
     list[
-        HCEntityDescription | Callable[[Appliance], HCEntityDescription | EntityDescriptions | None]
+        HCEntityDescription
+        | Callable[[Appliance], HCEntityDescription | Sequence[HCEntityDescription] | None]
     ],
 ]
 

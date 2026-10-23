@@ -96,7 +96,7 @@ def compartment_door(
 
     A freezer or fridge with one door reports it both as the compartment's door
     and as BSH.Common.Status.DoorState, which already gets a Door entity (see
-    generate_door_state). The compartment door only tells doors apart when the
+    generate_door_binary_sensor). The compartment door only tells doors apart when the
     appliance has more than one.
     """
 
