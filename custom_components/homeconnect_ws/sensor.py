@@ -7,7 +7,7 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from home_disconnect.entities import Access, Program
-from home_disconnect.keys import EventKey, OptionKey, RootKey, SettingKey, StatusKey
+from home_disconnect.keys import EventKey, OptionKey, RootKey, StatusKey
 from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.const import (
@@ -22,7 +22,7 @@ from homeassistant.const import (
 )
 
 from .entity import HCEntity
-from .entity_descriptions.common import POWER_OFF_STATE_NAMES, door_state_count, program_names
+from .entity_descriptions.common import door_state_count, program_names
 from .entity_descriptions.cooking import oven_status_cavities
 from .entity_descriptions.descriptions_definitions import (
     HCBinarySensorEntityDescription,
@@ -46,27 +46,17 @@ if TYPE_CHECKING:
 
 PARALLEL_UPDATES = 0
 
-_POWER_STATE_ENTITY = SettingKey.BSH_COMMON_POWER_STATE
+_OPERATION_STATE_ENTITY = StatusKey.BSH_COMMON_OPERATION_STATE
 _ACTIVE_PROGRAM_ENTITY = RootKey.BSH_COMMON_ACTIVE_PROGRAM
 _REMAINING_PROGRAM_TIME_ENTITY = OptionKey.BSH_COMMON_REMAINING_PROGRAM_TIME
-_NO_ACTIVE_PROGRAM_TRIGGER_ENTITIES = (_ACTIVE_PROGRAM_ENTITY, _POWER_STATE_ENTITY)
+# The operation states core home_connect's program sensors are available in
+_PROGRAM_OPERATION_STATES = ("DelayedStart", "Run", "Pause", "Finished")
 
 
-def _no_active_program_and_off(appliance: Appliance) -> bool:
-    """
-    Whether nothing is running and the appliance has powered itself off.
-
-    Distinct from clear_on_expected_offline/coordinator.expected_offline,
-    which only covers laundry appliances that cut their own WiFi on power-off
-    (see EXPECTED_OFFLINE_APPLIANCE_TYPES) - this instead covers appliances
-    that stay connected and reachable but stop pushing updates for
-    Option-based status (phase, progress) once idle, so those values freeze
-    at whatever they last showed while a program was still running.
-    """
-    if appliance.active_program is not None:
-        return False
-    power_state = appliance.entities.get(_POWER_STATE_ENTITY)
-    return power_state is not None and power_state.value in POWER_OFF_STATE_NAMES
+def _program_running(appliance: Appliance) -> bool:
+    """Whether a program is delayed, running, paused or finished."""
+    operation_state = appliance.entities.get(_OPERATION_STATE_ENTITY)
+    return operation_state is not None and operation_state.value in _PROGRAM_OPERATION_STATES
 
 
 # HCWiFI and the ipv4/ipv6 address sensors are the only should_poll entities in
@@ -521,6 +511,7 @@ SENSOR_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
                 }
             ],
             clear_on_expected_offline=True,
+            program_sensor=True,
         ),
         HCSensorEntityDescription(
             key="sensor_elapsed_program_time",
@@ -529,6 +520,7 @@ SENSOR_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             native_unit_of_measurement=UnitOfTime.SECONDS,
             suggested_unit_of_measurement=UnitOfTime.HOURS,
             clear_on_expected_offline=True,
+            program_sensor=True,
             available_while_program_active=True,
         ),
         HCSensorEntityDescription(
@@ -536,7 +528,7 @@ SENSOR_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity=OptionKey.BSH_COMMON_PROGRAM_PROGRESS,
             native_unit_of_measurement=PERCENTAGE,
             clear_on_expected_offline=True,
-            unavailable_when_no_active_program=True,
+            program_sensor=True,
             available_with_remaining_time=True,
         ),
         HCSensorEntityDescription(
@@ -639,6 +631,7 @@ SENSOR_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             native_unit_of_measurement=UnitOfTime.SECONDS,
             suggested_unit_of_measurement=UnitOfTime.HOURS,
             clear_on_expected_offline=True,
+            program_sensor=True,
             available_with_remaining_time=True,
         ),
         # Coffee machines
@@ -773,7 +766,7 @@ SENSOR_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity=StatusKey.DISHCARE_DISHWASHER_PROGRAM_PHASE,
             device_class=SensorDeviceClass.ENUM,
             has_state_translation=True,
-            force_value_when_no_active_program="none",
+            program_sensor=True,
         ),
         HCSensorEntityDescription(
             key="sensor_machine_care_reminder",
@@ -1007,27 +1000,23 @@ class HCSensor(HCEntity, SensorEntity):
             else:
                 self._attr_options = [str(value) for value in self._entity.enum.values()]
 
+        # Availability also depends on these, which the sensor's own entity doesn't
+        # report: without listening to them, nothing would update the sensor once its
+        # program ends. Same pattern as fan.py's _HOOD_FAN_STATE_ENTITIES.
+        triggers: list[str] = []
+        if entity_description.program_sensor:
+            triggers.append(_OPERATION_STATE_ENTITY)
         if (
-            entity_description.force_value_when_no_active_program is not None
-            or entity_description.unavailable_when_no_active_program
-            or entity_description.available_while_program_active
+            entity_description.available_while_program_active
             or entity_description.available_with_remaining_time
         ):
-            # This sensor's own backing entity (e.g. program_phase) is
-            # exactly the one that stops getting fresh NOTIFYs once idle -
-            # that's the bug being worked around. Without also listening to
-            # ActiveProgram/PowerState, nothing would ever call
-            # async_write_ha_state() again to make HA re-evaluate
-            # native_value/available against the new idle state. Same
-            # pattern as fan.py's _HOOD_FAN_STATE_ENTITIES.
-            for name in _NO_ACTIVE_PROGRAM_TRIGGER_ENTITIES:
-                trigger_entity = runtime_data.appliance.entities.get(name)
-                if trigger_entity is not None and trigger_entity not in self._entities:
-                    self._entities.append(trigger_entity)
+            triggers.append(_ACTIVE_PROGRAM_ENTITY)
         if entity_description.available_with_remaining_time:
-            remaining_time = runtime_data.appliance.entities.get(_REMAINING_PROGRAM_TIME_ENTITY)
-            if remaining_time is not None and remaining_time not in self._entities:
-                self._entities.append(remaining_time)
+            triggers.append(_REMAINING_PROGRAM_TIME_ENTITY)
+        for name in triggers:
+            trigger_entity = runtime_data.appliance.entities.get(name)
+            if trigger_entity is not None and trigger_entity not in self._entities:
+                self._entities.append(trigger_entity)
 
     @property
     def native_unit_of_measurement(self) -> str | None:
@@ -1039,15 +1028,6 @@ class HCSensor(HCEntity, SensorEntity):
             self._runtime_data.coordinator.expected_offline
         ):
             return None
-        if (
-            self.entity_description.force_value_when_no_active_program is not None
-            and _no_active_program_and_off(self._runtime_data.appliance)
-            and (
-                self._attr_options is None
-                or self.entity_description.force_value_when_no_active_program in self._attr_options
-            )
-        ):
-            return self.entity_description.force_value_when_no_active_program
         if self._entity is None or self._entity.value is None:
             return None
         if self._entity.enum and self.entity_description.has_state_translation:
@@ -1060,8 +1040,8 @@ class HCSensor(HCEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        if self.entity_description.unavailable_when_no_active_program and (
-            _no_active_program_and_off(self._runtime_data.appliance)
+        if self.entity_description.program_sensor and not _program_running(
+            self._runtime_data.appliance
         ):
             return False
         if (

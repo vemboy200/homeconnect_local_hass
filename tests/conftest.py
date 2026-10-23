@@ -163,17 +163,9 @@ def mock_config_entry() -> MockConfigEntry:
 
 
 @pytest.fixture
-def dishwasher_description(request: pytest.FixtureRequest) -> dict[str, Any]:
-    """Return the dishwasher's description; parametrize indirectly to change it."""
-    return getattr(request, "param", deepcopy(DISHWASHER_DESCRIPTION))
-
-
-@pytest.fixture
-def mock_dishwasher(
-    monkeypatch: pytest.MonkeyPatch, dishwasher_description: dict[str, Any]
-) -> Appliance:
+def mock_dishwasher(monkeypatch: pytest.MonkeyPatch) -> Appliance:
     """Mock the coordinator's Appliance as a dishwasher in the middle of a program."""
-    appliance = make_appliance(dishwasher_description)
+    appliance = make_appliance(DISHWASHER_DESCRIPTION)
     appliance.entities.apply(
         [
             {"uid": 539, "value": 2},  # PowerState: On
