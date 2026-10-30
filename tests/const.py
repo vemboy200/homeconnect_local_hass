@@ -736,6 +736,12 @@ WASHER_DESCRIPTION = {
             "available": True,
             "access": Access.READ,
         },
+        {
+            "uid": 1041,
+            "name": "LaundryCare.Washer.Status.ProcessingData.LaundryLoad",
+            "available": True,
+            "access": Access.READ,
+        },
     ],
     "setting": [
         {
