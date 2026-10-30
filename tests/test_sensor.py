@@ -477,3 +477,33 @@ async def test_progress_shown_with_remaining_time(
     await update_entity(mock_washer.entities.active_program, {"value": None})
     await hass.async_block_till_done()
     assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (4180, "4.18"),
+        # Not measured yet
+        (0, STATE_UNKNOWN),
+        # Sent by a Bosch washer when a program finishes (fork issue #254)
+        (0xFFFF, STATE_UNKNOWN),
+    ],
+)
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
+async def test_laundry_load_placeholders(
+    hass: HomeAssistant,
+    mock_washer: Appliance,
+    washer_config_entry: MockConfigEntry,
+    value: int,
+    expected: str,
+) -> None:
+    """The laundry load is unknown while the washer reports a placeholder instead of a weight."""
+    await setup_integration(hass, washer_config_entry)
+
+    await update_entity(
+        mock_washer.entities["LaundryCare.Washer.Status.ProcessingData.LaundryLoad"],
+        {"value": value},
+    )
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.fake_brand_washer_laundry_load").state == expected

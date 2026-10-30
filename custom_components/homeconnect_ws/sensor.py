@@ -808,8 +808,9 @@ SENSOR_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             state_class=SensorStateClass.MEASUREMENT,
             native_unit_of_measurement=UnitOfMass.GRAMS,
             suggested_unit_of_measurement=UnitOfMass.KILOGRAMS,
-            # 0 means the load hasn't been measured yet
-            value_fn=lambda value: value or None,
+            # 0 means the load hasn't been measured yet, and some washers send 65535 (0xFFFF)
+            # when a program finishes (fork issue #254)
+            value_fn=lambda value: None if value in (0, 0xFFFF) else value,
         ),
         HCSensorEntityDescription(
             key="sensor_laundry_detergent_consumed",
