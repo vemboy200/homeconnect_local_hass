@@ -703,6 +703,12 @@
       },
       "binary_sensor_coffee_close_door": {
         "name": "Brewing unit door"
+      },
+      "binary_sensor_temperature_alarm_chiller_left": {
+        "name": "Temperature alarm Chiller left"
+      },
+      "binary_sensor_temperature_alarm_chiller_right": {
+        "name": "Temperature alarm Chiller right"
       }
     },
     "sensor": {
@@ -2268,6 +2274,12 @@
       },
       "sensor_oven_current_temperature_group": {
         "name": "Current Temperature{group_name}"
+      },
+      "sensor_chiller_left_temperature": {
+        "name": "Chiller left temperature"
+      },
+      "sensor_chiller_right_temperature": {
+        "name": "Chiller right temperature"
       }
     },
     "select": {
@@ -4430,6 +4442,28 @@
           "turnofflight": "Turn off",
           "keeplighton": "Keep on"
         }
+      },
+      "select_chiller_left_preset": {
+        "name": "Chiller left preset",
+        "state": {
+          "meatfish": "29°F 💧 (Meat/Fish)",
+          "fruit": "32°F 💧 (Fruit)",
+          "vegetables": "32°F 💧💧 (Vegetables)",
+          "beverages": "34°F 💧 (Beverages)",
+          "snacks": "40°F 💧 (Snacks/Misc.)",
+          "custom": "Custom"
+        }
+      },
+      "select_chiller_right_preset": {
+        "name": "Chiller right preset",
+        "state": {
+          "meatfish": "29°F 💧 (Meat/Fish)",
+          "fruit": "32°F 💧 (Fruit)",
+          "vegetables": "32°F 💧💧 (Vegetables)",
+          "beverages": "34°F 💧 (Beverages)",
+          "snacks": "40°F 💧 (Snacks/Misc.)",
+          "custom": "Custom"
+        }
       }
     },
     "button": {
@@ -4575,6 +4609,12 @@
       },
       "number_setting_alarm_clock_groupe": {
         "name": "Alarm Clock{group_name}"
+      },
+      "number_setpoint_chiller_left": {
+        "name": "Chiller left temperature"
+      },
+      "number_setpoint_chiller_right": {
+        "name": "Chiller right temperature"
       }
     },
     "light": {
