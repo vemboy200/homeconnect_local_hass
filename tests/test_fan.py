@@ -2,515 +2,299 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, Mock, patch
+from typing import TYPE_CHECKING, Any
+from unittest.mock import patch
 
 import pytest
-from home_disconnect.entities import Program
 from home_disconnect.messages import Action, Message
 from homeassistant.components.fan import (
     ATTR_PERCENTAGE,
-    ATTR_PERCENTAGE_STEP,
+    ATTR_PRESET_MODE,
     SERVICE_SET_PERCENTAGE,
-    FanEntityFeature,
+    SERVICE_SET_PRESET_MODE,
 )
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.const import (
     ATTR_ENTITY_ID,
-    ATTR_FRIENDLY_NAME,
-    ATTR_SUPPORTED_FEATURES,
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
     STATE_OFF,
     STATE_ON,
+    Platform,
 )
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from pytest_homeassistant_custom_component.common import snapshot_platform
 
-from . import setup_config_entry, update_entity
-from .const import MOCK_CONFIG_DATA
+from . import setup_integration, update_entity
 
 if TYPE_CHECKING:
     from home_disconnect import Appliance
     from homeassistant.core import HomeAssistant
+    from homeassistant.helpers import entity_registry as er
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from syrupy.assertion import SnapshotAssertion
+
+ENTITY_ID = "fan.fake_brand_hood_fan"
 
 
-async def test_setup(
+async def _notify(appliance: Appliance, values: dict[int, Any]) -> None:
+    """Apply values by UID, the way the hood reports them."""
+    for uid, value in values.items():
+        await update_entity(appliance.entities.by_uid[uid], {"value": value})
+
+
+def _venting(options: list[tuple[int, Any]]) -> Message:
+    """Return the write that starts the Venting program with these options."""
+    return Message(
+        resource="/ro/activeProgram",
+        action=Action.POST,
+        data=[
+            {
+                "program": 55307,
+                "options": [{"uid": uid, "value": value} for uid, value in options],
+            }
+        ],
+    )
+
+
+@pytest.mark.usefixtures("mock_hood")
+async def test_fan(
     hass: HomeAssistant,
-    mock_appliance: Appliance,
-    patch_entity_description: None,
+    entity_registry: er.EntityRegistry,
+    snapshot: SnapshotAssertion,
+    hood_config_entry: MockConfigEntry,
 ) -> None:
-    """Test setting up entity."""
-    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    """Test the fan entity of a hood venting at the lowest level."""
+    with patch("custom_components.homeconnect_ws.PLATFORMS", [Platform.FAN]):
+        await setup_integration(hass, hood_config_entry)
 
-    state = hass.states.get("fan.fake_brand_homeappliance_fan")
-    assert state
-    assert state.name == "Fake_brand HomeAppliance Fan"
-    assert state.attributes[ATTR_FRIENDLY_NAME] == "Fake_brand HomeAppliance Fan"
-    assert (
-        state.attributes[ATTR_SUPPORTED_FEATURES]
-        == FanEntityFeature.SET_SPEED | FanEntityFeature.TURN_OFF | FanEntityFeature.TURN_ON
-        or state.attributes[ATTR_SUPPORTED_FEATURES]
-        == FanEntityFeature.SET_SPEED
-        | FanEntityFeature.PRESET_MODE
-        | FanEntityFeature.TURN_OFF
-        | FanEntityFeature.TURN_ON
-    )
-    assert state.attributes[ATTR_PERCENTAGE_STEP] == 25
+    await snapshot_platform(hass, entity_registry, snapshot, hood_config_entry.entry_id)
 
 
-async def test_update(
+@pytest.mark.parametrize(
+    ("values", "expected_state", "expected_percentage"),
+    [
+        ({55308: 3}, STATE_ON, 60),
+        ({55308: 0, 55305: 1}, STATE_ON, 80),
+        ({55308: 0, 55305: 2}, STATE_ON, 100),
+        # Boost runs Venting with both levels at 0 (fork issue #260)
+        ({55308: 0, 55305: 0, 55297: True}, STATE_ON, 100),
+        # Some hoods keep the program and level after switching off (fork issue #60)
+        ({552: 0}, STATE_OFF, 0),
+        ({256: 0}, STATE_OFF, 0),
+    ],
+)
+async def test_state(
     hass: HomeAssistant,
-    mock_appliance: Appliance,
-    patch_entity_description: None,
+    mock_hood: Appliance,
+    hood_config_entry: MockConfigEntry,
+    values: dict[int, Any],
+    expected_state: str,
+    expected_percentage: int,
 ) -> None:
-    """Test updating entity."""
-    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 0})
+    """Test the fan follows the hood's program, levels and operation state."""
+    await setup_integration(hass, hood_config_entry)
+
+    await _notify(mock_hood, values)
     await hass.async_block_till_done()
 
-    state = hass.states.get("fan.fake_brand_homeappliance_fan")
-    assert state.state == STATE_OFF
-
-    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 504})
-    await update_entity(
-        mock_appliance.entities["Cooking.Common.Option.Hood.VentingLevel"], {"value": 1}
-    )
-    await hass.async_block_till_done()
-
-    state = hass.states.get("fan.fake_brand_homeappliance_fan")
-    assert state.state == STATE_ON
-    assert state.attributes[ATTR_PERCENTAGE] == 25
-
-    await update_entity(
-        mock_appliance.entities["Cooking.Common.Option.Hood.VentingLevel"], {"value": 2}
-    )
-    await hass.async_block_till_done()
-
-    state = hass.states.get("fan.fake_brand_homeappliance_fan")
-    assert state.state == STATE_ON
-    assert state.attributes[ATTR_PERCENTAGE] == 50
-
-    await update_entity(
-        mock_appliance.entities["Cooking.Common.Option.Hood.VentingLevel"], {"value": 0}
-    )
-    await update_entity(
-        mock_appliance.entities["Cooking.Common.Option.Hood.IntensiveLevel"], {"value": 1}
-    )
-    await hass.async_block_till_done()
-
-    state = hass.states.get("fan.fake_brand_homeappliance_fan")
-    assert state.state == STATE_ON
-    assert state.attributes[ATTR_PERCENTAGE] == 75
-
-    await update_entity(
-        mock_appliance.entities["Cooking.Common.Option.Hood.VentingLevel"], {"value": 0}
-    )
-    await update_entity(
-        mock_appliance.entities["Cooking.Common.Option.Hood.IntensiveLevel"], {"value": 2}
-    )
-    await hass.async_block_till_done()
-
-    state = hass.states.get("fan.fake_brand_homeappliance_fan")
-    assert state.state == STATE_ON
-    assert state.attributes[ATTR_PERCENTAGE] == 100
+    state = hass.states.get(ENTITY_ID)
+    assert state.state == expected_state
+    assert state.attributes[ATTR_PERCENTAGE] == expected_percentage
 
 
-async def test_is_on_false_when_operation_state_inactive(
+async def test_boost_ends(
     hass: HomeAssistant,
-    mock_appliance: Appliance,
-    patch_entity_description: None,
+    mock_hood: Appliance,
+    hood_config_entry: MockConfigEntry,
 ) -> None:
-    """
-    Test the fan reports off when OperationState says so, despite a stale program.
+    """Test the fan goes back to the hood's level when boost ends."""
+    await setup_integration(hass, hood_config_entry)
+    await _notify(mock_hood, {55308: 0, 55297: True})
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).attributes[ATTR_PRESET_MODE] == "Boost"
 
-    Some hoods keep reporting an active Venting program with a non-zero
-    venting level after being switched off - confirmed live on fork issue
-    #60. OperationState is the authoritative signal in that case.
-    """
-    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 504})
-    await update_entity(
-        mock_appliance.entities["Cooking.Common.Option.Hood.VentingLevel"], {"value": 1}
-    )
+    await _notify(mock_hood, {55308: 1, 55297: False})
     await hass.async_block_till_done()
 
-    state = hass.states.get("fan.fake_brand_homeappliance_fan")
+    state = hass.states.get(ENTITY_ID)
     assert state.state == STATE_ON
-
-    mock_appliance.entities.by_name["BSH.Common.Status.OperationState"] = Mock(value="Inactive")
-    # Not itself subscribed (it wasn't present at entity setup), but is_on
-    # reads it fresh on every evaluation - re-triggering an already
-    # subscribed entity's callback (the fan only subscribes to its speed
-    # entities, not ActiveProgram) is enough to force a re-render.
-    await mock_appliance.entities["Cooking.Common.Option.Hood.VentingLevel"].run_callbacks()
-    await hass.async_block_till_done()
-
-    state = hass.states.get("fan.fake_brand_homeappliance_fan")
-    assert state.state == STATE_OFF
-
-
-async def test_boost_shows_on_at_full_speed(
-    hass: HomeAssistant,
-    mock_appliance: Appliance,
-    patch_entity_description: None,
-) -> None:
-    """Boost runs Venting with both levels at 0, so the fan shows full speed (fork issue #260)."""
-    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 504})
-    await update_entity(
-        mock_appliance.entities["Cooking.Common.Option.Hood.Boost"], {"value": True}
-    )
-    await update_entity(
-        mock_appliance.entities["Cooking.Common.Option.Hood.VentingLevel"], {"value": 0}
-    )
-    await mock_appliance.entities["Cooking.Common.Option.Hood.VentingLevel"].run_callbacks()
-    await hass.async_block_till_done()
-
-    state = hass.states.get("fan.fake_brand_homeappliance_fan")
-    assert state.state == STATE_ON
-    assert state.attributes[ATTR_PERCENTAGE] == 100
-
-    # Ending boost brings back the level the hood was at before
-    await update_entity(
-        mock_appliance.entities["Cooking.Common.Option.Hood.Boost"], {"value": False}
-    )
-    await update_entity(
-        mock_appliance.entities["Cooking.Common.Option.Hood.VentingLevel"], {"value": 1}
-    )
-    await hass.async_block_till_done()
-
-    state = hass.states.get("fan.fake_brand_homeappliance_fan")
-    assert state.state == STATE_ON
-    assert state.attributes[ATTR_PERCENTAGE] == 25
+    assert state.attributes[ATTR_PERCENTAGE] == 20
+    assert state.attributes[ATTR_PRESET_MODE] == "None"
 
 
 async def test_turn_on(
     hass: HomeAssistant,
-    mock_appliance: Appliance,
-    patch_entity_description: None,
+    mock_hood: Appliance,
+    hood_config_entry: MockConfigEntry,
 ) -> None:
-    """Test turning on."""
-    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 0})
+    """Test turning on starts Venting with every option, as this hood wants."""
+    await setup_integration(hass, hood_config_entry)
+    # What the hood reports when switched off; the levels keep their last value
+    await _notify(mock_hood, {539: 1, 552: 0, 256: 0})
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == STATE_OFF
+
+    await hass.services.async_call(
+        FAN_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: ENTITY_ID}, blocking=True
+    )
+
+    mock_hood.session.request.assert_awaited_once_with(
+        _venting([(55308, 1), (55305, 0), (55297, False)])
+    )
+
+
+@pytest.mark.parametrize(
+    ("percentage", "options"),
+    [
+        (40, [(55308, 2), (55305, 0), (55297, False)]),
+        (80, [(55308, 0), (55305, 1), (55297, False)]),
+    ],
+)
+async def test_set_percentage(
+    hass: HomeAssistant,
+    mock_hood: Appliance,
+    hood_config_entry: MockConfigEntry,
+    percentage: int,
+    options: list[tuple[int, Any]],
+) -> None:
+    """Test setting a speed writes the matching venting or intensive level."""
+    await setup_integration(hass, hood_config_entry)
+
+    await hass.services.async_call(
+        FAN_DOMAIN,
+        SERVICE_SET_PERCENTAGE,
+        {ATTR_ENTITY_ID: ENTITY_ID, ATTR_PERCENTAGE: percentage},
+        blocking=True,
+    )
+
+    mock_hood.session.request.assert_awaited_once_with(_venting(options))
+
+
+async def test_set_percentage_ignores_remote_start(
+    hass: HomeAssistant,
+    mock_hood: Appliance,
+    hood_config_entry: MockConfigEntry,
+) -> None:
+    """Test the fan still runs when the hood reports remote start as off."""
+    await setup_integration(hass, hood_config_entry)
+    await _notify(mock_hood, {517: False})
     await hass.async_block_till_done()
 
     await hass.services.async_call(
         FAN_DOMAIN,
-        SERVICE_TURN_ON,
-        {ATTR_ENTITY_ID: "fan.fake_brand_homeappliance_fan"},
+        SERVICE_SET_PERCENTAGE,
+        {ATTR_ENTITY_ID: ENTITY_ID, ATTR_PERCENTAGE: 40},
         blocking=True,
     )
 
-    mock_appliance.session.request.assert_awaited_once_with(
-        Message(
-            resource="/ro/activeProgram",
-            action=Action.POST,
-            data=[
-                {
-                    "program": 504,
-                    "options": [],
-                }
-            ],
-        )
+    mock_hood.session.request.assert_awaited_once_with(
+        _venting([(55308, 2), (55305, 0), (55297, False)])
     )
 
 
-async def test_turn_on_full_option_set(
+@pytest.mark.parametrize(
+    ("preset_mode", "options"),
+    [
+        ("Boost", [(55308, 0), (55297, True), (55305, 0)]),
+        ("None", []),
+    ],
+)
+async def test_set_preset_mode(
     hass: HomeAssistant,
-    mock_appliance: Appliance,
-    patch_entity_description: None,
+    mock_hood: Appliance,
+    hood_config_entry: MockConfigEntry,
+    preset_mode: str,
+    options: list[tuple[int, Any]],
 ) -> None:
-    """
-    Test turning on sends a complete option set for appliances that need one.
+    """Test starting and stopping boost, shown right away before the hood confirms it."""
+    await setup_integration(hass, hood_config_entry)
 
-    Same 400 BadRequest as the start button / program select: an appliance
-    whose ActiveProgram is flagged fullOptionSet validates a program write
-    against the program's complete option set and rejects an empty one.
-    Confirmed live on a Bosch hood, fork issue #17.
-    """
-    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 0})
-    await update_entity(mock_appliance.entities["Test.Option1"], {"value": True})
-    await hass.async_block_till_done()
-
-    with patch.object(Program, "full_option_set", new=True, create=True):
-        await hass.services.async_call(
-            FAN_DOMAIN,
-            SERVICE_TURN_ON,
-            {ATTR_ENTITY_ID: "fan.fake_brand_homeappliance_fan"},
-            blocking=True,
-        )
-
-    mock_appliance.session.request.assert_awaited_once_with(
-        Message(
-            resource="/ro/activeProgram",
-            action=Action.POST,
-            data=[
-                {
-                    "program": 504,
-                    "options": [
-                        {"uid": 401, "value": True},
-                        {"uid": 403, "value": 0},
-                        {"uid": 404, "value": 0},
-                    ],
-                }
-            ],
-        )
+    await hass.services.async_call(
+        FAN_DOMAIN,
+        SERVICE_SET_PRESET_MODE,
+        {ATTR_ENTITY_ID: ENTITY_ID, ATTR_PRESET_MODE: preset_mode},
+        blocking=True,
     )
+
+    mock_hood.session.request.assert_awaited_once_with(_venting(options))
+    assert hass.states.get(ENTITY_ID).attributes[ATTR_PRESET_MODE] == preset_mode
 
 
 async def test_turn_off(
     hass: HomeAssistant,
-    mock_appliance: Appliance,
-    patch_entity_description: None,
+    mock_hood: Appliance,
+    hood_config_entry: MockConfigEntry,
 ) -> None:
     """
-    Test turning off writes PowerState to its off value.
+    Test turning off powers the hood off.
 
-    Neither writing 0 to the speed options nor DELETE /ro/activeProgram is
-    honoured by every hood - confirmed live on a DWK81AN60 (fork issue #17,
-    upstream #386/#387): DELETE is never answered at all, and the appliance
-    only actually stops in response to a PowerState write.
+    Neither writing 0 to the levels nor DELETE /ro/activeProgram is honoured by every hood -
+    confirmed live on a DWK81AN60 (fork issue #17, upstream #386/#387): DELETE is never
+    answered at all, and the hood only stops on a PowerState write.
     """
-    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 504})
-    await hass.async_block_till_done()
-
-    power_state = Mock(enum={0: "Off", 1: "On"}, min=None, max=None, set_value=AsyncMock())
-    mock_appliance.entities.by_name["BSH.Common.Setting.PowerState"] = power_state
+    await setup_integration(hass, hood_config_entry)
 
     await hass.services.async_call(
-        FAN_DOMAIN,
-        SERVICE_TURN_OFF,
-        {ATTR_ENTITY_ID: "fan.fake_brand_homeappliance_fan"},
-        blocking=True,
+        FAN_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: ENTITY_ID}, blocking=True
     )
 
-    power_state.set_value.assert_awaited_once_with("Off")
-    mock_appliance.session.request.assert_not_awaited()
+    mock_hood.session.request.assert_awaited_once_with(
+        Message(resource="/ro/values", action=Action.POST, data=[{"uid": 539, "value": 1}])
+    )
 
 
-async def test_turn_off_no_power_off_available(
+@pytest.mark.parametrize(
+    "hood_power_state",
+    [
+        {"enumeration": {"2": "On", "3": "Standby"}},
+        # Off is declared but outside the settable range
+        {"min": 2, "max": 3},
+    ],
+)
+async def test_turn_off_no_power_off(
     hass: HomeAssistant,
-    mock_appliance: Appliance,
-    patch_entity_description: None,
+    mock_hood: Appliance,
+    hood_config_entry: MockConfigEntry,
 ) -> None:
-    """Test turning off raises when PowerState can't be set to Off/MainsOff."""
-    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 504})
-    await hass.async_block_till_done()
-
-    power_state = Mock(enum={1: "On", 2: "Standby"}, min=None, max=None, set_value=AsyncMock())
-    mock_appliance.entities.by_name["BSH.Common.Setting.PowerState"] = power_state
+    """Test turning off raises when PowerState can't be set to Off or MainsOff."""
+    await setup_integration(hass, hood_config_entry)
 
     with pytest.raises(ServiceValidationError):
         await hass.services.async_call(
-            FAN_DOMAIN,
-            SERVICE_TURN_OFF,
-            {ATTR_ENTITY_ID: "fan.fake_brand_homeappliance_fan"},
-            blocking=True,
+            FAN_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: ENTITY_ID}, blocking=True
         )
 
-    power_state.set_value.assert_not_awaited()
+    mock_hood.session.request.assert_not_awaited()
 
 
-async def test_turn_off_respects_settable_range(
+async def test_turn_off_timeout(
     hass: HomeAssistant,
-    mock_appliance: Appliance,
-    patch_entity_description: None,
-) -> None:
-    """Test an Off enum member outside the entity's min/max range doesn't count."""
-    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 504})
-    await hass.async_block_till_done()
-
-    # "Off" (0) is declared but outside the settable 1-2 range - matches
-    # generate_power_switch's own handling of this same entity.
-    power_state = Mock(enum={0: "Off", 1: "On", 2: "Standby"}, min=1, max=2, set_value=AsyncMock())
-    mock_appliance.entities.by_name["BSH.Common.Setting.PowerState"] = power_state
-
-    with pytest.raises(ServiceValidationError):
-        await hass.services.async_call(
-            FAN_DOMAIN,
-            SERVICE_TURN_OFF,
-            {ATTR_ENTITY_ID: "fan.fake_brand_homeappliance_fan"},
-            blocking=True,
-        )
-
-    power_state.set_value.assert_not_awaited()
-
-
-async def test_turn_off_command_timeout(
-    hass: HomeAssistant,
-    mock_appliance: Appliance,
-    patch_entity_description: None,
+    mock_hood: Appliance,
+    hood_config_entry: MockConfigEntry,
 ) -> None:
     """Test a PowerState write that never gets answered raises a clear error."""
-    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 504})
-    await hass.async_block_till_done()
-
-    power_state = Mock(
-        enum={0: "Off", 1: "On"},
-        min=None,
-        max=None,
-        set_value=AsyncMock(side_effect=TimeoutError),
-    )
-    mock_appliance.entities.by_name["BSH.Common.Setting.PowerState"] = power_state
+    await setup_integration(hass, hood_config_entry)
+    mock_hood.session.request.side_effect = TimeoutError
 
     with pytest.raises(HomeAssistantError):
         await hass.services.async_call(
-            FAN_DOMAIN,
-            SERVICE_TURN_OFF,
-            {ATTR_ENTITY_ID: "fan.fake_brand_homeappliance_fan"},
-            blocking=True,
+            FAN_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: ENTITY_ID}, blocking=True
         )
 
 
 async def test_turn_off_when_already_off(
     hass: HomeAssistant,
-    mock_appliance: Appliance,
-    patch_entity_description: None,
+    mock_hood: Appliance,
+    hood_config_entry: MockConfigEntry,
 ) -> None:
-    """Test turning off when no program is active."""
-    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 0})
+    """Test turning off sends nothing when no program is running."""
+    await setup_integration(hass, hood_config_entry)
+    await _notify(mock_hood, {256: 0})
     await hass.async_block_till_done()
 
     await hass.services.async_call(
-        FAN_DOMAIN,
-        SERVICE_TURN_OFF,
-        {ATTR_ENTITY_ID: "fan.fake_brand_homeappliance_fan"},
-        blocking=True,
+        FAN_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: ENTITY_ID}, blocking=True
     )
 
-    mock_appliance.session.request.assert_not_awaited()
-
-
-async def test_off_when_program_cleared_but_venting_stale(
-    hass: HomeAssistant,
-    mock_appliance: Appliance,
-    patch_entity_description: None,
-) -> None:
-    """Fan reports off when program ends even if venting level is stale."""
-    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 504})
-    await update_entity(
-        mock_appliance.entities["Cooking.Common.Option.Hood.VentingLevel"], {"value": 0}
-    )
-    await update_entity(
-        mock_appliance.entities["Cooking.Common.Option.Hood.IntensiveLevel"], {"value": 2}
-    )
-    await hass.async_block_till_done()
-
-    state = hass.states.get("fan.fake_brand_homeappliance_fan")
-    assert state.state == STATE_ON
-    assert state.attributes[ATTR_PERCENTAGE] == 100
-
-    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 0})
-    # The test fan only subscribes to its speed entities (the hood fan also
-    # subscribes to ActiveProgram), so re-run one of their callbacks.
-    await mock_appliance.entities["Cooking.Common.Option.Hood.VentingLevel"].run_callbacks()
-    await hass.async_block_till_done()
-
-    state = hass.states.get("fan.fake_brand_homeappliance_fan")
-    assert state.state == STATE_OFF
-    assert state.attributes[ATTR_PERCENTAGE] == 0
-
-
-async def test_set_speed(
-    hass: HomeAssistant,
-    mock_appliance: Appliance,
-    patch_entity_description: None,
-) -> None:
-    """Test setting a speed."""
-    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 0})
-    await update_entity(mock_appliance.entities["Test.Option1"], {"value": True})
-    await hass.async_block_till_done()
-
-    await hass.services.async_call(
-        FAN_DOMAIN,
-        SERVICE_SET_PERCENTAGE,
-        {
-            ATTR_ENTITY_ID: "fan.fake_brand_homeappliance_fan",
-            ATTR_PERCENTAGE: 25,
-        },
-        blocking=True,
-    )
-
-    mock_appliance.session.request.assert_awaited_once_with(
-        Message(
-            resource="/ro/activeProgram",
-            action=Action.POST,
-            data=[
-                {
-                    "program": 504,
-                    # The known values, in the program's option order, then
-                    # the new speeds on top.
-                    "options": [
-                        {"uid": 401, "value": True},
-                        {"uid": 403, "value": 1},
-                        {"uid": 404, "value": 0},
-                    ],
-                }
-            ],
-        )
-    )
-    mock_appliance.session.request.reset_mock()
-
-    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 505})
-    await hass.async_block_till_done()
-
-    await hass.services.async_call(
-        FAN_DOMAIN,
-        SERVICE_SET_PERCENTAGE,
-        {
-            ATTR_ENTITY_ID: "fan.fake_brand_homeappliance_fan",
-            ATTR_PERCENTAGE: 75,
-        },
-        blocking=True,
-    )
-
-    mock_appliance.session.request.assert_awaited_once_with(
-        Message(
-            resource="/ro/activeProgram",
-            action=Action.POST,
-            data=[
-                {
-                    "program": 505,
-                    "options": [
-                        {"uid": 401, "value": True},
-                        {"uid": 403, "value": 0},
-                        {"uid": 404, "value": 1},
-                    ],
-                }
-            ],
-        )
-    )
-
-
-async def test_set_speed_ignores_remote_start(
-    hass: HomeAssistant,
-    mock_appliance: Appliance,
-    patch_entity_description: None,
-) -> None:
-    """Test the fan still runs when the appliance reports remote start as off."""
-    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
-    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 0})
-    await hass.async_block_till_done()
-    mock_appliance.entities.by_name["BSH.Common.Status.RemoteControlStartAllowed"] = Mock(
-        value=False
-    )
-
-    await hass.services.async_call(
-        FAN_DOMAIN,
-        SERVICE_SET_PERCENTAGE,
-        {
-            ATTR_ENTITY_ID: "fan.fake_brand_homeappliance_fan",
-            ATTR_PERCENTAGE: 25,
-        },
-        blocking=True,
-    )
-
-    mock_appliance.session.request.assert_awaited_once()
+    mock_hood.session.request.assert_not_awaited()

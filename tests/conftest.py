@@ -29,6 +29,8 @@ from .const import (
     DISHWASHER_CONFIG_DATA,
     DISHWASHER_DESCRIPTION,
     ENTITY_DESCRIPTIONS,
+    HOOD_CONFIG_DATA,
+    HOOD_DESCRIPTION,
     MOCK_AES_DESCRIPTION_XML,
     MOCK_AES_DEVICE_ID,
     MOCK_AES_DEVICE_INFO,
@@ -205,6 +207,43 @@ def mock_washer(monkeypatch: pytest.MonkeyPatch) -> Appliance:
             {"uid": 542, "value": 84},  # ProgramProgress
             {"uid": 544, "value": 1800},  # RemainingProgramTime
             {"uid": 256, "value": 32768},  # ActiveProgram: Cotton
+        ]
+    )
+    monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))
+    return appliance
+
+
+@pytest.fixture
+def hood_config_entry() -> MockConfigEntry:
+    """Return the hood's config entry, not set up yet."""
+    return MockConfigEntry(
+        domain=DOMAIN,
+        data=deepcopy(HOOD_CONFIG_DATA),
+        unique_id=HOOD_CONFIG_DATA["device_id"],
+    )
+
+
+@pytest.fixture
+def hood_power_state() -> dict[str, Any]:
+    """Return the hood's PowerState, for a test to parametrize."""
+    return {}
+
+
+@pytest.fixture
+def mock_hood(monkeypatch: pytest.MonkeyPatch, hood_power_state: dict[str, Any]) -> Appliance:
+    """Mock the coordinator's Appliance as a hood venting at the lowest level."""
+    description = deepcopy(HOOD_DESCRIPTION)
+    description["setting"] = [{**description["setting"][0], **hood_power_state}]
+    appliance = make_appliance(description)
+    appliance.entities.apply(
+        [
+            {"uid": 539, "value": 2},  # PowerState: On
+            {"uid": 552, "value": 3},  # OperationState: Run
+            {"uid": 517, "value": True},  # RemoteControlStartAllowed
+            {"uid": 55308, "value": 1},  # VentingLevel: FanStage01
+            {"uid": 55305, "value": 0},  # IntensiveLevel: IntensiveStageOff
+            {"uid": 55297, "value": False},  # Boost
+            {"uid": 256, "value": 55307},  # ActiveProgram: Venting
         ]
     )
     monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))
