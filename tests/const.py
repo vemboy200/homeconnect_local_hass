@@ -518,6 +518,12 @@ DEVICE_DESCRIPTION = {
             "enumeration": {"0": "Off", "1": "Speed1", "2": "Speed1"},
             "default": 0,
         },
+        {
+            "uid": 406,
+            "name": "Cooking.Common.Option.Hood.Boost",
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
     ],
     "program": [
         {
