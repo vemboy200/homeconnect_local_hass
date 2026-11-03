@@ -786,3 +786,76 @@ WASHER_CONFIG_DATA = {
     CONF_DEVICE_ID: "Test_Washer_ID",
     CONF_NAME: "Fake_Brand Washer",
 }
+
+HOOD_INFO = {
+    **MOCK_APPLIANCE_INFO,
+    "type": "Hood",
+    "mac": "C8-D7-78-11-4A-2B",
+    "serialNumber": "Fake_hood_serialNumber",
+}
+
+# A hood's venting program (UIDs from a Bosch LR97CBS25, fork issue #260), which wants every
+# option sent with a program write
+HOOD_DESCRIPTION = {
+    "status": [
+        WASHER_DESCRIPTION["status"][0],  # OperationState
+        {
+            "uid": 517,
+            "name": "BSH.Common.Status.RemoteControlStartAllowed",
+            "available": True,
+            "access": Access.READ,
+        },
+    ],
+    "setting": WASHER_DESCRIPTION["setting"],  # PowerState
+    "option": [
+        {
+            "uid": 55308,
+            "name": "Cooking.Common.Option.Hood.VentingLevel",
+            "enumeration": {"0": "FanOff", "1": "FanStage01", "2": "FanStage02", "3": "FanStage03"},
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+        {
+            "uid": 55305,
+            "name": "Cooking.Common.Option.Hood.IntensiveLevel",
+            "enumeration": {
+                "0": "IntensiveStageOff",
+                "1": "IntensiveStage1",
+                "2": "IntensiveStage2",
+            },
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+        {
+            "uid": 55297,
+            "name": "Cooking.Common.Option.Hood.Boost",
+            "available": True,
+            "access": Access.READ_WRITE,
+        },
+    ],
+    "program": [
+        {
+            "uid": 55307,
+            "name": "Cooking.Common.Program.Hood.Venting",
+            "available": True,
+            "options": [
+                {"access": Access.READ_WRITE, "available": True, "refUID": uid}
+                for uid in (55308, 55305, 55297)
+            ],
+        }
+    ],
+    "activeProgram": {
+        "uid": 256,
+        "name": "BSH.Common.Root.ActiveProgram",
+        "access": Access.READ_WRITE,
+        "fullOptionSet": True,
+    },
+    "info": HOOD_INFO,
+}
+
+HOOD_CONFIG_DATA = {
+    **MOCK_CONFIG_DATA,
+    CONF_DESCRIPTION: HOOD_DESCRIPTION,
+    CONF_DEVICE_ID: "Test_Hood_ID",
+    CONF_NAME: "Fake_Brand Hood",
+}
