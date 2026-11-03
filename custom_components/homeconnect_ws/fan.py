@@ -192,7 +192,14 @@ class HCFan(HCEntity, FanEntity):
             return False
         if appliance.active_program is None:
             return False
+        if self._boost_active:
+            return True
         return any(entity.value_raw not in (None, 0) for entity in self._speed_entities.values())
+
+    @property
+    def _boost_active(self) -> bool:
+        # Boost runs Venting with both levels at 0 (fork issue #260), so it has no speed of its own
+        return self._venting_boost_entity is not None and bool(self._venting_boost_entity.value_raw)
 
     @property
     def percentage(self) -> int | None:
@@ -201,7 +208,8 @@ class HCFan(HCEntity, FanEntity):
         for speed in self._speed_mapping:
             if self._speed_entities[speed.entity_name].value_raw == speed.entity_value:
                 return ranged_value_to_percentage(self._speed_range, speed.speed)
-        return 0
+        # Boost is above the highest level, so show it as full speed
+        return 100 if self._boost_active else 0
 
     @error_decorator
     async def async_set_percentage(self, percentage: int) -> None:

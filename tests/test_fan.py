@@ -149,6 +149,41 @@ async def test_is_on_false_when_operation_state_inactive(
     assert state.state == STATE_OFF
 
 
+async def test_boost_shows_on_at_full_speed(
+    hass: HomeAssistant,
+    mock_appliance: Appliance,
+    patch_entity_description: None,
+) -> None:
+    """Boost runs Venting with both levels at 0, so the fan shows full speed (fork issue #260)."""
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await update_entity(mock_appliance.entities["Test.ActiveProgram"], {"value": 504})
+    await update_entity(
+        mock_appliance.entities["Cooking.Common.Option.Hood.Boost"], {"value": True}
+    )
+    await update_entity(
+        mock_appliance.entities["Cooking.Common.Option.Hood.VentingLevel"], {"value": 0}
+    )
+    await mock_appliance.entities["Cooking.Common.Option.Hood.VentingLevel"].run_callbacks()
+    await hass.async_block_till_done()
+
+    state = hass.states.get("fan.fake_brand_homeappliance_fan")
+    assert state.state == STATE_ON
+    assert state.attributes[ATTR_PERCENTAGE] == 100
+
+    # Ending boost brings back the level the hood was at before
+    await update_entity(
+        mock_appliance.entities["Cooking.Common.Option.Hood.Boost"], {"value": False}
+    )
+    await update_entity(
+        mock_appliance.entities["Cooking.Common.Option.Hood.VentingLevel"], {"value": 1}
+    )
+    await hass.async_block_till_done()
+
+    state = hass.states.get("fan.fake_brand_homeappliance_fan")
+    assert state.state == STATE_ON
+    assert state.attributes[ATTR_PERCENTAGE] == 25
+
+
 async def test_turn_on(
     hass: HomeAssistant,
     mock_appliance: Appliance,
