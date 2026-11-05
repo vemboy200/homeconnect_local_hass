@@ -710,6 +710,37 @@
       }
     },
     "sensor": {
+      "sensor_oven_used_heating_mode": {
+        "name": "Aktiver Heizmodus",
+        "state": {
+          "automaticoperation": "Automatikbetrieb",
+          "automaticoperationwithmicrowave": "Automatikbetrieb mit Mikrowelle",
+          "bakingsensoroperation": "Backsensor-Betrieb",
+          "bottomheating": "Unterhitze",
+          "defrosting": "Auftauen",
+          "desiccation": "Austrocknen",
+          "doughproving": "Teig Ruhen",
+          "frozenheatupspecial": "Gefrorenes Aufheizen Spezial",
+          "grilllargearea": "Grill groß",
+          "grillsmallarea": "Grill klein",
+          "hotair": "Heißluft",
+          "hotaireco": "Heißluft Eco",
+          "hotairgrilling": "Heißluftgrillen",
+          "intensiveheat": "Intensive Hitze",
+          "keepwarm": "Warmhalten",
+          "microwave": "Mikrowelle",
+          "pizzasetting": "Pizza Einstellung",
+          "preheatovenware": "Form vorheizen",
+          "reheat": "Aufwärmen",
+          "sabbathprogramme": "Sabbat Programm",
+          "slowcook": "Schongaren",
+          "steam": "Dampf",
+          "topbottomheating": "Ober/Unterhitze",
+          "topbottomheatingeco": "Ober/Unterhitze Eco",
+          "breadbaking": "Brotbacken",
+          "steamwithsteamset": "Dampf mit Dampfset"
+        }
+      },
       "sensor_problem": {
         "name": "Problem",
         "state": {
@@ -4211,37 +4242,6 @@
           "97dc": "97 °C",
           "98dc": "98 °C",
           "99dc": "99 °C"
-        }
-      },
-      "select_oven_used_heating_mode": {
-        "name": "Aktiver Heizmodus",
-        "state": {
-          "automaticoperation": "Automatikbetrieb",
-          "automaticoperationwithmicrowave": "Automatikbetrieb mit Mikrowelle",
-          "bakingsensoroperation": "Backsensor-Betrieb",
-          "bottomheating": "Unterhitze",
-          "defrosting": "Auftauen",
-          "desiccation": "Austrocknen",
-          "doughproving": "Teig Ruhen",
-          "frozenheatupspecial": "Gefrorenes Aufheizen Spezial",
-          "grilllargearea": "Grill groß",
-          "grillsmallarea": "Grill klein",
-          "hotair": "Heißluft",
-          "hotaireco": "Heißluft Eco",
-          "hotairgrilling": "Heißluftgrillen",
-          "intensiveheat": "Intensive Hitze",
-          "keepwarm": "Warmhalten",
-          "microwave": "Mikrowelle",
-          "pizzasetting": "Pizza Einstellung",
-          "preheatovenware": "Form vorheizen",
-          "reheat": "Aufwärmen",
-          "sabbathprogramme": "Sabbat Programm",
-          "slowcook": "Schongaren",
-          "steam": "Dampf",
-          "topbottomheating": "Ober/Unterhitze",
-          "topbottomheatingeco": "Ober/Unterhitze Eco",
-          "breadbaking": "Brotbacken",
-          "steamwithsteamset": "Dampf mit Dampfset"
         }
       },
       "select_pyrolysis_level": {

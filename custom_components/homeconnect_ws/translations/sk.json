@@ -441,6 +441,37 @@
       }
     },
     "sensor": {
+      "sensor_oven_used_heating_mode": {
+        "name": "Použitý režim ohrevu",
+        "state": {
+          "automaticoperation": "Automatická prevádzka",
+          "automaticoperationwithmicrowave": "Automatická prevádzka s mikrovlnkou",
+          "bakingsensoroperation": "Prevádzka s piecim senzorom",
+          "bottomheating": "Spodný ohrev",
+          "defrosting": "Odmrazovanie",
+          "desiccation": "Sušenie",
+          "doughproving": "Kvasenie cesta",
+          "frozenheatupspecial": "Špeciálne ohriatie mrazeného",
+          "grilllargearea": "Grilovanie veľkej plochy",
+          "grillsmallarea": "Grilovanie malej plochy",
+          "hotair": "Horúci vzduch",
+          "hotaireco": "Horúci vzduch Eco",
+          "hotairgrilling": "Grilovanie horúcim vzduchom",
+          "intensiveheat": "Intenzívne teplo",
+          "keepwarm": "Udržiavanie tepla",
+          "microwave": "Mikrovlnka",
+          "pizzasetting": "Nastavenie pizze",
+          "preheatovenware": "Predhrievanie riadu do rúry",
+          "reheat": "Opätovný ohrev",
+          "sabbathprogramme": "Sabatový program",
+          "slowcook": "Pomalé varenie",
+          "steam": "Para",
+          "topbottomheating": "Horný/dolný ohrev",
+          "topbottomheatingeco": "Horný/dolný ohrev Eco",
+          "breadbaking": "Pečenie chleba",
+          "steamwithsteamset": "Para so Steamset"
+        }
+      },
       "sensor_remaining_program_time": {
         "name": "Zostávajúci čas programu"
       },
@@ -3259,37 +3290,6 @@
           "level01": "Úroveň 1",
           "level02": "Úroveň 2",
           "level03": "Úroveň 3"
-        }
-      },
-      "select_oven_used_heating_mode": {
-        "name": "Použitý režim ohrevu",
-        "state": {
-          "automaticoperation": "Automatická prevádzka",
-          "automaticoperationwithmicrowave": "Automatická prevádzka s mikrovlnkou",
-          "bakingsensoroperation": "Prevádzka s piecim senzorom",
-          "bottomheating": "Spodný ohrev",
-          "defrosting": "Odmrazovanie",
-          "desiccation": "Sušenie",
-          "doughproving": "Kvasenie cesta",
-          "frozenheatupspecial": "Špeciálne ohriatie mrazeného",
-          "grilllargearea": "Grilovanie veľkej plochy",
-          "grillsmallarea": "Grilovanie malej plochy",
-          "hotair": "Horúci vzduch",
-          "hotaireco": "Horúci vzduch Eco",
-          "hotairgrilling": "Grilovanie horúcim vzduchom",
-          "intensiveheat": "Intenzívne teplo",
-          "keepwarm": "Udržiavanie tepla",
-          "microwave": "Mikrovlnka",
-          "pizzasetting": "Nastavenie pizze",
-          "preheatovenware": "Predhrievanie riadu do rúry",
-          "reheat": "Opätovný ohrev",
-          "sabbathprogramme": "Sabatový program",
-          "slowcook": "Pomalé varenie",
-          "steam": "Para",
-          "topbottomheating": "Horný/dolný ohrev",
-          "topbottomheatingeco": "Horný/dolný ohrev Eco",
-          "breadbaking": "Pečenie chleba",
-          "steamwithsteamset": "Para so Steamset"
         }
       },
       "select_pyrolysis_level": {
