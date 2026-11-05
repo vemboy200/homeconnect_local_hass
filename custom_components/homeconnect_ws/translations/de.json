@@ -2020,7 +2020,26 @@
           "cooking_oven_program_dish_recommendation_conv_gratinatebreadslices": "Empfehlung: Gratinate Brotslices",
           "dishcare_dishwasher_program_intensivesuper": "IntensiveSuper",
           "dishcare_dishwasher_program_shorthygiene": "ShortHygiene",
-          "dishcare_dishwasher_program_quickp": "QuickP"
+          "dishcare_dishwasher_program_quickp": "QuickP",
+          "cooking_oven_program_cleaning_cleaningprogram": "Reinigung: Reinigungsprogramm",
+          "cooking_oven_program_heatingmode_doughproving": "Teig gehen lassen",
+          "cooking_oven_program_heatingmode_fullgrill01steam": "Flächengrill Stufe 1 + Feuchte",
+          "cooking_oven_program_heatingmode_fullgrill02steam": "Flächengrill Stufe 2 + Feuchte",
+          "cooking_oven_program_heatingmode_hotair100steam": "Heißluft + 100 % Feuchte",
+          "cooking_oven_program_heatingmode_hotair30steam": "Heißluft + 30 % Feuchte",
+          "cooking_oven_program_heatingmode_hotair60steam": "Heißluft + 60 % Feuchte",
+          "cooking_oven_program_heatingmode_hotair80steam": "Heißluft + 80 % Feuchte",
+          "cooking_oven_program_heatingmode_hotairbottomheat": "Heißluft + Unterhitze",
+          "cooking_oven_program_heatingmode_hotairthirdbottomheat": "Heißluft + 1/3 Unterhitze",
+          "cooking_oven_program_heatingmode_regenerating": "Regenerieren",
+          "cooking_oven_program_heatingmode_roaster": "Bräterfunktion",
+          "cooking_oven_program_heatingmode_slowcooksteam": "Niedertemperaturgaren",
+          "cooking_oven_program_heatingmode_thirdtopbottomheat": "1/3 Oberhitze + Unterhitze",
+          "cooking_oven_program_heatingmode_topheat": "Oberhitze",
+          "cooking_oven_program_heatingmode_topthirdbottomheat": "Oberhitze + 1/3 Unterhitze",
+          "cooking_oven_program_heatingmode_vaccumcooking": "Sous-vide-Garen",
+          "dishcare_dishwasher_program_auto1": "Auto 35-45°C",
+          "dishcare_dishwasher_program_auto3": "Auto 65-75°C"
         }
       },
       "sensor_rinse_aid": {
@@ -3724,7 +3743,24 @@
           "cooking_oven_program_dish_recommendation_conv_gratinatebreadslices": "Empfehlung: Gratinate Brotslices",
           "dishcare_dishwasher_program_intensivesuper": "IntensiveSuper",
           "dishcare_dishwasher_program_shorthygiene": "ShortHygiene",
-          "dishcare_dishwasher_program_quickp": "QuickP"
+          "dishcare_dishwasher_program_quickp": "QuickP",
+          "cooking_oven_program_cleaning_cleaningprogram": "Reinigung: Reinigungsprogramm",
+          "cooking_oven_program_heatingmode_doughproving": "Teig gehen lassen",
+          "cooking_oven_program_heatingmode_fullgrill01steam": "Flächengrill Stufe 1 + Feuchte",
+          "cooking_oven_program_heatingmode_fullgrill02steam": "Flächengrill Stufe 2 + Feuchte",
+          "cooking_oven_program_heatingmode_hotair100steam": "Heißluft + 100 % Feuchte",
+          "cooking_oven_program_heatingmode_hotair30steam": "Heißluft + 30 % Feuchte",
+          "cooking_oven_program_heatingmode_hotair60steam": "Heißluft + 60 % Feuchte",
+          "cooking_oven_program_heatingmode_hotair80steam": "Heißluft + 80 % Feuchte",
+          "cooking_oven_program_heatingmode_hotairbottomheat": "Heißluft + Unterhitze",
+          "cooking_oven_program_heatingmode_hotairthirdbottomheat": "Heißluft + 1/3 Unterhitze",
+          "cooking_oven_program_heatingmode_regenerating": "Regenerieren",
+          "cooking_oven_program_heatingmode_roaster": "Bräterfunktion",
+          "cooking_oven_program_heatingmode_slowcooksteam": "Niedertemperaturgaren",
+          "cooking_oven_program_heatingmode_thirdtopbottomheat": "1/3 Oberhitze + Unterhitze",
+          "cooking_oven_program_heatingmode_topheat": "Oberhitze",
+          "cooking_oven_program_heatingmode_topthirdbottomheat": "Oberhitze + 1/3 Unterhitze",
+          "cooking_oven_program_heatingmode_vaccumcooking": "Sous-vide-Garen"
         }
       },
       "select_sensitivity_turbidity": {

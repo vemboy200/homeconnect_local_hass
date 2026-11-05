@@ -292,6 +292,9 @@ COOKING_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity=OptionKey.COOKING_OVEN_SETPOINT_TEMPERATURE,
             device_class=NumberDeviceClass.TEMPERATURE,
             native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+            # A Gaggenau BO470112 reports a step of 1 but rounds up to a multiple of 5: 141 was
+            # reported back as 145, 140 stayed 140 (upstream chris-mc1/homeconnect_local_hass#513)
+            step_for_brands=(5, frozenset({"GAGGENAU"})),
             mode=NumberMode.AUTO,
         ),
         HCNumberEntityDescription(
