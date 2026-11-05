@@ -34,7 +34,7 @@ OVEN_PROGRAMS = (
 )
 
 
-@pytest.mark.parametrize("language", ["en", "nl"])
+@pytest.mark.parametrize("language", ["en", "de", "nl"])
 @pytest.mark.parametrize(
     ("platform", "entity"),
     [("select", "select_program"), ("sensor", "sensor_active_program")],
