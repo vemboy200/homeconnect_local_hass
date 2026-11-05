@@ -3,31 +3,42 @@
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
+from custom_components.homeconnect_ws import coordinator
+from custom_components.homeconnect_ws.const import DOMAIN
+from home_disconnect.entities import Access
 from homeassistant.components.sensor import ATTR_OPTIONS
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import ATTR_FRIENDLY_NAME, STATE_UNAVAILABLE, STATE_UNKNOWN, Platform
+from homeassistant.const import (
+    ATTR_FRIENDLY_NAME,
+    CONF_DESCRIPTION,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+    Platform,
+)
 from homeassistant.helpers.entity import Entity as HAEntity
-from pytest_homeassistant_custom_component.common import snapshot_platform
+from pytest_homeassistant_custom_component.common import MockConfigEntry, snapshot_platform
 
 from . import (
     answer_network_info,
+    appliance_class,
     drop_connection,
+    make_appliance,
     setup_config_entry,
     setup_integration,
     update_entity,
 )
-from .const import MOCK_CONFIG_DATA
+from .const import DISHWASHER_CONFIG_DATA, DISHWASHER_DESCRIPTION, MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
     from home_disconnect import Appliance
     from home_disconnect.messages import Message
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers import entity_registry as er
-    from pytest_homeassistant_custom_component.common import MockConfigEntry
     from syrupy.assertion import SnapshotAssertion
 
 
@@ -507,3 +518,61 @@ async def test_laundry_load_placeholders(
     await hass.async_block_till_done()
 
     assert hass.states.get("sensor.fake_brand_washer_laundry_load").state == expected
+
+
+ESTIMATED_TOTAL_PROGRAM_TIME = 531
+
+
+@pytest.mark.parametrize(
+    ("operation_state", "selected_program", "reported", "available"),
+    [
+        pytest.param(1, 8193, True, True, id="ready_with_program"),
+        pytest.param(1, 0, True, False, id="ready_without_program"),
+        pytest.param(1, 8193, False, False, id="flagged_unavailable"),
+        pytest.param(0, 8193, True, False, id="inactive"),
+        pytest.param(3, 8193, True, True, id="running"),
+    ],
+)
+async def test_estimated_time_of_selected_program(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    operation_state: int,
+    selected_program: int,
+    *,
+    reported: bool,
+    available: bool,
+) -> None:
+    """Test a dishwasher shows the selected program's duration before it starts (fork #268)."""
+    description = deepcopy(DISHWASHER_DESCRIPTION)
+    description["option"].append(
+        {
+            "uid": ESTIMATED_TOTAL_PROGRAM_TIME,
+            "name": "BSH.Common.Option.EstimatedTotalProgramTime",
+            "available": True,
+            "access": Access.READ,
+        }
+    )
+    appliance = make_appliance(description)
+    appliance.entities.apply(
+        [
+            {"uid": 552, "value": operation_state},
+            {"uid": 544, "value": 7200},  # RemainingProgramTime
+            {"uid": ESTIMATED_TOTAL_PROGRAM_TIME, "value": 7200, "available": reported},
+            {"uid": 257, "value": selected_program},
+        ]
+    )
+    monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={**DISHWASHER_CONFIG_DATA, CONF_DESCRIPTION: description},
+        unique_id=DISHWASHER_CONFIG_DATA["device_id"],
+    )
+
+    with patch("custom_components.homeconnect_ws.PLATFORMS", [Platform.SENSOR]):
+        await setup_integration(hass, config_entry)
+
+    state = hass.states.get("sensor.fake_brand_dishwasher_estimated_total_program_time")
+    assert (state.state != STATE_UNAVAILABLE) is available
+    # Remaining time stays as core has it: only while a program is running
+    remaining = hass.states.get("sensor.fake_brand_dishwasher_remaining_program_time")
+    assert (remaining.state != STATE_UNAVAILABLE) is (operation_state == 3)

@@ -49,6 +49,7 @@ PARALLEL_UPDATES = 0
 _OPERATION_STATE_ENTITY = StatusKey.BSH_COMMON_OPERATION_STATE
 _ACTIVE_PROGRAM_ENTITY = RootKey.BSH_COMMON_ACTIVE_PROGRAM
 _REMAINING_PROGRAM_TIME_ENTITY = OptionKey.BSH_COMMON_REMAINING_PROGRAM_TIME
+_SELECTED_PROGRAM_ENTITY = RootKey.BSH_COMMON_SELECTED_PROGRAM
 # The operation states core home_connect's program sensors are available in
 _PROGRAM_OPERATION_STATES = ("DelayedStart", "Run", "Pause", "Finished")
 
@@ -57,6 +58,16 @@ def _program_running(appliance: Appliance) -> bool:
     """Whether a program is delayed, running, paused or finished."""
     operation_state = appliance.entities.get(_OPERATION_STATE_ENTITY)
     return operation_state is not None and operation_state.value in _PROGRAM_OPERATION_STATES
+
+
+def _program_selected(appliance: Appliance) -> bool:
+    """Whether the appliance is ready with a program selected."""
+    operation_state = appliance.entities.get(_OPERATION_STATE_ENTITY)
+    return (
+        operation_state is not None
+        and operation_state.value == "Ready"
+        and appliance.selected_program is not None
+    )
 
 
 # HCWiFI and the ipv4/ipv6 address sensors are the only should_poll entities in
@@ -632,6 +643,7 @@ SENSOR_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             suggested_unit_of_measurement=UnitOfTime.HOURS,
             clear_on_expected_offline=True,
             program_sensor=True,
+            available_with_selected_program=True,
             available_with_remaining_time=True,
         ),
         # Coffee machines
@@ -1007,6 +1019,8 @@ class HCSensor(HCEntity, SensorEntity):
         triggers: list[str] = []
         if entity_description.program_sensor:
             triggers.append(_OPERATION_STATE_ENTITY)
+        if entity_description.available_with_selected_program:
+            triggers.append(_SELECTED_PROGRAM_ENTITY)
         if (
             entity_description.available_while_program_active
             or entity_description.available_with_remaining_time
@@ -1041,8 +1055,14 @@ class HCSensor(HCEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        if self.entity_description.program_sensor and not _program_running(
-            self._runtime_data.appliance
+        appliance = self._runtime_data.appliance
+        if (
+            self.entity_description.program_sensor
+            and not _program_running(appliance)
+            and not (
+                self.entity_description.available_with_selected_program
+                and _program_selected(appliance)
+            )
         ):
             return False
         if (

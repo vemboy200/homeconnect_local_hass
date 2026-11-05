@@ -319,6 +319,8 @@ It's one entity per appliance, so there are no longer two controls for one optio
 
 Program phase, progress, remaining, elapsed and estimated time are only available while the operation state is DelayedStart, Run, Pause or Finished (`program_sensor`), the same rule core's `home_connect` uses for its program sensors (`HomeConnectProgramSensor`). Otherwise the appliance leaves the last value standing (a Bosch dishwasher's phase stuck on "Drying", issue #302). The custom integration used to force the phase to "none" and follow ActiveProgram and PowerState instead; that showed a value the appliance never reported, so it was replaced in v2.0.0.
 
+Estimated total time is also available while Ready with a program selected (`available_with_selected_program`), because a dishwasher has no other entity with the selected program's duration (fork issue #268). Core's `home_connect` has no estimated total sensor, so this doesn't depart from a rule it applies to that value, and remaining time stays as core has it.
+
 ### Overrides that come later
 
 Each of these departs from core's `home_connect`, so it stays out of the initial PR and comes as its own follow-up PR with its argument:
