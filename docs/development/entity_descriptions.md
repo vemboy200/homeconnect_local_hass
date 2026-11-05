@@ -60,7 +60,11 @@ Alarms (fridge and freezer door and temperature alarms) and reminders (cleaning 
 
 ## Number Entity (`HCNumberEntityDescription`)
 
-No HC-specific extra fields — use HA's own inherited `NumberEntityDescription` fields (`native_min_value`, `native_max_value`, `native_step`, etc.) directly, e.g. `native_max_value=99` to cap a value below what the appliance profile itself allows.
+Use HA's own inherited `NumberEntityDescription` fields (`native_min_value`, `native_max_value`, `native_step`, etc.) directly, e.g. `native_max_value=99` to cap a value below what the appliance profile itself allows.
+
+| Field | Description |
+| --- | --- |
+| `step_for_brands` | `(step, brands)`: the step for these brands (in capitals, as appliances report them), for appliances that report a step they don't follow |
 
 ## Light Entity (`HCLightEntityDescription`)
 
