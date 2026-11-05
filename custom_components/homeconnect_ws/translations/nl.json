@@ -2226,6 +2226,9 @@
       }
     },
     "button": {
+      "button_acknowledge_program_message": {
+        "name": "Programmamelding bevestigen"
+      },
       "button_stopwatch_start_pause_resume": {
         "name": "Stopwatch starten/pauzeren/hervatten"
       },

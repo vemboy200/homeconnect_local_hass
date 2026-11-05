@@ -692,6 +692,9 @@
 			}
         },
         "button": {
+            "button_acknowledge_program_message": {
+                "default": "mdi:check-circle-outline"
+            },
             "button_stopwatch_start_pause_resume": {
                 "default": "mdi:timer-play-outline"
             },

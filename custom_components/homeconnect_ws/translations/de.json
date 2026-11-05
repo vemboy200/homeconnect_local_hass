@@ -4835,6 +4835,9 @@
       }
     },
     "button": {
+      "button_acknowledge_program_message": {
+        "name": "Programmmeldung bestätigen"
+      },
       "button_stopwatch_start_pause_resume": {
         "name": "Stoppuhr starten/pausieren/fortsetzen"
       },
