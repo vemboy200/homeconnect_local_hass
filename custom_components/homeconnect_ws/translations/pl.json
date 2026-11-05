@@ -497,6 +497,37 @@
       }
     },
     "sensor": {
+      "sensor_oven_used_heating_mode": {
+        "name": "Tryb grzania",
+        "state": {
+          "automaticoperation": "operacja automatyczna",
+          "automaticoperationwithmicrowave": "operacja automatyczna z mikrofalami",
+          "bakingsensoroperation": "operacja z czujnikiem pieczenia",
+          "bottomheating": "nagrzewanie dolne",
+          "defrosting": "rozmrażanie",
+          "desiccation": "osuszanie",
+          "doughproving": "wyrastanie ciasta",
+          "frozenheatupspecial": "funkcja coolstart",
+          "grilllargearea": "grillowanie, duży obszar",
+          "grillsmallarea": "grillowanie, mały obszar",
+          "hotair": "termoobieg",
+          "hotaireco": "termoobieg eco",
+          "hotairgrilling": "grillowanie z termoobiegiem",
+          "intensiveheat": "intensywne grzanie",
+          "keepwarm": "podtrzymywanie ciepła",
+          "microwave": "mikrofale",
+          "pizzasetting": "ustawienie pizza",
+          "preheatovenware": "podgrzewanie naczyń",
+          "reheat": "podgrzewanie",
+          "sabbathprogramme": "program szabatu",
+          "slowcook": "wolne gotowanie",
+          "steam": "para",
+          "topbottomheating": "grzanie górne i dolne",
+          "topbottomheatingeco": "grzanie górne i dolne eco",
+          "breadbaking": "pieczenie chleba",
+          "steamwithsteamset": "para z zestawem parowym"
+        }
+      },
       "sensor_problem": {
         "name": "Problem",
         "state": {
@@ -3555,37 +3586,6 @@
           "level01": "poziom 1",
           "level02": "poziom 2",
           "level03": "poziom 3"
-        }
-      },
-      "select_oven_used_heating_mode": {
-        "name": "Tryb grzania",
-        "state": {
-          "automaticoperation": "operacja automatyczna",
-          "automaticoperationwithmicrowave": "operacja automatyczna z mikrofalami",
-          "bakingsensoroperation": "operacja z czujnikiem pieczenia",
-          "bottomheating": "nagrzewanie dolne",
-          "defrosting": "rozmrażanie",
-          "desiccation": "osuszanie",
-          "doughproving": "wyrastanie ciasta",
-          "frozenheatupspecial": "funkcja coolstart",
-          "grilllargearea": "grillowanie, duży obszar",
-          "grillsmallarea": "grillowanie, mały obszar",
-          "hotair": "termoobieg",
-          "hotaireco": "termoobieg eco",
-          "hotairgrilling": "grillowanie z termoobiegiem",
-          "intensiveheat": "intensywne grzanie",
-          "keepwarm": "podtrzymywanie ciepła",
-          "microwave": "mikrofale",
-          "pizzasetting": "ustawienie pizza",
-          "preheatovenware": "podgrzewanie naczyń",
-          "reheat": "podgrzewanie",
-          "sabbathprogramme": "program szabatu",
-          "slowcook": "wolne gotowanie",
-          "steam": "para",
-          "topbottomheating": "grzanie górne i dolne",
-          "topbottomheatingeco": "grzanie górne i dolne eco",
-          "breadbaking": "pieczenie chleba",
-          "steamwithsteamset": "para z zestawem parowym"
         }
       },
       "select_pyrolysis_level": {

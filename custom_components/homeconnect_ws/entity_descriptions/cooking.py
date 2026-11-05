@@ -424,11 +424,6 @@ COOKING_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity_category=EntityCategory.CONFIG,
         ),
         HCSelectEntityDescription(
-            key="select_oven_used_heating_mode",
-            entity=OptionKey.COOKING_OVEN_USED_HEATING_MODE,
-            has_state_translation=True,
-        ),
-        HCSelectEntityDescription(
             key="select_oven_meat_probe_temperature",
             entity=OptionKey.COOKING_OVEN_MEAT_PROBE_TEMPERATURE_V_2,
             has_state_translation=True,

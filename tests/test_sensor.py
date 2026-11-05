@@ -7,27 +7,37 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
+from custom_components.homeconnect_ws import coordinator
+from custom_components.homeconnect_ws.const import DOMAIN
+from home_disconnect.entities import Access
 from homeassistant.components.sensor import ATTR_OPTIONS
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import ATTR_FRIENDLY_NAME, STATE_UNAVAILABLE, STATE_UNKNOWN, Platform
+from homeassistant.const import (
+    ATTR_FRIENDLY_NAME,
+    CONF_DESCRIPTION,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+    Platform,
+)
 from homeassistant.helpers.entity import Entity as HAEntity
-from pytest_homeassistant_custom_component.common import snapshot_platform
+from pytest_homeassistant_custom_component.common import MockConfigEntry, snapshot_platform
 
 from . import (
     answer_network_info,
+    appliance_class,
     drop_connection,
+    make_appliance,
     setup_config_entry,
     setup_integration,
     update_entity,
 )
-from .const import MOCK_CONFIG_DATA
+from .const import MOCK_APPLIANCE_INFO, MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
     from home_disconnect import Appliance
     from home_disconnect.messages import Message
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers import entity_registry as er
-    from pytest_homeassistant_custom_component.common import MockConfigEntry
     from syrupy.assertion import SnapshotAssertion
 
 
@@ -507,3 +517,55 @@ async def test_laundry_load_placeholders(
     await hass.async_block_till_done()
 
     assert hass.states.get("sensor.fake_brand_washer_laundry_load").state == expected
+
+
+async def test_oven_used_heating_mode(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    entity_registry: er.EntityRegistry,
+) -> None:
+    """Test the heating mode of an automatic dish is a sensor, available only while one runs."""
+    info = {**MOCK_APPLIANCE_INFO, "type": "Oven"}
+    description = {
+        "option": [
+            {
+                "uid": 5127,
+                "name": "Cooking.Oven.Option.UsedHeatingMode",
+                "enumeration": {"0": "AutomaticOperation", "10": "HotAir"},
+                "available": False,
+                "access": Access.NONE,
+            }
+        ],
+        "info": info,
+    }
+    appliance = make_appliance(description)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={**MOCK_CONFIG_DATA, CONF_DESCRIPTION: description},
+        unique_id="Test_Oven_ID",
+    )
+
+    with patch("custom_components.homeconnect_ws.PLATFORMS", [Platform.SELECT, Platform.SENSOR]):
+        await setup_integration(hass, config_entry)
+
+    device_id = info["deviceID"]
+    assert not entity_registry.async_get_entity_id(
+        Platform.SELECT, DOMAIN, f"{device_id}-select_oven_used_heating_mode"
+    )
+    entity_id = entity_registry.async_get_entity_id(
+        Platform.SENSOR, DOMAIN, f"{device_id}-sensor_oven_used_heating_mode"
+    )
+    assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
+
+    await update_entity(appliance.entities.by_uid[5127], {"available": True, "value": 0})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == "automaticoperation"
+    assert state.attributes[ATTR_OPTIONS] == ["automaticoperation", "hotair"]
+
+    await update_entity(appliance.entities.by_uid[5127], {"available": False})
+    await hass.async_block_till_done()
+
+    assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
