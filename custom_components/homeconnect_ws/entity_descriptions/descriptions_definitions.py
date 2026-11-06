@@ -101,9 +101,11 @@ class HCSensorEntityDescription(
     # standing (a Bosch dishwasher's phase stuck on "Drying", issue #302).
     program_sensor: bool = False
     # A program sensor that also describes the selected program before it starts: available
-    # while Ready with a program selected. A dishwasher has no other entity with the selected
-    # program's duration (fork issue #268).
+    # while powered on and Ready with a program selected (fork issue #268).
     available_with_selected_program: bool = False
+    # Leaves out available_with_selected_program on appliances with this entity, which shows
+    # the selected program's duration instead. A dishwasher only has remaining time for it.
+    selected_program_unless_entity: str | None = None
     # Some appliances flag an Option unavailable while still counting it: a
     # Thermador PRG486WDH oven running a heating mode with no timer set
     # reports ElapsedProgramTime as available=false while its value keeps

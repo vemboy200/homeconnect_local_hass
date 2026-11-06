@@ -21,6 +21,7 @@ from homeassistant.const import (
     UnitOfVolume,
 )
 
+from .const import POWER_STATE
 from .entity import HCEntity
 from .entity_descriptions.common import door_state_count, program_names
 from .entity_descriptions.cooking import oven_status_cavities
@@ -61,10 +62,16 @@ def _program_running(appliance: Appliance) -> bool:
 
 
 def _program_selected(appliance: Appliance) -> bool:
-    """Whether the appliance is ready with a program selected."""
+    """
+    Whether the appliance is on and ready with a program selected.
+
+    Ready alone doesn't mean on: some dishwashers report Inactive while off, others Ready.
+    """
     operation_state = appliance.entities.get(_OPERATION_STATE_ENTITY)
+    power_state = appliance.entities.get(POWER_STATE)
     return (
-        operation_state is not None
+        (power_state is None or power_state.value in (None, "On"))
+        and operation_state is not None
         and operation_state.value == "Ready"
         and appliance.selected_program is not None
     )
@@ -523,6 +530,8 @@ SENSOR_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             ],
             clear_on_expected_offline=True,
             program_sensor=True,
+            available_with_selected_program=True,
+            selected_program_unless_entity=OptionKey.BSH_COMMON_ESTIMATED_TOTAL_PROGRAM_TIME,
         ),
         HCSensorEntityDescription(
             key="sensor_elapsed_program_time",
@@ -1029,8 +1038,13 @@ class HCSensor(HCEntity, SensorEntity):
         triggers: list[str] = []
         if entity_description.program_sensor:
             triggers.append(_OPERATION_STATE_ENTITY)
-        if entity_description.available_with_selected_program:
-            triggers.append(_SELECTED_PROGRAM_ENTITY)
+        unless_entity = entity_description.selected_program_unless_entity
+        self._available_with_selected_program = (
+            entity_description.available_with_selected_program
+            and (unless_entity is None or unless_entity not in runtime_data.appliance.entities)
+        )
+        if self._available_with_selected_program:
+            triggers.extend((_SELECTED_PROGRAM_ENTITY, POWER_STATE))
         if (
             entity_description.available_while_program_active
             or entity_description.available_with_remaining_time
@@ -1069,10 +1083,7 @@ class HCSensor(HCEntity, SensorEntity):
         if (
             self.entity_description.program_sensor
             and not _program_running(appliance)
-            and not (
-                self.entity_description.available_with_selected_program
-                and _program_selected(appliance)
-            )
+            and not (self._available_with_selected_program and _program_selected(appliance))
         ):
             return False
         if (
