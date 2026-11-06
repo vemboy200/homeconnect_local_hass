@@ -37,3 +37,5 @@ excluded:
   540: No power entities for a read-only power state (a profile's "read" isn't permanent, fork issue #7)
   553: Read-only child lock as a binary sensor (locked entities stay visible and show their state)
   554: No switch, select or number for read-only settings (same as 540 and 553)
+  530: "fix: keep controls available during transient read-only access (closed upstream on 2026-10-17)"
+  539: "Only create the child lock switch when the appliance reports a value (closed upstream on 2026-10-25)"
