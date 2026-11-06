@@ -24,6 +24,9 @@ ported:
   518: Unsigned WiFi signal strength (the fork reads the signal from /ni/info instead)
   523: Connection status and meat probe binary sensors (already in the fork)
   526: Open Door button (the fridge's Open door button already covers any appliance)
+  541: Valid program options (home-disconnect's Program filters by access, availability, value and range)
+  550: WiFi signal strength polling (HCWiFI already overrides should_poll)
+  552: No power select next to the switch (power is already one entity, a switch or a select)
 
 # Not wanted in the fork, with the reason. The tracker proposes new lines here (on the
 # upstream-tracker/exclusions branch) for PRs closed upstream, or closed in the fork,
@@ -31,3 +34,6 @@ ported:
 excluded:
   278: Remaining program time as a timestamp sensor (declined)
   460: Version 2 config entry setup fixes (upstream's setup path, which the fork doesn't use)
+  540: No power entities for a read-only power state (a profile's "read" isn't permanent, fork issue #7)
+  553: Read-only child lock as a binary sensor (locked entities stay visible and show their state)
+  554: No switch, select or number for read-only settings (same as 540 and 553)

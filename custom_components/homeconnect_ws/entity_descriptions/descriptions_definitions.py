@@ -177,6 +177,9 @@ class HCNumberEntityDescription(
     """Description for Number Entity."""
 
     available_access: tuple[Access, ...] = (Access.READ_WRITE, Access.WRITE_ONLY)
+    # (step, brands): the step for these brands (in capitals, as appliances report them),
+    # instead of the step the appliance reports
+    step_for_brands: tuple[float, frozenset[str]] | None = None
 
 
 class HCLightEntityDescription(HCEntityDescription, LightEntityDescription, frozen_or_thawed=True):

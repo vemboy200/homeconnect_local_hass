@@ -753,6 +753,16 @@ SENSOR_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             device_class=SensorDeviceClass.ENUM,
             options=["unplugged", "empty", "ok"],
         ),
+        # The heating mode an automatic dish uses. Gaggenau BO470112 and BS474112 report this
+        # option with access "none" and only make it available while such a dish runs, so it
+        # can only be read (upstream chris-mc1/homeconnect_local_hass#513)
+        HCSensorEntityDescription(
+            key="sensor_oven_used_heating_mode",
+            entity=OptionKey.COOKING_OVEN_USED_HEATING_MODE,
+            device_class=SensorDeviceClass.ENUM,
+            has_state_translation=True,
+            available_access=(Access.NONE, Access.READ, Access.READ_WRITE),
+        ),
         HCSensorEntityDescription(
             key="sensor_oven_current_temperature",
             entity=StatusKey.COOKING_OVEN_CURRENT_CAVITY_TEMPERATURE,
