@@ -3,31 +3,47 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+from copy import deepcopy
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import pytest
+from custom_components.homeconnect_ws import coordinator
+from custom_components.homeconnect_ws.const import DOMAIN
+from home_disconnect.entities import Access
 from homeassistant.components.sensor import ATTR_OPTIONS
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import ATTR_FRIENDLY_NAME, STATE_UNAVAILABLE, STATE_UNKNOWN, Platform
+from homeassistant.const import (
+    ATTR_FRIENDLY_NAME,
+    CONF_DESCRIPTION,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+    Platform,
+)
 from homeassistant.helpers.entity import Entity as HAEntity
-from pytest_homeassistant_custom_component.common import snapshot_platform
+from pytest_homeassistant_custom_component.common import MockConfigEntry, snapshot_platform
 
 from . import (
     answer_network_info,
+    appliance_class,
     drop_connection,
+    make_appliance,
     setup_config_entry,
     setup_integration,
     update_entity,
 )
-from .const import MOCK_CONFIG_DATA
+from .const import (
+    DISHWASHER_CONFIG_DATA,
+    DISHWASHER_DESCRIPTION,
+    MOCK_APPLIANCE_INFO,
+    MOCK_CONFIG_DATA,
+)
 
 if TYPE_CHECKING:
     from home_disconnect import Appliance
     from home_disconnect.messages import Message
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers import entity_registry as er
-    from pytest_homeassistant_custom_component.common import MockConfigEntry
     from syrupy.assertion import SnapshotAssertion
 
 
@@ -507,3 +523,194 @@ async def test_laundry_load_placeholders(
     await hass.async_block_till_done()
 
     assert hass.states.get("sensor.fake_brand_washer_laundry_load").state == expected
+
+
+ESTIMATED_TOTAL_PROGRAM_TIME = 531
+POWER_OFF = 1
+POWER_ON = 2
+
+
+async def _setup_dishwasher(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    description: dict[str, Any],
+    updates: list[dict[str, Any]],
+) -> Appliance:
+    """Set up the sensors of a dishwasher that reported these values."""
+    appliance = make_appliance(description)
+    appliance.entities.apply(updates)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={**DISHWASHER_CONFIG_DATA, CONF_DESCRIPTION: description},
+        unique_id=DISHWASHER_CONFIG_DATA["device_id"],
+    )
+    with patch("custom_components.homeconnect_ws.PLATFORMS", [Platform.SENSOR]):
+        await setup_integration(hass, config_entry)
+    return appliance
+
+
+@pytest.mark.parametrize(
+    ("power_state", "operation_state", "selected_program", "reported", "available"),
+    [
+        pytest.param(POWER_ON, 1, 8193, True, True, id="ready_with_program"),
+        pytest.param(POWER_ON, 1, 0, True, False, id="ready_without_program"),
+        pytest.param(POWER_ON, 1, 8193, False, False, id="flagged_unavailable"),
+        pytest.param(POWER_ON, 0, 8193, True, False, id="inactive"),
+        pytest.param(POWER_OFF, 1, 8193, True, False, id="ready_while_off"),
+        pytest.param(POWER_ON, 3, 8193, True, True, id="running"),
+    ],
+)
+async def test_estimated_time_of_selected_program(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    power_state: int,
+    operation_state: int,
+    selected_program: int,
+    *,
+    reported: bool,
+    available: bool,
+) -> None:
+    """Test the selected program's duration shows before it starts (fork #268)."""
+    description = deepcopy(DISHWASHER_DESCRIPTION)
+    description["option"].append(
+        {
+            "uid": ESTIMATED_TOTAL_PROGRAM_TIME,
+            "name": "BSH.Common.Option.EstimatedTotalProgramTime",
+            "available": True,
+            "access": Access.READ,
+        }
+    )
+    await _setup_dishwasher(
+        hass,
+        monkeypatch,
+        description,
+        [
+            {"uid": 539, "value": power_state},
+            {"uid": 552, "value": operation_state},
+            {"uid": 544, "value": 7200},  # RemainingProgramTime
+            {"uid": ESTIMATED_TOTAL_PROGRAM_TIME, "value": 7200, "available": reported},
+            {"uid": 257, "value": selected_program},
+        ],
+    )
+
+    state = hass.states.get("sensor.fake_brand_dishwasher_estimated_total_program_time")
+    assert (state.state != STATE_UNAVAILABLE) is available
+    # Estimated total time shows the duration here, so remaining time follows core's rule
+    remaining = hass.states.get("sensor.fake_brand_dishwasher_remaining_program_time")
+    assert (remaining.state != STATE_UNAVAILABLE) is (operation_state == 3)
+
+
+@pytest.mark.parametrize(
+    ("power_state", "operation_state", "selected_program", "reported", "available"),
+    [
+        pytest.param(POWER_ON, 1, 8193, True, True, id="ready_with_program"),
+        pytest.param(POWER_ON, 1, 0, True, False, id="ready_without_program"),
+        pytest.param(POWER_ON, 1, 8193, False, False, id="flagged_unavailable"),
+        pytest.param(POWER_ON, 0, 8193, True, False, id="inactive"),
+        pytest.param(POWER_OFF, 1, 8193, True, False, id="ready_while_off"),
+        pytest.param(POWER_ON, 3, 8193, True, True, id="running"),
+    ],
+)
+async def test_remaining_time_of_selected_program(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    power_state: int,
+    operation_state: int,
+    selected_program: int,
+    *,
+    reported: bool,
+    available: bool,
+) -> None:
+    """Test remaining time shows the duration without estimated total time (fork #268)."""
+    await _setup_dishwasher(
+        hass,
+        monkeypatch,
+        deepcopy(DISHWASHER_DESCRIPTION),
+        [
+            {"uid": 539, "value": power_state},
+            {"uid": 552, "value": operation_state},
+            {"uid": 544, "value": 16200, "available": reported},
+            {"uid": 257, "value": selected_program},
+        ],
+    )
+
+    remaining = hass.states.get("sensor.fake_brand_dishwasher_remaining_program_time")
+    assert (remaining.state != STATE_UNAVAILABLE) is available
+
+
+async def test_remaining_time_of_selected_program_follows_power(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test the sensor updates when a dishwasher that stays Ready is turned off (fork #268)."""
+    appliance = await _setup_dishwasher(
+        hass,
+        monkeypatch,
+        deepcopy(DISHWASHER_DESCRIPTION),
+        [
+            {"uid": 539, "value": POWER_ON},
+            {"uid": 552, "value": 1},
+            {"uid": 544, "value": 16200},
+            {"uid": 257, "value": 8193},
+        ],
+    )
+    entity_id = "sensor.fake_brand_dishwasher_remaining_program_time"
+    assert hass.states.get(entity_id).state != STATE_UNAVAILABLE
+
+    await update_entity(appliance.entities.by_uid[539], {"value": POWER_OFF})
+    await hass.async_block_till_done()
+
+    assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
+
+
+async def test_oven_used_heating_mode(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    entity_registry: er.EntityRegistry,
+) -> None:
+    """Test the heating mode of an automatic dish is a sensor, available only while one runs."""
+    info = {**MOCK_APPLIANCE_INFO, "type": "Oven"}
+    description = {
+        "option": [
+            {
+                "uid": 5127,
+                "name": "Cooking.Oven.Option.UsedHeatingMode",
+                "enumeration": {"0": "AutomaticOperation", "10": "HotAir"},
+                "available": False,
+                "access": Access.NONE,
+            }
+        ],
+        "info": info,
+    }
+    appliance = make_appliance(description)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={**MOCK_CONFIG_DATA, CONF_DESCRIPTION: description},
+        unique_id="Test_Oven_ID",
+    )
+
+    with patch("custom_components.homeconnect_ws.PLATFORMS", [Platform.SELECT, Platform.SENSOR]):
+        await setup_integration(hass, config_entry)
+
+    device_id = info["deviceID"]
+    assert not entity_registry.async_get_entity_id(
+        Platform.SELECT, DOMAIN, f"{device_id}-select_oven_used_heating_mode"
+    )
+    entity_id = entity_registry.async_get_entity_id(
+        Platform.SENSOR, DOMAIN, f"{device_id}-sensor_oven_used_heating_mode"
+    )
+    assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
+
+    await update_entity(appliance.entities.by_uid[5127], {"available": True, "value": 0})
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.state == "automaticoperation"
+    assert state.attributes[ATTR_OPTIONS] == ["automaticoperation", "hotair"]
+
+    await update_entity(appliance.entities.by_uid[5127], {"available": False})
+    await hass.async_block_till_done()
+
+    assert hass.states.get(entity_id).state == STATE_UNAVAILABLE

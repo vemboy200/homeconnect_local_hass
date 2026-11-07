@@ -443,6 +443,37 @@
       }
     },
     "sensor": {
+      "sensor_oven_used_heating_mode": {
+        "name": "Použitý druh ohřevu",
+        "state": {
+          "automaticoperation": "Automatický provoz",
+          "automaticoperationwithmicrowave": "Automatický provoz s mikrovlnami",
+          "bakingsensoroperation": "Pečení se senzorem",
+          "bottomheating": "Dolní ohřev",
+          "defrosting": "Rozmrazování",
+          "desiccation": "Sušení",
+          "doughproving": "Kynutí těsta",
+          "frozenheatupspecial": "Funkce CoolStart",
+          "grilllargearea": "Gril, velkoplošný",
+          "grillsmallarea": "Gril, maloplošný",
+          "hotair": "Horký vzduch",
+          "hotaireco": "Horký vzduch Eco",
+          "hotairgrilling": "Grilování horkým vzduchem",
+          "intensiveheat": "Intenzivní ohřev",
+          "keepwarm": "Udržování tepla",
+          "microwave": "Mikrovlny",
+          "pizzasetting": "Stupeň Pizza",
+          "preheatovenware": "Předehřátí nádobí",
+          "reheat": "Ohřev pokrmů",
+          "sabbathprogramme": "Program šabat",
+          "slowcook": "Pomalé vaření",
+          "steam": "Pára",
+          "topbottomheating": "Horní/dolní ohřev",
+          "topbottomheatingeco": "Horní/dolní ohřev Eco",
+          "breadbaking": "Pečení chleba",
+          "steamwithsteamset": "Pára s napařovací sadou"
+        }
+      },
       "sensor_problem": {
         "name": "Problém",
         "state": {
@@ -1775,37 +1806,6 @@
           "level01": "Úroveň 1",
           "level02": "Úroveň 2",
           "level03": "Úroveň 3"
-        }
-      },
-      "select_oven_used_heating_mode": {
-        "name": "Použitý druh ohřevu",
-        "state": {
-          "automaticoperation": "Automatický provoz",
-          "automaticoperationwithmicrowave": "Automatický provoz s mikrovlnami",
-          "bakingsensoroperation": "Pečení se senzorem",
-          "bottomheating": "Dolní ohřev",
-          "defrosting": "Rozmrazování",
-          "desiccation": "Sušení",
-          "doughproving": "Kynutí těsta",
-          "frozenheatupspecial": "Funkce CoolStart",
-          "grilllargearea": "Gril, velkoplošný",
-          "grillsmallarea": "Gril, maloplošný",
-          "hotair": "Horký vzduch",
-          "hotaireco": "Horký vzduch Eco",
-          "hotairgrilling": "Grilování horkým vzduchem",
-          "intensiveheat": "Intenzivní ohřev",
-          "keepwarm": "Udržování tepla",
-          "microwave": "Mikrovlny",
-          "pizzasetting": "Stupeň Pizza",
-          "preheatovenware": "Předehřátí nádobí",
-          "reheat": "Ohřev pokrmů",
-          "sabbathprogramme": "Program šabat",
-          "slowcook": "Pomalé vaření",
-          "steam": "Pára",
-          "topbottomheating": "Horní/dolní ohřev",
-          "topbottomheatingeco": "Horní/dolní ohřev Eco",
-          "breadbaking": "Pečení chleba",
-          "steamwithsteamset": "Pára s napařovací sadou"
         }
       },
       "select_pyrolysis_level": {

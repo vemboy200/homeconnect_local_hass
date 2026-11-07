@@ -319,6 +319,8 @@ It's one entity per appliance, so there are no longer two controls for one optio
 
 Program phase, progress, remaining, elapsed and estimated time are only available while the operation state is DelayedStart, Run, Pause or Finished (`program_sensor`), the same rule core's `home_connect` uses for its program sensors (`HomeConnectProgramSensor`). Otherwise the appliance leaves the last value standing (a Bosch dishwasher's phase stuck on "Drying", issue #302). The custom integration used to force the phase to "none" and follow ActiveProgram and PowerState instead; that showed a value the appliance never reported, so it was replaced in v2.0.0.
 
+Estimated total time is also available while powered on and Ready with a program selected (`available_with_selected_program`), so the selected program's duration shows before it starts (fork issue #268). Core's `home_connect` has no estimated total sensor, so this doesn't depart from a rule it applies to that value. The power check is there because Ready doesn't mean on: some dishwashers report Inactive while off, others Ready.
+
 ### Overrides that come later
 
 Each of these departs from core's `home_connect`, so it stays out of the initial PR and comes as its own follow-up PR with its argument:
@@ -326,6 +328,7 @@ Each of these departs from core's `home_connect`, so it stays out of the initial
 - **Washers and dryers stay available after a clean close.** They turn their WiFi off when powered off, so they close the connection on purpose (WebSocket code 1000), where a drop is 1006 (fork issue #7). The cloud API can't tell these apart: its `DISCONNECTED` event has no reason. Precedent: ESPHome keeps a deep-sleep device's entities available after an expected disconnect (`has_deep_sleep` and `expected_disconnect` in `esphome/entity.py`), and unavailable after an unexpected one. Program sensors clear on a clean close instead of keeping the last running value.
 - **Power shows "off" after a washer's or dryer's clean close** (`force_off_when_expected_offline`, `force_option_when_expected_offline` on the power select). The clean close is the appliance's own power-off signal, so "off" is inferred from something it did report. Comes with the switch and select platforms.
 - **The spin speed select shows "off" after a clean close.** That isn't the appliance's state, only a display cleanup; decide when the select platform goes in, probably drop it.
+- **Remaining time shown before a program starts, on appliances without estimated total time** (dishwashers, fork issue #268). They report the selected program's duration as remaining time while Ready, and have no other entity for it. Same conditions as estimated total time above.
 - **Elapsed time and progress shown although the appliance flags them unavailable** while a program runs (a Thermador PRG486WDH oven's elapsed time; a dryer's progress, fork issue #206). The cloud API doesn't have that flag, so cloud users see these values: this is parity.
 
 ## Open questions

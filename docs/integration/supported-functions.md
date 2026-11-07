@@ -94,6 +94,8 @@ Some entites are excluded from this integration on purpose, even though the Home
   - Live meat probe reading and whether it's plugged in
 - Heating mode selection
   - Choose the oven's heating mode (e.g. top/bottom heat, convection)
+- Used heating mode
+  - The heating mode an automatic dish uses, while one runs
 - Fast preheat
   - Speeds up preheating to the target temperature
 - Cooking hints

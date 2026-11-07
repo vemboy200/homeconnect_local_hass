@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from custom_components.homeconnect_ws import HCData
+import pytest
+from custom_components.homeconnect_ws import HCData, coordinator
+from custom_components.homeconnect_ws.const import DOMAIN
 from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitions import (
     HCNumberEntityDescription,
 )
 from custom_components.homeconnect_ws.number import HCNumber
+from home_disconnect.entities import Access
 from home_disconnect.messages import Action, Message
 from homeassistant.components.number import (
     ATTR_MAX,
@@ -20,14 +23,28 @@ from homeassistant.components.number import (
     NumberDeviceClass,
 )
 from homeassistant.components.number import DOMAIN as NUMBER_DOMAIN
-from homeassistant.const import ATTR_ENTITY_ID, ATTR_FRIENDLY_NAME, UnitOfTemperature
+from homeassistant.const import (
+    ATTR_ENTITY_ID,
+    ATTR_FRIENDLY_NAME,
+    CONF_DESCRIPTION,
+    Platform,
+    UnitOfTemperature,
+)
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from . import setup_config_entry, update_entity
-from .const import MOCK_CONFIG_DATA
+from . import (
+    appliance_class,
+    make_appliance,
+    setup_config_entry,
+    setup_integration,
+    update_entity,
+)
+from .const import MOCK_APPLIANCE_INFO, MOCK_CONFIG_DATA
 
 if TYPE_CHECKING:
     from home_disconnect import Appliance
     from homeassistant.core import HomeAssistant
+    from homeassistant.helpers import entity_registry as er
 
 
 async def test_setup(
@@ -203,3 +220,51 @@ async def test_temperature_keeps_its_unit_while_appliance_unit_unknown() -> None
 
     assert entity.native_value == 3
     assert entity.native_unit_of_measurement == UnitOfTemperature.FAHRENHEIT
+
+
+@pytest.mark.parametrize(
+    ("brand", "expected_step"),
+    [
+        ("GAGGENAU", 5),  # Reports a step of 1, but rounds up to a multiple of 5
+        ("Gaggenau", 5),
+        ("BOSCH", 1),
+    ],
+)
+async def test_oven_setpoint_step(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    entity_registry: er.EntityRegistry,
+    brand: str,
+    expected_step: int,
+) -> None:
+    """Test the oven's setpoint step depends on the brand, not only on what it reports."""
+    info = {**MOCK_APPLIANCE_INFO, "type": "Oven", "brand": brand}
+    description = {
+        "option": [
+            {
+                "uid": 5120,
+                "name": "Cooking.Oven.Option.SetpointTemperature",
+                "available": True,
+                "access": Access.READ_WRITE,
+                "min": 30,
+                "max": 300,
+                "stepSize": 1,
+            }
+        ],
+        "info": info,
+    }
+    appliance = make_appliance(description)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={**MOCK_CONFIG_DATA, CONF_DESCRIPTION: description},
+        unique_id="Test_Oven_ID",
+    )
+
+    with patch("custom_components.homeconnect_ws.PLATFORMS", [Platform.NUMBER]):
+        await setup_integration(hass, config_entry)
+
+    entity_id = entity_registry.async_get_entity_id(
+        Platform.NUMBER, DOMAIN, f"{info['deviceID']}-number_oven_setpoint_temperature"
+    )
+    assert hass.states.get(entity_id).attributes[ATTR_STEP] == expected_step

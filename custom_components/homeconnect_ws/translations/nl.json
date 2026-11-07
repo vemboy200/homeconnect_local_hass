@@ -18,11 +18,47 @@
         "data": {
           "host": "Host / IP-adres"
         }
+      },
+      "user": {
+        "title": "Voeg nieuwe Home Connect apparaten toe",
+        "menu_options": {
+          "legacy_oauth_region": "Aanmelden bij Home Connect",
+          "upload": "Profielbestand uploaden"
+        }
+      },
+      "legacy_oauth_region": {
+        "title": "Regio van het Home Connect-account",
+        "description": "Kies de Home Connect-cloud van je account. Dit is de cloud, niet waar het apparaat staat: de Europese cloud bedient ook Australië.",
+        "data": {
+          "region": "Regio"
+        }
+      },
+      "legacy_oauth_paste": {
+        "title": "Aanmelden bij Home Connect",
+        "description": "Open deze URL in je browser en meld je aan: {authorize_url}\n\nDaarna laadt de pagina niet (dat is normaal) - kopieer de volledige URL uit de adresbalk van je browser en plak die hieronder.",
+        "data": {
+          "legacy_redirect_url": "Doorstuur-URL"
+        }
+      },
+      "reconfigure": {
+        "title": "Apparaat opnieuw configureren",
+        "menu_options": {
+          "reconfigure_connection": "Verbinding wijzigen",
+          "reconfigure_profile": "Profielbestand bijwerken"
+        }
+      },
+      "reconfigure_profile": {
+        "title": "Profielbestand bijwerken",
+        "menu_options": {
+          "legacy_oauth_region": "Aanmelden bij Home Connect",
+          "upload": "Profielbestand uploaden"
+        }
       }
     },
     "error": {
       "cannot_connect": "Verbinding met het apparaat is mislukt",
-      "already_configured": "Dit apparaat is reeds geconfigureerd"
+      "already_configured": "Dit apparaat is reeds geconfigureerd",
+      "cannot_connect_automatic": "Automatische (mDNS) verbinding mislukt - voer het IP-adres of de hostnaam van je apparaat handmatig in"
     },
     "abort": {
       "auth_failed": "Authenticatiefout",
@@ -30,7 +66,12 @@
       "invalid_profile_file": "Profielbestand is onjuist",
       "profile_file_parser_error": "Profielbestand is onjuist: {error}",
       "appliance_not_in_profile_file": "Profielbestand bevat geen profiel voor dit apparaat",
-      "all_setup": "Alle apparaten in dit profielbestand zijn al ingesteld"
+      "all_setup": "Alle apparaten in dit profielbestand zijn al ingesteld",
+      "failed_to_write_profile_file": "Profielbestand kon niet worden opgeslagen",
+      "oauth_fetch_failed": "Kon de apparaatprofielen niet ophalen bij Home Connect: {error}",
+      "reauth_entry_not_found": "De configuratie die opnieuw wordt geverifieerd, bestaat niet meer",
+      "reconfigure_successful": "Opnieuw configureren gelukt",
+      "invalid_discovery_info": "Het gevonden apparaat heeft zijn merk of type niet gemeld."
     }
   },
   "entity": {
@@ -178,6 +219,102 @@
       },
       "switch_refrigerator_fresh_mode": {
         "name": "Opfris modus"
+      },
+      "switch_zeolite_dry": {
+        "name": "CrystalDry"
+      },
+      "switch_cup_warmer": {
+        "name": "Kopjeswarmer"
+      },
+      "switch_coffee_leave_profiles_automatically": {
+        "name": "Profielen automatisch verlaten"
+      },
+      "switch_laundry_low_temperature_hygiene": {
+        "name": "Hygiëne bij lage temperatuur"
+      },
+      "switch_laundry_vario_perfect": {
+        "name": "Vario perfect"
+      },
+      "switch_laundry_intensive_plus": {
+        "name": "Intensief plus"
+      },
+      "switch_laundry_mini_load": {
+        "name": "Kleine lading"
+      },
+      "switch_laundry_less_ironing": {
+        "name": "Minder strijken"
+      },
+      "switch_laundry_silent_wash": {
+        "name": "Stil wassen"
+      },
+      "switch_laundry_soak": {
+        "name": "Weken"
+      },
+      "switch_laundry_prewash": {
+        "name": "Voorwas"
+      },
+      "switch_laundry_rinse_hold": {
+        "name": "Spoelstop"
+      },
+      "switch_laundry_rinse_plus1": {
+        "name": "Extra spoelen 1"
+      },
+      "switch_laundry_rinse_plus3": {
+        "name": "Extra spoelen 3"
+      },
+      "switch_laundry_water_and_rinse_plus1": {
+        "name": "Extra water en spoelen 1"
+      },
+      "switch_laundry_water_plus": {
+        "name": "Extra water"
+      },
+      "switch_laundry_disinfectant": {
+        "name": "Desinfectiemiddel"
+      },
+      "switch_laundry_hygienic_steam": {
+        "name": "Hygiënische stoom"
+      },
+      "switch_refrigerator_dispenser_party_mode": {
+        "name": "Dispenser partymodus"
+      },
+      "switch_hood_boost": {
+        "name": "Boost"
+      },
+      "switch_extra_rinse": {
+        "name": "Extra spoelen"
+      },
+      "switch_pretreatment": {
+        "name": "Voorbehandeling"
+      },
+      "switch_allow_backend_connection": {
+        "name": "Cloudverbinding toestaan"
+      },
+      "switch_allow_consumer_insights": {
+        "name": "Gebruiksinzichten toestaan"
+      },
+      "switch_synchronize_with_time_server": {
+        "name": "Tijd synchroniseren met server"
+      },
+      "switch_oven_convection_conversion": {
+        "name": "Heteluchtomrekening"
+      },
+      "switch_oven_display_standby_dimmed": {
+        "name": "Display dimmen in stand-by"
+      },
+      "switch_dishwasher_sanitation": {
+        "name": "Desinfecteren"
+      },
+      "switch_dishwasher_time_light": {
+        "name": "TimeLight"
+      },
+      "switch_eco_dry_option": {
+        "name": "EfficientDry"
+      },
+      "switch_refrigerator_door_assistant_fridge": {
+        "name": "Deurassistent koelkast"
+      },
+      "switch_hood_boost_mode": {
+        "name": "Boostmodus"
       }
     },
     "binary_sensor": {
@@ -304,9 +441,297 @@
       },
       "binary_sensor_freezer_low_voltage": {
         "name": "Lage voedingsspanning"
+      },
+      "binary_sensor_intensiv_zone_active": {
+        "name": "Intensieve zone actief"
+      },
+      "binary_sensor_half_load_active": {
+        "name": "Halve belading actief"
+      },
+      "binary_sensor_hygiene_plus_active": {
+        "name": "Hygiëne plus actief"
+      },
+      "binary_sensor_pretreatment_active": {
+        "name": "Voorbehandeling actief"
+      },
+      "binary_sensor_coffee_cleaning_due": {
+        "name": "Reiniging nodig"
+      },
+      "binary_sensor_coffee_calc_n_clean_due": {
+        "name": "Calc'n'Clean nodig"
+      },
+      "binary_sensor_coffee_clean_brewing_unit": {
+        "name": "Zetgroep reinigen"
+      },
+      "binary_sensor_coffee_milk_reminder": {
+        "name": "Melkherinnering"
+      },
+      "binary_sensor_coffee_water_filter_change": {
+        "name": "Waterfilter vervangen"
+      },
+      "binary_sensor_confirm_permanent_remote_start": {
+        "name": "Permanent starten op afstand bevestigen"
+      },
+      "binary_sensor_machinecareandfiltercleaningreminder": {
+        "name": "MachineCare en filter"
+      },
+      "binary_sensor_low_voltage": {
+        "name": "Lage spanning"
+      },
+      "binary_sensor_drying_process_finished": {
+        "name": "Drogen klaar"
+      },
+      "binary_sensor_cool_down_phase_running": {
+        "name": "Afkoelfase"
+      },
+      "binary_sensor_refresher_container_empty": {
+        "name": "Verfrisserreservoir",
+        "state": {
+          "on": "Leeg",
+          "off": "OK"
+        }
+      },
+      "binary_sensor_clean_lint_filter": {
+        "name": "Pluizenfilter reinigen"
+      },
+      "binary_sensor_clean_self_cleaning_module": {
+        "name": "Zelfreinigende module reinigen"
+      },
+      "binary_sensor_easyclean_filter_reminder": {
+        "name": "EasyClean-filter reinigen"
+      },
+      "binary_sensor_evaporator_frozen": {
+        "name": "Verdamper bevroren"
+      },
+      "binary_sensor_machinecarereminder": {
+        "name": "Machineonderhoud",
+        "state": {
+          "on": "Onderhoud nodig",
+          "off": "OK"
+        }
+      },
+      "binary_sensor_machinecareandfilterreminder": {
+        "name": "Machineonderhoud en filterreiniging",
+        "state": {
+          "on": "Onderhoud nodig",
+          "off": "OK"
+        }
+      },
+      "binary_sensor_waterheatercalcified": {
+        "name": "Boiler verkalkt",
+        "state": {
+          "on": "Onderhoud nodig",
+          "off": "OK"
+        }
+      },
+      "binary_sensor_smartfiltercleaningreminder": {
+        "name": "Smart filter reinigen",
+        "state": {
+          "on": "Onderhoud nodig",
+          "off": "OK"
+        }
+      },
+      "binary_sensor_checkfiltersystem": {
+        "name": "Filtersysteem controleren",
+        "state": {
+          "on": "Onderhoud nodig",
+          "off": "OK"
+        }
+      },
+      "binary_sensor_draining_not_possible": {
+        "name": "Afpompen niet mogelijk",
+        "state": {
+          "on": "Onderhoud nodig",
+          "off": "OK"
+        }
+      },
+      "binary_sensor_drain_pump_blocked": {
+        "name": "Afvoerpomp geblokkeerd",
+        "state": {
+          "on": "Onderhoud nodig",
+          "off": "OK"
+        }
+      },
+      "binary_sensor_flexspray_error_blocked": {
+        "name": "FlexSpray geblokkeerd",
+        "state": {
+          "on": "Probleem",
+          "off": "OK"
+        }
+      },
+      "binary_sensor_flexspray_error_general": {
+        "name": "FlexSpray-fout",
+        "state": {
+          "on": "Probleem",
+          "off": "OK"
+        }
+      },
+      "binary_sensor_flexspray_error_spray_arm_not_mounted": {
+        "name": "Sproeiarm niet gemonteerd",
+        "state": {
+          "on": "Probleem",
+          "off": "OK"
+        }
+      },
+      "binary_sensor_program_finished": {
+        "name": "Programma klaar"
+      },
+      "binary_sensor_supply_voltage_too_low": {
+        "name": "Voedingsspanning te laag"
+      },
+      "binary_sensor_water_level_too_high": {
+        "name": "Waterniveau te hoog"
+      },
+      "binary_sensor_door_not_lockable": {
+        "name": "Deur kan niet vergrendeld worden"
+      },
+      "binary_sensor_door_not_unlockable": {
+        "name": "Deur kan niet ontgrendeld worden"
+      },
+      "binary_sensor_fatal_error_occurred": {
+        "name": "Kritieke fout"
+      },
+      "binary_sensor_drum_clean_reminder": {
+        "name": "Herinnering trommelreiniging"
+      },
+      "binary_sensor_idos2_fill_level_poor": {
+        "name": "i-DOS 2 bijna leeg"
+      },
+      "binary_sensor_idos1_fill_level_poor": {
+        "name": "i-DOS 1 bijna leeg"
+      },
+      "binary_sensor_chiller_common_door_state": {
+        "name": "Deur chillerlade"
+      },
+      "binary_sensor_idos_unit_defect": {
+        "name": "i-DOS defect"
+      },
+      "binary_sensor_idos_open_tray": {
+        "name": "i-DOS lade open"
+      },
+      "binary_sensor_release_rinse_hold_pending": {
+        "name": "Spoelstop wacht op vrijgave"
+      },
+      "binary_sensor_pump_error": {
+        "name": "Pompfout"
+      },
+      "binary_sensor_spin_abort": {
+        "name": "Centrifugeren afgebroken"
+      },
+      "binary_sensor_door_alarm_chiller_common": {
+        "name": "Deuralarm chillerlade"
+      },
+      "binary_sensor_water_filter_almost_full": {
+        "name": "Waterfilter bijna vol"
+      },
+      "binary_sensor_ice_hopper_full": {
+        "name": "IJsbak vol"
+      },
+      "binary_sensor_ice_expired": {
+        "name": "IJs verlopen"
+      },
+      "binary_sensor_water_expired": {
+        "name": "Water verlopen"
+      },
+      "binary_sensor_party_mode_empty_ice_hopper": {
+        "name": "Partymodus: ijsbak leeg"
+      },
+      "binary_sensor_temperature_alarm_chiller_common": {
+        "name": "Temperatuuralarm chillerlade"
+      },
+      "binary_sensor_oven_alarm_clock_elapsed": {
+        "name": "Kookwekker afgelopen{group_name}"
+      },
+      "binary_sensor_oven_insert_food_now": {
+        "name": "Gerecht nu in de oven zetten{group_name}"
+      },
+      "binary_sensor_oven_turn_food_now": {
+        "name": "Gerecht nu omdraaien{group_name}"
+      },
+      "binary_sensor_oven_regular_preheat_finished": {
+        "name": "Voorverwarmen klaar{group_name}"
+      },
+      "binary_sensor_oven_fast_preheat_finished": {
+        "name": "Snel voorverwarmen klaar{group_name}"
+      },
+      "binary_sensor_oven_program_finished": {
+        "name": "Programma klaar{group_name}"
+      },
+      "binary_sensor_oven_program_aborted": {
+        "name": "Programma afgebroken{group_name}"
+      },
+      "binary_sensor_oven_open_door": {
+        "name": "Open de deur{group_name}"
+      },
+      "binary_sensor_oven_close_door": {
+        "name": "Sluit de deur{group_name}"
+      },
+      "binary_sensor_oven_cavity_temperature_too_high": {
+        "name": "Temperatuur ovenruimte te hoog{group_name}"
+      },
+      "binary_sensor_alarm_clock_elapsed": {
+        "name": "Kookwekker afgelopen"
+      },
+      "binary_sensor_favorite_001": {
+        "name": "Favoriet kort indrukken"
+      },
+      "binary_sensor_favorite_002": {
+        "name": "Favoriet lang indrukken"
+      },
+      "binary_sensor_local_control_active": {
+        "name": "Lokale bediening actief"
+      },
+      "binary_sensor_remote_control_active": {
+        "name": "Bediening op afstand actief"
+      },
+      "binary_sensor_backend_connected": {
+        "name": "Cloudverbinding"
+      },
+      "binary_sensor_oven_meatprobe_plugged": {
+        "name": "Braadthermometer aangesloten"
+      },
+      "binary_sensor_coffee_brewing_unit_missing": {
+        "name": "Zetgroep ontbreekt"
+      },
+      "binary_sensor_coffee_outlet_missing": {
+        "name": "Uitloop ontbreekt"
+      },
+      "binary_sensor_coffee_close_door": {
+        "name": "Deur zetgroep"
       }
     },
     "sensor": {
+      "sensor_oven_used_heating_mode": {
+        "name": "Verwarmingsmodus",
+        "state": {
+          "automaticoperation": "Automatisch bedrijf",
+          "automaticoperationwithmicrowave": "Automatisch bedrijf met magnetron",
+          "bakingsensoroperation": "Baksensor",
+          "bottomheating": "Onderverwarming",
+          "defrosting": "Ontdooien",
+          "desiccation": "Uitdrogen",
+          "doughproving": "Deeg laten rijzen",
+          "frozenheatupspecial": "CoolStart functie",
+          "grilllargearea": "Grill, groot gebied",
+          "grillsmallarea": "Grill, klein gebied",
+          "hotair": "Hetelucht",
+          "hotaireco": "Hetelucht eco",
+          "hotairgrilling": "Hetelucht grillen",
+          "intensiveheat": "Intensief verwarmen",
+          "keepwarm": "Warmhouden",
+          "microwave": "Magnetron",
+          "pizzasetting": "Pizzastand",
+          "preheatovenware": "Voorverwarmen van ovenschalen",
+          "reheat": "Her-verwarmen",
+          "sabbathprogramme": "Sabbat Programma",
+          "slowcook": "Langzaam garen",
+          "steam": "Stomen",
+          "topbottomheating": "Boven/onderverwarming",
+          "topbottomheatingeco": "Boven/onderverwarming eco",
+          "breadbaking": "Broodbakken",
+          "steamwithsteamset": "Stomen met stoomset"
+        }
+      },
       "sensor_problem": {
         "name": "Probleem",
         "state": {
@@ -317,7 +742,30 @@
           "program_aborted": "Programma afgebroken",
           "customer_service_request": "Verzoek klantenservice",
           "oven_water_supply_closed": "Watertoevoer afgesloten",
-          "cooking_appliance_module_error": "Fout in apparaatmodule"
+          "cooking_appliance_module_error": "Fout in apparaatmodule",
+          "coffee_brewing_unit_missing": "Zetgroep ontbreekt",
+          "coffee_outlet_missing": "Uitloop ontbreekt",
+          "condensate_container_full": "Condenswaterreservoir vol",
+          "door_not_lockable": "Deur kan niet vergrendeld worden",
+          "door_not_unlockable": "Deur kan niet ontgrendeld worden",
+          "draining_not_possible": "Afpompen niet mogelijk",
+          "drain_pump_blocked": "Afvoerpomp geblokkeerd",
+          "evaporator_frozen": "Verdamper bevroren",
+          "fatal_error_occurred": "Kritieke fout",
+          "flexspray_error_blocked": "FlexSpray geblokkeerd",
+          "flexspray_error_general": "FlexSpray-fout",
+          "flexspray_error_spray_arm_not_mounted": "Sproeiarm niet gemonteerd",
+          "foam_detection": "Schuim gedetecteerd",
+          "freezer_appliance_error": "Fout vriezer",
+          "idos_open_tray": "i-DOS-lade open",
+          "idos_unit_defect": "i-DOS defect",
+          "low_voltage": "Lage spanning",
+          "oven_cavity_temperature_too_high": "Temperatuur ovenruimte te hoog",
+          "pump_error": "Pompfout",
+          "release_rinse_hold_pending": "Spoelstop wacht op vrijgave",
+          "spin_abort": "Centrifugeren afgebroken",
+          "supply_voltage_too_low": "Voedingsspanning te laag",
+          "water_level_too_high": "Waterniveau te hoog"
         }
       },
       "sensor_stopwatch_time": {
@@ -1152,6 +1600,82 @@
           "roundrobinflush": "Spoelsysteem",
           "initializenewcartridge": "Initiëren Cartridge"
         }
+      },
+      "sensor_coffee_descaling": {
+        "name": "Ontkalken",
+        "state": {
+          "blocked": "Geblokkeerd",
+          "overdue": "Te laat",
+          "due": "Nodig",
+          "ok": "OK"
+        }
+      },
+      "sensor_coffee_care_program_step": {
+        "name": "Stap onderhoudsprogramma",
+        "state": {
+          "empty_drip_tray": "Lekbak legen",
+          "empty_drip_tray_remove_container": "Lekbak legen en opvangbak verwijderen",
+          "insert_cleaning_tablet": "Reinigingstablet plaatsen",
+          "fill_descaler": "Ontkalker bijvullen",
+          "empty_milk_container": "Melkreservoir legen",
+          "place_empty_glass": "Leeg glas onder de uitloop plaatsen",
+          "place_container": "Opvangbak onder de uitloop plaatsen",
+          "clean_milk_container": "Melkreservoir reinigen",
+          "rinse_and_fill_water_tank": "Waterreservoir spoelen en vullen",
+          "remove_container": "Opvangbak verwijderen",
+          "finished": "Klaar",
+          "none": "Geen actie nodig"
+        }
+      },
+      "sensor_energy_consumed": {
+        "name": "Energieverbruik"
+      },
+      "sensor_water_consumed": {
+        "name": "Waterverbruik"
+      },
+      "sensor_energy_consumed_last": {
+        "name": "Energie laatste programma"
+      },
+      "sensor_water_consumed_last": {
+        "name": "Water laatste programma"
+      },
+      "sensor_laundry_load": {
+        "name": "Belading"
+      },
+      "sensor_laundry_detergent_consumed": {
+        "name": "Wasmiddelverbruik"
+      },
+      "sensor_laundry_softener_consumed": {
+        "name": "Wasverzachterverbruik"
+      },
+      "sensor_laundry_load_recommendation": {
+        "name": "Aanbevolen belading"
+      },
+      "sensor_water_filter_saturation": {
+        "name": "Verzadiging waterfilter"
+      },
+      "sensor_temperature_memory_freezer": {
+        "name": "Geheugentemperatuur vriezer"
+      },
+      "sensor_ipv4_address": {
+        "name": "IPv4-adres"
+      },
+      "sensor_ipv6_address": {
+        "name": "IPv6-adres"
+      },
+      "sensor_laundry_status_idos1_fill_level": {
+        "name": "i-DOS 1 vulniveau",
+        "state": {
+          "poor": "Bijna leeg",
+          "filled": "Gevuld"
+        }
+      },
+      "sensor_laundry_status_idos2_fill_level": {
+        "name": "i-DOS 2 vulniveau",
+        "state": {
+          "poor": "Bijna leeg",
+          "filled": "Gevuld"
+        }
       }
     },
     "select": {
@@ -1222,7 +1746,12 @@
           "rpm1500": "1500 tpm",
           "rpm1600": "1600 tpm",
           "rinsehold": "Spoelen vasthouden",
-          "auto": "Auto"
+          "auto": "Auto",
+          "uloff": "UlOff",
+          "ulhigh": "UlHigh",
+          "max": "Max",
+          "ullow": "UlLow",
+          "ulmedium": "UlMedium"
         }
       },
       "select_drying_assistant_all_programs": {
@@ -1704,7 +2233,8 @@
         "name": "Start programma",
         "state": {
           "lastprogram": "Laatste programma",
-          "ecoasdefault": "Eco 50°"
+          "ecoasdefault": "Eco 50°",
+          "auto45asdefault": "Auto"
         }
       },
       "select_power_state": {
@@ -2032,37 +2562,6 @@
           "level03": "Niveau 3"
         }
       },
-      "select_oven_used_heating_mode": {
-        "name": "Verwarmingsmodus",
-        "state": {
-          "automaticoperation": "Automatisch bedrijf",
-          "automaticoperationwithmicrowave": "Automatisch bedrijf met magnetron",
-          "bakingsensoroperation": "Baksensor",
-          "bottomheating": "Onderverwarming",
-          "defrosting": "Ontdooien",
-          "desiccation": "Uitdrogen",
-          "doughproving": "Deeg laten rijzen",
-          "frozenheatupspecial": "CoolStart functie",
-          "grilllargearea": "Grill, groot gebied",
-          "grillsmallarea": "Grill, klein gebied",
-          "hotair": "Hetelucht",
-          "hotaireco": "Hetelucht eco",
-          "hotairgrilling": "Hetelucht grillen",
-          "intensiveheat": "Intensief verwarmen",
-          "keepwarm": "Warmhouden",
-          "microwave": "Magnetron",
-          "pizzasetting": "Pizzastand",
-          "preheatovenware": "Voorverwarmen van ovenschalen",
-          "reheat": "Her-verwarmen",
-          "sabbathprogramme": "Sabbat Programma",
-          "slowcook": "Langzaam garen",
-          "steam": "Stomen",
-          "topbottomheating": "Boven/onderverwarming",
-          "topbottomheatingeco": "Boven/onderverwarming eco",
-          "breadbaking": "Broodbakken",
-          "steamwithsteamset": "Stomen met stoomset"
-        }
-      },
       "select_pyrolysis_level": {
         "name": "Pyrolyse niveau",
         "state": {
@@ -2091,7 +2590,10 @@
         "name": "Ventilator nalooptijd",
         "state": {
           "short": "Kort",
-          "recommended": "Aanbevolen"
+          "recommended": "Aanbevolen",
+          "middle": "Gemiddeld",
+          "long": "Lang",
+          "verylong": "Zeer lang"
         }
       },
       "select_oven_signal_duration": {
@@ -2099,7 +2601,8 @@
         "state": {
           "short": "Kort",
           "medium": "Medium",
-          "long": "Lang"
+          "long": "Lang",
+          "onlyonetime": "Eén keer"
         }
       },
       "select_refrigerator_door_assistant_freezer_trigger": {
@@ -2150,7 +2653,7 @@
           "off": "Uit",
           "automaticmode": "Automatisch",
           "manualmode": "Handmatig",
-		  "donothing": "Ongewijzigd"
+          "donothing": "Ongewijzigd"
         }
       },
       "select_hob_power_management": {
@@ -2160,9 +2663,9 @@
         "name": "Niveau van het geluidssignaal",
         "state": {
           "alloff": "Alles uit",
-		  "acknowledgeoff": "Toetstonen uit",
-		  "warningmaloff": "Waarschuwingen uit",
-		  "allactive": "Alles actief"
+          "acknowledgeoff": "Toetstonen uit",
+          "warningmaloff": "Waarschuwingen uit",
+          "allactive": "Alles actief"
         }
       },
       "select_hob_end_timer_signal_duration": {
@@ -2210,7 +2713,8 @@
           "fanoff": "Uit",
           "fanstage01": "1",
           "fanstage02": "2",
-          "fanstage03": "3"
+          "fanstage03": "3",
+          "fanstage04": "4"
         }
       },
       "select_hood_color_temperature_mode": {
@@ -2222,6 +2726,503 @@
           "neutral": "Neutraal",
           "neutraltocold": "Neutraal naar koud",
           "cold": "Koud"
+        }
+      },
+      "select_sound_level_key": {
+        "name": "Geluidsniveau toetsen",
+        "state": {
+          "off": "Uit",
+          "low": "Laag",
+          "medium": "Gemiddeld",
+          "high": "Hoog"
+        }
+      },
+      "select_flexspray_type": {
+        "name": "PowerControl type",
+        "state": {
+          "front": "Voor",
+          "back": "Achter",
+          "custom": "Aangepast",
+          "individual": "Individueel"
+        }
+      },
+      "select_flexspray_front_left": {
+        "name": "PowerControl linksvoor",
+        "state": {
+          "delicate": "Delicaat",
+          "normal": "Normaal",
+          "heavy": "Intensief"
+        }
+      },
+      "select_flexspray_back_left": {
+        "name": "PowerControl linksachter",
+        "state": {
+          "delicate": "Delicaat",
+          "normal": "Normaal",
+          "heavy": "Intensief"
+        }
+      },
+      "select_flexspray_back_right": {
+        "name": "PowerControl rechtsachter",
+        "state": {
+          "delicate": "Delicaat",
+          "normal": "Normaal",
+          "heavy": "Intensief"
+        }
+      },
+      "select_flexspray_front_right": {
+        "name": "PowerControl rechtsvoor",
+        "state": {
+          "delicate": "Delicaat",
+          "normal": "Normaal",
+          "heavy": "Intensief"
+        }
+      },
+      "select_flexspray_custom_front_left": {
+        "name": "PowerControl aangepast linksvoor",
+        "state": {
+          "delicate": "Delicaat",
+          "normal": "Normaal",
+          "heavy": "Intensief"
+        }
+      },
+      "select_flexspray_custom_back_left": {
+        "name": "PowerControl aangepast linksachter",
+        "state": {
+          "delicate": "Delicaat",
+          "normal": "Normaal",
+          "heavy": "Intensief"
+        }
+      },
+      "select_flexspray_custom_back_right": {
+        "name": "PowerControl aangepast rechtsachter",
+        "state": {
+          "delicate": "Delicaat",
+          "normal": "Normaal",
+          "heavy": "Intensief"
+        }
+      },
+      "select_flexspray_custom_front_right": {
+        "name": "PowerControl aangepast rechtsvoor",
+        "state": {
+          "delicate": "Delicaat",
+          "normal": "Normaal",
+          "heavy": "Intensief"
+        }
+      },
+      "select_coffee_switch_off_after": {
+        "name": "Uitschakelen na",
+        "state": {
+          "00hours05minutes": "5 min",
+          "00hours10minutes": "10 min",
+          "00hours15minutes": "15 min",
+          "00hours20minutes": "20 min",
+          "00hours25minutes": "25 min",
+          "00hours30minutes": "30 min",
+          "00hours35minutes": "35 min",
+          "00hours40minutes": "40 min",
+          "00hours45minutes": "45 min",
+          "00hours50minutes": "50 min",
+          "00hours55minutes": "55 min",
+          "01hours00minutes": "1 u",
+          "01hours15minutes": "1 u 15 min",
+          "01hours30minutes": "1 u 30 min",
+          "01hours45minutes": "1 u 45 min",
+          "02hours00minutes": "2 u",
+          "02hours15minutes": "2 u 15 min",
+          "02hours30minutes": "2 u 30 min",
+          "02hours45minutes": "2 u 45 min",
+          "03hours00minutes": "3 u"
+        }
+      },
+      "select_coffee_water_hardness": {
+        "name": "Waterhardheid",
+        "state": {
+          "soft": "Zacht",
+          "medium": "Gemiddeld",
+          "hard": "Hard",
+          "veryhard": "Zeer hard",
+          "softeningdevice": "Waterontharder"
+        }
+      },
+      "select_coffee_user_mode": {
+        "name": "Gebruikersmodus",
+        "state": {
+          "standard": "Standaard",
+          "barista": "Barista"
+        }
+      },
+      "select_coffee_milk_order": {
+        "name": "Volgorde cappuccino",
+        "state": {
+          "firstmilk": "Eerst melk",
+          "firstcoffee": "Eerst koffie"
+        }
+      },
+      "select_coffee_macchiato_pause": {
+        "name": "Pauze latte macchiato",
+        "state": {
+          "min": "Minimaal",
+          "5sec": "5 s",
+          "10sec": "10 s"
+        }
+      },
+      "select_coffee_milk_reminder": {
+        "name": "Melkherinnering na",
+        "state": {
+          "off": "Uit",
+          "00hours05minutes": "5 min",
+          "00hours10minutes": "10 min",
+          "00hours15minutes": "15 min",
+          "00hours20minutes": "20 min",
+          "00hours25minutes": "25 min",
+          "00hours30minutes": "30 min",
+          "00hours35minutes": "35 min",
+          "00hours40minutes": "40 min",
+          "00hours45minutes": "45 min",
+          "00hours50minutes": "50 min",
+          "00hours55minutes": "55 min",
+          "01hours00minutes": "1 u",
+          "01hours15minutes": "1 u 15 min",
+          "01hours30minutes": "1 u 30 min",
+          "01hours45minutes": "1 u 45 min",
+          "02hours00minutes": "2 u",
+          "02hours15minutes": "2 u 15 min",
+          "02hours30minutes": "2 u 30 min",
+          "02hours45minutes": "2 u 45 min",
+          "03hours00minutes": "3 u"
+        }
+      },
+      "select_coffee_default_bean_container": {
+        "name": "Standaard bonenreservoir",
+        "state": {
+          "mostrecentlyselectedbeancontainer": "Laatst gebruikt",
+          "defaultbeancontainerright": "Rechts",
+          "defaultbeancontainerleft": "Links",
+          "savebeancontainerwithbeverage": "Per drank opgeslagen"
+        }
+      },
+      "select_laundry_program_mode": {
+        "name": "Programmamodus",
+        "state": {
+          "washing": "Wassen",
+          "washinganddrying": "Wassen en drogen",
+          "drying": "Drogen"
+        }
+      },
+      "select_laundry_idos2_content": {
+        "name": "i-DOS 2 inhoud",
+        "state": {
+          "softener": "Wasverzachter",
+          "detergent": "Wasmiddel"
+        }
+      },
+      "select_laundry_idos2_level": {
+        "name": "i-DOS 2 niveau",
+        "state": {
+          "off": "Uit",
+          "light": "Licht",
+          "normal": "Normaal",
+          "strong": "Sterk"
+        }
+      },
+      "select_laundry_idos1_level": {
+        "name": "i-DOS 1 niveau",
+        "state": {
+          "off": "Uit",
+          "light": "Licht",
+          "normal": "Normaal",
+          "strong": "Sterk"
+        }
+      },
+      "select_laundry_vario_perfect": {
+        "name": "Vario perfect",
+        "state": {
+          "off": "Uit",
+          "ecoperfect": "EcoPerfect",
+          "speedperfect": "SpeedPerfect"
+        }
+      },
+      "select_laundry_hygienic_steam_intensity": {
+        "name": "Intensiteit hygiënische stoom",
+        "state": {
+          "middle": "Gemiddeld",
+          "high": "Hoog"
+        }
+      },
+      "select_laundry_multiple_soak": {
+        "name": "Meerdere keren weken",
+        "state": {
+          "off": "Uit",
+          "plus1": "Plus 1",
+          "plus2": "Plus 2",
+          "plus3": "Plus 3"
+        }
+      },
+      "select_laundry_pretreatment": {
+        "name": "Voorbehandeling",
+        "state": {
+          "off": "Uit",
+          "prewash": "Voorwas",
+          "handsoak": "Handmatig weken"
+        }
+      },
+      "select_laundry_soak_temperature": {
+        "name": "Weektemperatuur",
+        "state": {
+          "cold": "Koud",
+          "gc20": "20°C",
+          "ulcold": "Ultra koud",
+          "ulwarm": "Ultra warm",
+          "ulhot": "Ultra heet",
+          "ulextrahot": "Ultra extra heet",
+          "gc30": "30°C",
+          "auto": "Automatisch",
+          "max": "Max",
+          "gc40": "40°C",
+          "gc50": "50°C",
+          "gc60": "60°C",
+          "gc70": "70°C",
+          "gc80": "80°C",
+          "gc90": "90°C"
+        }
+      },
+      "select_laundry_rinseplus": {
+        "name": "Extra spoelen",
+        "state": {
+          "off": "Uit",
+          "plus1": "Plus 1",
+          "plus2": "Plus 2",
+          "plus3": "Plus 3"
+        }
+      },
+      "select_laundry_option_stains": {
+        "name": "Vlekken",
+        "state": {
+          "off": "Uit",
+          "babyfood": "Babyvoeding",
+          "perspiration": "Transpiratie",
+          "socks": "Sokken",
+          "butteroil": "Boter/olie",
+          "tea": "Thee",
+          "tomatosauce": "Tomatensaus",
+          "strawberry": "Aardbei",
+          "orange": "Sinaasappel",
+          "blood": "Bloed",
+          "egg": "Ei",
+          "mud": "Modder",
+          "grass": "Gras",
+          "coffee": "Koffie",
+          "cosmetics": "Cosmetica",
+          "redwine": "Rode wijn",
+          "chocolate": "Chocolade"
+        }
+      },
+      "select_laundry_option_temperature": {
+        "name": "Wastemperatuur",
+        "state": {
+          "cold": "Koud",
+          "gc20": "20°C",
+          "ulcold": "Ultra koud",
+          "ulwarm": "Ultra warm",
+          "ulhot": "Ultra heet",
+          "ulextrahot": "Ultra extra heet",
+          "gc30": "30°C",
+          "auto": "Automatisch",
+          "max": "Max",
+          "gc40": "40°C",
+          "gc50": "50°C",
+          "gc60": "60°C",
+          "gc70": "70°C",
+          "gc80": "80°C",
+          "gc90": "90°C"
+        }
+      },
+      "select_laundry_option_water_and_rinse_plus": {
+        "name": "Extra water en spoelen",
+        "state": {
+          "off": "Uit",
+          "plus1": "Plus 1",
+          "plus2": "Plus 2",
+          "plus3": "Plus 3"
+        }
+      },
+      "select_oven_meat_probe_temperature": {
+        "name": "Doeltemperatuur braadthermometer",
+        "state": {
+          "off": "Uit",
+          "30dc": "30 °C",
+          "31dc": "31 °C",
+          "32dc": "32 °C",
+          "33dc": "33 °C",
+          "34dc": "34 °C",
+          "35dc": "35 °C",
+          "36dc": "36 °C",
+          "37dc": "37 °C",
+          "38dc": "38 °C",
+          "39dc": "39 °C",
+          "40dc": "40 °C",
+          "41dc": "41 °C",
+          "42dc": "42 °C",
+          "43dc": "43 °C",
+          "44dc": "44 °C",
+          "45dc": "45 °C",
+          "46dc": "46 °C",
+          "47dc": "47 °C",
+          "48dc": "48 °C",
+          "49dc": "49 °C",
+          "50dc": "50 °C",
+          "51dc": "51 °C",
+          "52dc": "52 °C",
+          "53dc": "53 °C",
+          "54dc": "54 °C",
+          "55dc": "55 °C",
+          "56dc": "56 °C",
+          "57dc": "57 °C",
+          "58dc": "58 °C",
+          "59dc": "59 °C",
+          "60dc": "60 °C",
+          "61dc": "61 °C",
+          "62dc": "62 °C",
+          "63dc": "63 °C",
+          "64dc": "64 °C",
+          "65dc": "65 °C",
+          "66dc": "66 °C",
+          "67dc": "67 °C",
+          "68dc": "68 °C",
+          "69dc": "69 °C",
+          "70dc": "70 °C",
+          "71dc": "71 °C",
+          "72dc": "72 °C",
+          "73dc": "73 °C",
+          "74dc": "74 °C",
+          "75dc": "75 °C",
+          "76dc": "76 °C",
+          "77dc": "77 °C",
+          "78dc": "78 °C",
+          "79dc": "79 °C",
+          "80dc": "80 °C",
+          "81dc": "81 °C",
+          "82dc": "82 °C",
+          "83dc": "83 °C",
+          "84dc": "84 °C",
+          "85dc": "85 °C",
+          "86dc": "86 °C",
+          "87dc": "87 °C",
+          "88dc": "88 °C",
+          "89dc": "89 °C",
+          "90dc": "90 °C",
+          "91dc": "91 °C",
+          "92dc": "92 °C",
+          "93dc": "93 °C",
+          "94dc": "94 °C",
+          "95dc": "95 °C",
+          "96dc": "96 °C",
+          "97dc": "97 °C",
+          "98dc": "98 °C",
+          "99dc": "99 °C"
+        }
+      },
+      "select_chiller_common_preset": {
+        "name": "Voorinstelling chillerlade",
+        "state": {
+          "meatfish": "29°F 💧 (Vlees/vis)",
+          "fruit": "32°F 💧 (Fruit)",
+          "vegetables": "32°F 💧💧 (Groenten)",
+          "beverages": "34°F 💧 (Dranken)",
+          "snacks": "40°F 💧 (Snacks/overig)",
+          "custom": "Aangepast"
+        }
+      },
+      "select_chiller_left_humidity": {
+        "name": "Luchtvochtigheid chillerlade links",
+        "state": {
+          "low": "Laag",
+          "high": "Hoog"
+        }
+      },
+      "select_chiller_right_humidity": {
+        "name": "Luchtvochtigheid chillerlade rechts",
+        "state": {
+          "low": "Laag",
+          "high": "Hoog"
+        }
+      },
+      "select_hob_delaye_shutoff_stage": {
+        "name": "Ventilatorstand bij vertraagd uitschakelen",
+        "state": {
+          "fanoff": "Uit",
+          "fanstage01": "1",
+          "fanstage02": "2",
+          "fanstage03": "3",
+          "fanstage04": "4"
+        }
+      },
+      "select_temperature_unit": {
+        "name": "Temperatuureenheid",
+        "state": {
+          "celsius": "Celsius",
+          "fahrenheit": "Fahrenheit"
+        }
+      },
+      "select_hood_carbon_filter_type": {
+        "name": "Type koolstoffilter",
+        "state": {
+          "none": "Geen",
+          "basiccarbonfilter": "Standaard koolstoffilter",
+          "regenerativecarbonfilter": "Regenereerbaar koolstoffilter"
+        }
+      },
+      "select_time_format": {
+        "name": "Tijdnotatie",
+        "state": {
+          "24hours": "24 uur",
+          "12hours": "12 uur"
+        }
+      },
+      "select_oven_clock_display": {
+        "name": "Klokweergave",
+        "state": {
+          "clock01": "Digitaal",
+          "clock02": "Analoog"
+        }
+      },
+      "select_dishwasher_auto_power_off": {
+        "name": "Automatisch uitschakelen",
+        "state": {
+          "off": "Uit",
+          "oneminute": "Na 1 minuut",
+          "120minutes": "Na 2 uur"
+        }
+      },
+      "select_refrigerator_door_assistant_fridge_trigger": {
+        "name": "Deurassistent koelkast: bediening",
+        "state": {
+          "push": "Duwen",
+          "pull": "Trekken",
+          "pushpull": "Duwen/trekken"
+        }
+      },
+      "select_refrigerator_door_assistant_fridge_force": {
+        "name": "Deurassistent koelkast: kracht",
+        "state": {
+          "lowforce": "Laag",
+          "middleforce": "Gemiddeld",
+          "highforce": "Hoog"
+        }
+      },
+      "select_hood_light_startup": {
+        "name": "Verlichting bij inschakelen",
+        "state": {
+          "turnonlight": "Aanzetten",
+          "keeplightoff": "Uit laten"
+        }
+      },
+      "select_hood_light_shutdown": {
+        "name": "Verlichting bij uitschakelen",
+        "state": {
+          "turnofflight": "Uitzetten",
+          "keeplighton": "Aan laten"
         }
       }
     },
@@ -2246,6 +3247,36 @@
       },
       "button_resume_program": {
         "name": "Hervatten"
+      },
+      "button_mains_power_off": {
+        "name": "Uitschakelen"
+      },
+      "button_deactivate_remote_control": {
+        "name": "Bediening op afstand uitschakelen"
+      },
+      "button_deactivate_remote_control_start": {
+        "name": "Starten op afstand uitschakelen"
+      },
+      "button_sync_time": {
+        "name": "Tijd synchroniseren vanuit Home Assistant"
+      },
+      "button_hood_carbon_filter_reset": {
+        "name": "Koolstoffilter resetten"
+      },
+      "button_hood_grease_filter_reset": {
+        "name": "Vetfilter resetten"
+      },
+      "button_hood_regenerative_carbon_filter_reset": {
+        "name": "Regenereerbaar koolstoffilter resetten"
+      },
+      "button_hood_regenerative_carbon_filter_lifetime_reset": {
+        "name": "Levensduur regenereerbaar koolstoffilter resetten"
+      },
+      "button_water_filter_reset": {
+        "name": "Waterfilter resetten"
+      },
+      "button_refrigerator_open_door": {
+        "name": "Deur openen"
       }
     },
     "number": {
@@ -2303,11 +3334,44 @@
       "number_hood_delayed_shutoff_time": {
         "name": "Vertraagd uitschakelen"
       },
-	  "number_hood_boost_time": {
+      "number_hood_boost_time": {
         "name": "Boost looptijd"
       },
       "number_hood_sensor_sensitivity": {
         "name": "Sensorgevoeligheid"
+      },
+      "number_coffee_display_brightness": {
+        "name": "Helderheid display"
+      },
+      "number_laundry_soak_duration": {
+        "name": "Weekduur"
+      },
+      "number_setpoint_chiller_common": {
+        "name": "Temperatuur chillerlade"
+      },
+      "number_light_internal_brightness": {
+        "name": "Helderheid binnenverlichting"
+      },
+      "number_oven_weight": {
+        "name": "Gewicht"
+      },
+      "number_setting_alarm_clock": {
+        "name": "Kookwekker"
+      },
+      "number_delay_start": {
+        "name": "Uitgestelde start"
+      },
+      "number_refrigerator_sabbath_mode_duration": {
+        "name": "Duur sabbatmodus"
+      },
+      "number_refrigerator_door_assistant_freezer_timeout": {
+        "name": "Time-out deurassistent vriezer"
+      },
+      "number_refrigerator_door_assistant_fridge_timeout": {
+        "name": "Time-out deurassistent koelkast"
+      },
+      "number_setting_alarm_clock_groupe": {
+        "name": "Kookwekker{group_name}"
       }
     },
     "light": {
@@ -2325,11 +3389,25 @@
       },
       "light_cooking_ambient_lighting": {
         "name": "Bladverlichting"
+      },
+      "light_logo": {
+        "name": "Logoverlichting"
+      },
+      "light_oven_cavity": {
+        "name": "Ovenlamp"
       }
     },
     "fan": {
       "fan_hood": {
         "name": "Afzuigventilator"
+      }
+    },
+    "update": {
+      "update_software_download": {
+        "name": "Software downloaden"
+      },
+      "update_software_update": {
+        "name": "Software-update"
       }
     }
   },
@@ -2361,6 +3439,104 @@
           "description": "Stel startvertraging in"
         }
       }
+    }
+  },
+  "exceptions": {
+    "start_in_not_available": {
+      "message": "'Start over' is niet beschikbaar op dit apparaat"
+    },
+    "finish_in_not_available": {
+      "message": "'Klaar over' is niet beschikbaar op dit apparaat"
+    },
+    "program_not_available": {
+      "message": "Dit programma is niet beschikbaar op dit apparaat"
+    },
+    "option_not_available": {
+      "message": "Deze optie is niet beschikbaar op dit apparaat"
+    },
+    "finish_in_not_writable": {
+      "message": "Het apparaat heeft 'Klaar over' niet op tijd vrijgegeven - probeer het opnieuw"
+    },
+    "start_program_error": {
+      "message": "Fout {code} bij het starten van het programma, resource {resource}"
+    },
+    "no_program_selected": {
+      "message": "Geen programma geselecteerd"
+    },
+    "auth_failed": {
+      "message": "Authenticatie mislukt {host}"
+    },
+    "cannot_connect": {
+      "message": "Kan geen verbinding maken met {host}"
+    },
+    "no_device_info": {
+      "message": "Apparaat heeft geen apparaatinformatie"
+    },
+    "speed_invalid": {
+      "message": "Snelheid {percentage} is ongeldig"
+    },
+    "not_appliance": {
+      "message": "Geen Home Connect-apparaat"
+    },
+    "access_error": {
+      "message": "Entiteit is niet toegankelijk"
+    },
+    "code_respons": {
+      "message": "Foutmelding van het apparaat: {message}"
+    },
+    "not_connected": {
+      "message": "Client is niet verbonden"
+    },
+    "remote_start_not_allowed": {
+      "message": "Schakel starten op afstand in op {device_name} door ter plaatse op de knop voor starten op afstand te drukken."
+    },
+    "read_only": {
+      "message": "Dit is momenteel alleen-lezen en kan nu niet worden gewijzigd"
+    },
+    "no_power_off": {
+      "message": "Dit apparaat kan niet op afstand worden uitgeschakeld, dus de ventilator kan niet worden gestopt"
+    },
+    "command_timeout": {
+      "message": "Het apparaat heeft niet op tijd op de opdracht gereageerd"
+    },
+    "missing_unique_id": {
+      "message": "Deze configuratie heeft geen unieke ID. Verwijder het apparaat en voeg het opnieuw toe."
+    },
+    "setup_cannot_connect": {
+      "message": "Kan geen verbinding maken met {host}. Zie {url} als dit niet vanzelf oplost."
+    },
+    "setup_cannot_connect_error": {
+      "message": "Kan geen verbinding maken met {host} ({error}). Zie {url} als dit niet vanzelf oplost."
+    },
+    "invalid_profile": {
+      "message": "Het opgeslagen apparaatprofiel kan niet worden gelezen: {error}. Werk het profiel bij via het menu Opnieuw configureren van de integratie."
+    },
+    "delay_start_too_long": {
+      "message": "De gekozen vertraging is te lang: het programma zou meer dan {max_hours} u vanaf nu klaar zijn, en dat staat het apparaat niet toe"
+    },
+    "delay_start_duration_unknown": {
+      "message": "De programmaduur is nog niet bekend, dus de vertraging kan niet worden toegepast - probeer het zo opnieuw"
+    }
+  },
+  "selector": {
+    "region": {
+      "options": {
+        "eu": "Europese cloud (Europa, Australië, ...)",
+        "na": "Noord-Amerikaanse cloud (VS, Canada, ...)",
+        "cn": "Chinese cloud (China)"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Volledig profiel exporteren",
+        "description": "Schrijft de ZIP met het volledige profiel van dit apparaat - de twee profiel-XML-bestanden plus de lokale encryptiesleutel - naar je configuratiemap, onder `homeconnect_ws_export/`. Haal het op via Samba, SSH of de File Editor-add-on.\n\nGebruik voor het veilige profiel (zonder sleutel, MAC of serienummer - veilig om te delen bij een functieaanvraag) in plaats daarvan de knop **Diagnostische gegevens downloaden** op de apparaatpagina - daarvoor is hier geen bevestiging nodig.\n\nVerstuur om te bevestigen en het bestand te schrijven."
+      }
+    },
+    "abort": {
+      "export_written": "`{filename}` is naar je configuratiemap geschreven, onder `homeconnect_ws_export/`. Haal het op via Samba, SSH of de File Editor-add-on.",
+      "export_failed": "Kon het exportbestand niet schrijven: {error}"
     }
   }
 }

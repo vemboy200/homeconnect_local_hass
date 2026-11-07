@@ -100,6 +100,12 @@ class HCSensorEntityDescription(
     # home_connect's program sensors. Otherwise the appliance leaves the last value
     # standing (a Bosch dishwasher's phase stuck on "Drying", issue #302).
     program_sensor: bool = False
+    # A program sensor that also describes the selected program before it starts: available
+    # while powered on and Ready with a program selected (fork issue #268).
+    available_with_selected_program: bool = False
+    # Leaves out available_with_selected_program on appliances with this entity, which shows
+    # the selected program's duration instead. A dishwasher only has remaining time for it.
+    selected_program_unless_entity: str | None = None
     # Some appliances flag an Option unavailable while still counting it: a
     # Thermador PRG486WDH oven running a heating mode with no timer set
     # reports ElapsedProgramTime as available=false while its value keeps
@@ -173,6 +179,9 @@ class HCNumberEntityDescription(
     """Description for Number Entity."""
 
     available_access: tuple[Access, ...] = (Access.READ_WRITE, Access.WRITE_ONLY)
+    # (step, brands): the step for these brands (in capitals, as appliances report them),
+    # instead of the step the appliance reports
+    step_for_brands: tuple[float, frozenset[str]] | None = None
 
 
 class HCLightEntityDescription(HCEntityDescription, LightEntityDescription, frozen_or_thawed=True):
