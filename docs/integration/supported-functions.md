@@ -26,6 +26,7 @@ The following entities are available. Which ones appear depends on the appliance
 | Allow Cloud Connection | Switch | Enable or disable the appliance's connection to the Home Connect cloud |
 | Allow Consumer Insights | Switch | Enable or disable usage data collection by the Home Connect cloud |
 | Synchronize Time with Server | Switch | Whether the appliance keeps its clock in sync with a time server |
+| Acknowledge program message | Button | Acknowledges the "program finished" or "program aborted" message, as the app or the appliance would. Available while one is showing, on appliances that ask for it. A washer keeps its program selection locked until then |
 | Sync time from Home Assistant | Button | Sets the appliance's own clock to Home Assistant's local time, including DST changes. Only works while "Synchronize Time with Server" is off. Meant for appliances without internet access - if yours keeps internet access, that switch already keeps the clock right and this button isn't needed. Disabled by default, like the switch |
 | Time Format | Select | 12-hour or 24-hour clock display |
 | Software Update | Update | Tracks/triggers installing an available firmware update |

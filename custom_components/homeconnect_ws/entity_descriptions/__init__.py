@@ -147,6 +147,7 @@ def get_available_entities(
         "select": [],
         "sensor": [],
         "start_button": [],
+        "acknowledge_button": [],
         "delay_start": [],
         "switch": [],
         "wifi": [],

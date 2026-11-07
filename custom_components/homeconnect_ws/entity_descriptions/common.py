@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from home_disconnect.entities import Access, Execution
+from home_disconnect.entities import Access, Event, Execution
 from home_disconnect.keys import (
     CommandKey,
     EventKey,
@@ -107,6 +107,32 @@ def generate_start_button(appliance: Appliance) -> HCButtonEntityDescription | N
             entities=[RootKey.BSH_COMMON_SELECTED_PROGRAM],
         )
     return None
+
+
+def generate_acknowledge_button(appliance: Appliance) -> HCButtonEntityDescription | None:
+    """
+    Get the button that acknowledges a program's end message.
+
+    A washer keeps its program selection locked until this message is acknowledged or the door
+    is opened (fork issue #267). Limited to these events on purpose: the same flag is on pump
+    errors, foam detection and software updates, which shouldn't be cleared remotely. Checked
+    per event, since a Thermador DWHD660WFP has it on ProgramAborted but not ProgramFinished.
+    """
+    if appliance.entities.get(CommandKey.BSH_COMMON_ACKNOWLEDGE_EVENT) is None:
+        return None
+    events: list[str] = [
+        name
+        for name in (EventKey.BSH_COMMON_PROGRAM_FINISHED, EventKey.BSH_COMMON_PROGRAM_ABORTED)
+        if isinstance(event := appliance.entities.get(name), Event)
+        and event.handling == "acknowledge"
+    ]
+    if not events:
+        return None
+    return HCButtonEntityDescription(
+        key="button_acknowledge_program_message",
+        entity=CommandKey.BSH_COMMON_ACKNOWLEDGE_EVENT,
+        entities=events,
+    )
 
 
 def generate_delay_start(appliance: Appliance) -> HCNumberEntityDescription | None:
@@ -534,6 +560,7 @@ COMMON_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
         generate_temperature_unit,
     ],
     "start_button": [generate_start_button],
+    "acknowledge_button": [generate_acknowledge_button],
     "delay_start": [generate_delay_start],
     "switch": [
         generate_power_switch,
