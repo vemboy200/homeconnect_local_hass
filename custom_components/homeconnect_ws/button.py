@@ -9,7 +9,7 @@ from home_disconnect import (
     ProgramDurationUnknownError,
     RemoteStartNotAllowedError,
 )
-from home_disconnect.entities import Execution
+from home_disconnect.entities import Event, Execution
 from homeassistant.components.button import ButtonEntity
 from homeassistant.exceptions import HomeAssistantError
 
@@ -39,7 +39,12 @@ async def async_setup_entry(
 ) -> None:
     """Set up button platform."""
     entities = create_entities(
-        {"button": HCButton, "start_button": HCStartButton}, config_entry.runtime_data
+        {
+            "button": HCButton,
+            "start_button": HCStartButton,
+            "acknowledge_button": HCAcknowledgeButton,
+        },
+        config_entry.runtime_data,
     )
     async_add_entites(entities)
 
@@ -62,6 +67,30 @@ class HCButton(HCEntity, ButtonEntity):
             await self._entity.set_value(True)
         else:
             await press_fn(self._runtime_data.appliance)
+
+
+class HCAcknowledgeButton(HCButton):
+    """Button that acknowledges a program's end message, while the appliance shows one."""
+
+    @property
+    def _pending_event(self) -> Event | None:
+        for entity in self._entities:
+            if isinstance(entity, Event) and entity.value == "Present":
+                return entity
+        return None
+
+    @property
+    def available(self) -> bool:
+        return (
+            super().available
+            and self._runtime_data.appliance.connected
+            and self._pending_event is not None
+        )
+
+    @error_decorator
+    async def async_press(self) -> None:
+        if (event := self._pending_event) is not None:
+            await event.acknowledge()
 
 
 class HCStartButton(HCEntity, ButtonEntity):
