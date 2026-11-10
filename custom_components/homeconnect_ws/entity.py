@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from home_disconnect.entities import Access
+from home_disconnect.entities import Access, Option
 from home_disconnect.keys import SettingKey
 from homeassistant.const import UnitOfTemperature
 from homeassistant.helpers.entity import Entity
@@ -85,6 +85,15 @@ class HCEntity(CoordinatorEntity[HomeConnectCoordinator], Entity):
             for extra_attribute in entity_description.extra_attributes:
                 if extra_attribute["entity"] in self._runtime_data.appliance.entities:
                     self._extra_attributes.append(extra_attribute)
+        if isinstance(self._entity, Option):
+            # Whether an option is available depends on the selected and the active program
+            appliance_entities = self._runtime_data.appliance.entities
+            for program_root in (
+                appliance_entities.selected_program,
+                appliance_entities.active_program,
+            ):
+                if program_root is not None and program_root not in self._entities:
+                    self._entities.append(program_root)
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -109,7 +118,29 @@ class HCEntity(CoordinatorEntity[HomeConnectCoordinator], Entity):
             # readable", so widen the check instead of going unavailable and
             # hiding the current value along with the control.
             available_access = (*available_access, Access.READ)
-        return connected_or_expected_offline and entity_is_available(self._entity, available_access)
+        return (
+            connected_or_expected_offline
+            and entity_is_available(self._entity, available_access)
+            and self._used_by_program()
+        )
+
+    def _used_by_program(self) -> bool:
+        """
+        Return False if the active (or else the selected) program doesn't use this option.
+
+        The profile lists each program's options: an oven's hot air takes a setpoint
+        temperature but no grill level, a microwave program neither. Such an option can't be
+        set while that program is selected or runs. Without a program, or for a program that
+        lists no options, nothing changes.
+        """
+        if not isinstance(self._entity, Option):
+            return True
+        appliance = self._runtime_data.appliance
+        program = appliance.active_program or appliance.selected_program
+        if program is None:
+            return True
+        options = program.options
+        return not options or self._entity in options
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
