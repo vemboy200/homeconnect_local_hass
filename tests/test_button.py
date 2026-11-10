@@ -2,22 +2,31 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from copy import deepcopy
+from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock, patch
 
 import pytest
 from custom_components import homeconnect_ws
 from custom_components.homeconnect_ws import entity_descriptions
+from custom_components.homeconnect_ws.const import DOMAIN
 from custom_components.homeconnect_ws.entity_descriptions import HCButtonEntityDescription
-from home_disconnect.entities import Program
+from home_disconnect.entities import Access, Program
 from home_disconnect.messages import Action, Message
 from homeassistant.components.button import DOMAIN as BUTTON_DOMAIN
 from homeassistant.components.button import SERVICE_PRESS
-from homeassistant.const import ATTR_ENTITY_ID, ATTR_FRIENDLY_NAME, STATE_UNAVAILABLE
+from homeassistant.const import (
+    ATTR_ENTITY_ID,
+    ATTR_FRIENDLY_NAME,
+    CONF_DESCRIPTION,
+    STATE_UNAVAILABLE,
+    Platform,
+)
 from homeassistant.exceptions import HomeAssistantError
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from . import setup_config_entry, update_entity
-from .const import ENTITY_DESCRIPTIONS, MOCK_CONFIG_DATA
+from . import appliance_class, make_appliance, setup_config_entry, setup_integration, update_entity
+from .const import ENTITY_DESCRIPTIONS, MOCK_CONFIG_DATA, WASHER_CONFIG_DATA, WASHER_DESCRIPTION
 
 if TYPE_CHECKING:
     from home_disconnect import Appliance
@@ -449,3 +458,99 @@ async def test_read_only_button_is_unavailable(
     await update_entity(mock_appliance.entities["Test.Switch"], {"access": "readWrite"})
     await hass.async_block_till_done()
     assert hass.states.get(entity_id).state != STATE_UNAVAILABLE
+
+
+ACKNOWLEDGE_ENTITY_ID = "button.fake_brand_washer_acknowledge_program_message"
+
+
+def _washer_with_acknowledge(finished_handling: str = "acknowledge") -> dict[str, Any]:
+    """Return a washer's description with its end-of-program events, as on a WGB256A41."""
+    description = deepcopy(WASHER_DESCRIPTION)
+    description["event"] = [
+        {
+            "uid": uid,
+            "name": f"BSH.Common.Event.{name}",
+            "handling": handling,
+            "level": "hint",
+            "enumeration": {"0": "Off", "1": "Present", "2": "Confirmed"},
+        }
+        for uid, name, handling in (
+            (540, "ProgramFinished", finished_handling),
+            (545, "ProgramAborted", "acknowledge"),
+        )
+    ]
+    description["command"] = [
+        {
+            "uid": 6,
+            "name": "BSH.Common.Command.AcknowledgeEvent",
+            "available": True,
+            "access": Access.WRITE_ONLY,
+        }
+    ]
+    return description
+
+
+async def _setup_washer(
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch, description: dict[str, Any]
+) -> Appliance:
+    appliance = make_appliance(description)
+    monkeypatch.setattr(homeconnect_ws.coordinator, "Appliance", appliance_class(appliance))
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={**WASHER_CONFIG_DATA, CONF_DESCRIPTION: description},
+        unique_id=WASHER_CONFIG_DATA["device_id"],
+    )
+    with patch("custom_components.homeconnect_ws.PLATFORMS", [Platform.BUTTON]):
+        await setup_integration(hass, config_entry)
+    return appliance
+
+
+@pytest.mark.parametrize(("uid", "other"), [(540, 545), (545, 540)])
+async def test_acknowledge_program_message(
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch, uid: int, other: int
+) -> None:
+    """Test the button acknowledges the event that's showing, and only while one is."""
+    appliance = await _setup_washer(hass, monkeypatch, _washer_with_acknowledge())
+    assert hass.states.get(ACKNOWLEDGE_ENTITY_ID).state == STATE_UNAVAILABLE
+
+    await update_entity(appliance.entities.by_uid[other], {"value": 0})
+    await update_entity(appliance.entities.by_uid[uid], {"value": 1})
+    await hass.async_block_till_done()
+    assert hass.states.get(ACKNOWLEDGE_ENTITY_ID).state != STATE_UNAVAILABLE
+
+    await hass.services.async_call(
+        BUTTON_DOMAIN, SERVICE_PRESS, {ATTR_ENTITY_ID: ACKNOWLEDGE_ENTITY_ID}, blocking=True
+    )
+    appliance.session.request.assert_awaited_once_with(
+        Message(resource="/ro/values", action=Action.POST, data=[{"uid": 6, "value": uid}])
+    )
+
+    await update_entity(appliance.entities.by_uid[uid], {"value": 0})
+    await hass.async_block_till_done()
+    assert hass.states.get(ACKNOWLEDGE_ENTITY_ID).state == STATE_UNAVAILABLE
+
+
+async def test_acknowledge_skips_events_that_dont_ask_for_it(
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test a finished message that needs no acknowledging doesn't enable the button."""
+    appliance = await _setup_washer(hass, monkeypatch, _washer_with_acknowledge("none"))
+
+    await update_entity(appliance.entities.by_uid[540], {"value": 1})
+    await hass.async_block_till_done()
+
+    assert hass.states.get(ACKNOWLEDGE_ENTITY_ID).state == STATE_UNAVAILABLE
+
+
+@pytest.mark.parametrize(
+    "removed",
+    [{"event": []}, {"command": []}],
+    ids=["no_events", "no_command"],
+)
+async def test_no_acknowledge_button(
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch, removed: dict[str, list[Any]]
+) -> None:
+    """Test appliances without the command or the events don't get the button."""
+    await _setup_washer(hass, monkeypatch, _washer_with_acknowledge() | removed)
+
+    assert hass.states.get(ACKNOWLEDGE_ENTITY_ID) is None
