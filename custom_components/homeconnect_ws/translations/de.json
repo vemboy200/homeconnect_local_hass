@@ -699,6 +699,12 @@
       "binary_sensor_temperature_alarm_chiller_common": {
         "name": "Temperaturalarm Chiller"
       },
+      "binary_sensor_temperature_alarm_chiller_left": {
+        "name": "Temperaturalarm Frischezone links"
+      },
+      "binary_sensor_temperature_alarm_chiller_right": {
+        "name": "Temperaturalarm Frischezone rechts"
+      },
       "binary_sensor_coffee_brewing_unit_missing": {
         "name": "Brüheinheit fehlt"
       },
@@ -4619,6 +4625,28 @@
           "custom": "Benutzerdefiniert"
         }
       },
+      "select_chiller_left_preset": {
+        "name": "Frischezone links Voreinstellung",
+        "state": {
+          "meatfish": "29°F 💧 (Meat/Fish)",
+          "fruit": "32°F 💧 (Fruit)",
+          "vegetables": "32°F 💧💧 (Vegetables)",
+          "beverages": "34°F 💧 (Beverages)",
+          "snacks": "40°F 💧 (Snacks/Misc.)",
+          "custom": "Benutzerdefiniert"
+        }
+      },
+      "select_chiller_right_preset": {
+        "name": "Frischezone rechts Voreinstellung",
+        "state": {
+          "meatfish": "29°F 💧 (Meat/Fish)",
+          "fruit": "32°F 💧 (Fruit)",
+          "vegetables": "32°F 💧💧 (Vegetables)",
+          "beverages": "34°F 💧 (Beverages)",
+          "snacks": "40°F 💧 (Snacks/Misc.)",
+          "custom": "Benutzerdefiniert"
+        }
+      },
       "select_chiller_left_humidity": {
         "name": "Frischezone links Feuchtigkeit",
         "state": {
@@ -4953,6 +4981,12 @@
       },
       "number_setpoint_chiller_common": {
         "name": "Frischezone-Temperatur"
+      },
+      "number_setpoint_chiller_left": {
+        "name": "Frischezone links Temperatur"
+      },
+      "number_setpoint_chiller_right": {
+        "name": "Frischezone rechts Temperatur"
       },
       "number_light_internal_brightness": {
         "name": "Innenbeleuchtung Helligkeit"

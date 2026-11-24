@@ -2324,12 +2324,6 @@
       },
       "sensor_oven_current_temperature_group": {
         "name": "Current Temperature{group_name}"
-      },
-      "sensor_chiller_left_temperature": {
-        "name": "Chiller left temperature"
-      },
-      "sensor_chiller_right_temperature": {
-        "name": "Chiller right temperature"
       }
     },
     "select": {
