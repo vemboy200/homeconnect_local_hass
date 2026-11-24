@@ -485,6 +485,13 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
         ),
     ],
     "select": [
+        # Cubes, crushed ice or water from the door dispenser.
+        HCSelectEntityDescription(
+            key="select_refrigerator_dispenser_function",
+            entity=SettingKey.REFRIGERATION_COMMON_DISPENSER_FUNCTION,
+            device_class=SensorDeviceClass.ENUM,
+            has_state_translation=True,
+        ),
         HCSelectEntityDescription(
             key="select_refrigerator_door_assistant_freezer_trigger",
             entity=SettingKey.REFRIGERATION_COMMON_DOOR_ASSISTANT_TRIGGER_FREEZER,
