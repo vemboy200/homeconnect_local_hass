@@ -31,6 +31,7 @@ ported:
   561: Oven Regular/Fast Preheat Finished binary sensors (already in the fork's cooking descriptions)
   563: Start button for programs with execution "none" (the fork only leaves out start-only programs)
   566: Start button follows the selected program (the fork's button already listens to SelectedProgram, fork #54)
+  568: Oven cavity light (the fork's light_oven_cavity, with brightness; no oven has shown a second cavity light yet)
   570: No unavailable programs in the program select (the fork's select already filters them)
   582: Reconnect backoff, bounded connection steps and reauth on a rejected key (backoff and timeouts in home-disconnect, reauth in #299)
   573: Hood fan levels as Venting program options, and turning the fan off (the fork starts Venting with the level and powers the hood off, fork #17)
