@@ -22,6 +22,7 @@ from custom_components.homeconnect_ws.const import (
 from home_disconnect import (
     AccessError,
     Appliance,
+    AuthenticationError,
     ConnectionFailedError,
     ConnectionState,
     RemoteStartNotAllowedError,
@@ -76,6 +77,7 @@ async def test_load_unload_entry(
         app_name="Homeassistant",
         app_id="Test_Device_ID",
         on_connection_state=ANY,
+        on_connect_error=ANY,
         reconnect_max_delay=RECONNECT_MAX_DELAY,
         info=MOCK_APPLIANCE_INFO,
     )
@@ -431,6 +433,61 @@ async def test_setup_entry_non_laundry_retries_transient_connect_failure(
 
     assert entry.state is ConfigEntryState.LOADED
     assert appliance.session.connect.await_count == 2
+
+
+async def test_setup_entry_rejected_key_starts_reauth(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An appliance that rejects the stored key on every setup attempt asks for a new profile."""
+    monkeypatch.setattr(coordinator, "SETUP_CONNECT_RETRY_DELAY", 0)
+    appliance = make_appliance(DEVICE_DESCRIPTION)
+    appliance.session.connect = AsyncMock(side_effect=AuthenticationError)
+    monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG_DATA,
+        unique_id=MOCK_TLS_DEVICE_ID,
+    )
+    entry.add_to_hass(hass)
+
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.SETUP_ERROR
+    flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
+    assert [flow["context"]["source"] for flow in flows] == ["reauth"]
+    assert flows[0]["context"]["entry_id"] == entry.entry_id
+
+
+async def test_setup_entry_one_rejected_key_is_retried(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    A single rejected key at setup doesn't start reauth.
+
+    A TLS appliance that resets the connection during the handshake counts as rejecting the
+    key, and so can a one-off network glitch.
+    """
+    monkeypatch.setattr(coordinator, "SETUP_CONNECT_RETRY_DELAY", 0)
+    appliance = make_appliance(DEVICE_DESCRIPTION)
+    appliance.session.connect = AsyncMock(side_effect=[AuthenticationError, ConnectionFailedError])
+    monkeypatch.setattr(coordinator, "Appliance", appliance_class(appliance))
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG_DATA,
+        unique_id=MOCK_TLS_DEVICE_ID,
+    )
+    entry.add_to_hass(hass)
+
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.SETUP_RETRY
+    assert hass.config_entries.flow.async_progress_by_handler(DOMAIN) == []
 
 
 async def test_laundry_reconnects_through_the_library_with_a_short_wait(

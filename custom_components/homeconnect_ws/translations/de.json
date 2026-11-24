@@ -5206,6 +5206,9 @@
     "setup_cannot_connect_error": {
       "message": "Keine Verbindung zu {host} ({error}). Siehe {url}, falls sich das nicht von selbst behebt."
     },
+    "setup_key_rejected": {
+      "message": "{host} hat die Verbindung mit dem gespeicherten Schlüssel abgelehnt. Meist wurde das Gerät in der Home Connect App neu gekoppelt und sein Profil muss aktualisiert werden, aber ein Gerät mit hängender lokaler Verbindung kann genauso aussehen. Siehe {url}."
+    },
     "invalid_profile": {
       "message": "Das gespeicherte Geräteprofil kann nicht gelesen werden: {error}. Aktualisiere das Profil über das Menü „Neu konfigurieren“ der Integration."
     },

@@ -8,8 +8,11 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 from custom_components.homeconnect_ws.const import DOMAIN
-from custom_components.homeconnect_ws.coordinator import TROUBLESHOOTING_URL
-from home_disconnect import ConnectionState
+from custom_components.homeconnect_ws.coordinator import (
+    REJECTED_KEY_ATTEMPTS,
+    TROUBLESHOOTING_URL,
+)
+from home_disconnect import AuthenticationError, ConnectionFailedError, ConnectionState
 from home_disconnect.messages import Message
 
 from . import setup_config_entry
@@ -136,3 +139,47 @@ async def test_connection_lost_warning_has_close_code(
     await coordinator._connection_state_callback(ConnectionState.RECONNECTING)
 
     assert "lost (WebSocket close code 1006)" in caplog.text
+
+
+async def test_rejected_key_in_a_row_starts_reauth(
+    hass: HomeAssistant,
+    mock_appliance: Appliance,
+    patch_entity_description: None,
+) -> None:
+    """Reauth starts after the appliance rejects the key REJECTED_KEY_ATTEMPTS times in a row."""
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    entry = hass.config_entries.async_entries(DOMAIN)[0]
+    coordinator = entry.runtime_data.coordinator
+
+    for _ in range(REJECTED_KEY_ATTEMPTS - 1):
+        await coordinator._connect_error_callback(AuthenticationError("rejected"))
+    await hass.async_block_till_done()
+    assert hass.config_entries.flow.async_progress_by_handler(DOMAIN) == []
+
+    await coordinator._connect_error_callback(AuthenticationError("rejected"))
+    await hass.async_block_till_done()
+    flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
+    assert [flow["context"]["source"] for flow in flows] == ["reauth"]
+    assert flows[0]["context"]["entry_id"] == entry.entry_id
+
+
+async def test_rejected_key_count_resets(
+    hass: HomeAssistant,
+    mock_appliance: Appliance,
+    patch_entity_description: None,
+) -> None:
+    """Another kind of failure, or a working connection, starts the count over."""
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    coordinator = hass.config_entries.async_entries(DOMAIN)[0].runtime_data.coordinator
+
+    for reset in (
+        coordinator._connect_error_callback(ConnectionFailedError("off")),
+        coordinator._connection_state_callback(ConnectionState.CONNECTED),
+    ):
+        for _ in range(REJECTED_KEY_ATTEMPTS - 1):
+            await coordinator._connect_error_callback(AuthenticationError("rejected"))
+        await reset
+    await coordinator._connect_error_callback(AuthenticationError("rejected"))
+    await hass.async_block_till_done()
+
+    assert hass.config_entries.flow.async_progress_by_handler(DOMAIN) == []
