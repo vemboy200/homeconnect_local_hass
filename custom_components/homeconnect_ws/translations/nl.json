@@ -194,7 +194,7 @@
         "name": "Merklogo weergeven"
       },
       "switch_hob_energy_consumption_indication": {
-        "name": "Indicatie van het energieverbruik"
+        "name": "Weergave energieverbruik"
       },
       "switch_hob_hood_automatic_light_off": {
         "name": "Automatische uitschakeling verlichting afzuigkap"
@@ -1746,7 +1746,7 @@
           "rpm1500": "1500 tpm",
           "rpm1600": "1600 tpm",
           "rinsehold": "Spoelen vasthouden",
-          "auto": "Auto",
+          "auto": "Automatisch",
           "uloff": "UlOff",
           "ulhigh": "UlHigh",
           "max": "Max",
