@@ -324,6 +324,14 @@ DISHCARE_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity_category=EntityCategory.CONFIG,
             entity_registry_enabled_default=False,
         ),
+        # The light at the edge of the door that shows while a program runs.
+        HCSwitchEntityDescription(
+            key="switch_gap_illumination",
+            entity=SettingKey.DISHCARE_DISHWASHER_GAP_ILLUMINATION,
+            device_class=SwitchDeviceClass.SWITCH,
+            entity_category=EntityCategory.CONFIG,
+            entity_registry_enabled_default=False,
+        ),
         HCSwitchEntityDescription(
             key="switch_extra_rinse",
             entity=OptionKey.DISHCARE_DISHWASHER_EXTRA_RINSE,
