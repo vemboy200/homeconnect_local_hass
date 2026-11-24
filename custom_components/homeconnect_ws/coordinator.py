@@ -11,12 +11,13 @@ from typing import TYPE_CHECKING, Any
 
 from home_disconnect import (
     Appliance,
+    AuthenticationError,
     ConnectionState,
     HomeDisconnectError,
 )
 from home_disconnect.session import RECONNECT_MAX_DELAY
 from homeassistant.const import CONF_DESCRIPTION, CONF_DEVICE_ID, CONF_HOST
-from homeassistant.exceptions import ConfigEntryError
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -47,6 +48,12 @@ TROUBLESHOOTING_URL = (
 SETUP_CONNECT_ATTEMPTS = 2
 SETUP_CONNECT_RETRY_DELAY = 3  # seconds
 
+# A TLS appliance that resets the connection during the handshake counts as rejecting the key,
+# and so can a one-off network glitch or an appliance whose local connection is stuck (see the
+# websocket shutdown section of the troubleshooting page). Reauth starts after this many
+# rejected keys in a row.
+REJECTED_KEY_ATTEMPTS = 3
+
 # Washers and dryers retry at least this often instead of backing off to 5 minutes, so they're
 # picked up soon after they turn their Wi-Fi back on, even where mDNS doesn't work.
 LAUNDRY_RECONNECT_MAX_DELAY = 20  # seconds
@@ -72,6 +79,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
     _network_info_lock: asyncio.Lock
     _network_info: list[dict[str, Any]] | None = None
     _network_info_fetched_at: float | None = None
+    _rejected_key_attempts: int = 0
 
     def __init__(
         self,
@@ -105,6 +113,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
             app_name="Homeassistant",
             app_id=config_entry.data[CONF_DEVICE_ID],
             on_connection_state=self._connection_state_callback,
+            on_connect_error=self._connect_error_callback,
             reconnect_max_delay=(
                 RECONNECT_MAX_DELAY
                 if self._escalate_connectivity_logging
@@ -143,6 +152,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
             "Connecting to %s", self.config_entry.data[CONF_DESCRIPTION]["info"].get("vib")
         )
         last_err: Exception | None = None
+        rejected_key = 0
         for attempt in range(SETUP_CONNECT_ATTEMPTS):
             if attempt:
                 await asyncio.sleep(SETUP_CONNECT_RETRY_DELAY)
@@ -151,6 +161,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
             except Exception as err:  # noqa: BLE001 - retried, then re-raised below
                 await self.appliance.close()
                 last_err = err
+                rejected_key += isinstance(err, AuthenticationError)
                 continue
 
             if self.appliance.connected:
@@ -159,6 +170,18 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
                 return
 
             await self.appliance.close()
+
+        if rejected_key == SETUP_CONNECT_ATTEMPTS:
+            # Every attempt was refused with the stored key, e.g. after the appliance was
+            # paired again in the Home Connect app: ask for a new profile.
+            raise ConfigEntryAuthFailed(
+                translation_domain=DOMAIN,
+                translation_key="setup_key_rejected",
+                translation_placeholders={
+                    "host": self.config_entry.data[CONF_HOST],
+                    "url": TROUBLESHOOTING_URL,
+                },
+            ) from last_err
 
         # UpdateFailed, not ConfigEntryNotReady: from _async_setup the latter logs a traceback
         # on every retry (fork issue #30). The first refresh turns this into ConfigEntryNotReady.
@@ -210,8 +233,25 @@ class HomeConnectCoordinator(DataUpdateCoordinator[None]):
     async def _async_update_data(self) -> None:
         return None
 
+    async def _connect_error_callback(self, err: Exception) -> None:
+        """Start reauth once the appliance keeps rejecting the stored key."""
+        if not isinstance(err, AuthenticationError):
+            self._rejected_key_attempts = 0
+            return
+        self._rejected_key_attempts += 1
+        if self._rejected_key_attempts == REJECTED_KEY_ATTEMPTS:
+            self.logger.warning(
+                "%s rejected the stored key %s times in a row: %s",
+                self.config_entry.data[CONF_DESCRIPTION]["info"].get("vib"),
+                REJECTED_KEY_ATTEMPTS,
+                err,
+            )
+            # Does nothing if a reauth flow for this entry is already open.
+            self.config_entry.async_start_reauth(self.hass)
+
     async def _connection_state_callback(self, event: ConnectionState) -> None:
         if event == ConnectionState.CONNECTED:
+            self._rejected_key_attempts = 0
             if not self.connected:
                 self.logger.info(
                     "Connection to %s restored",

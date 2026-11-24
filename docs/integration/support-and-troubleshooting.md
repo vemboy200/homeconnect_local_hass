@@ -53,6 +53,8 @@ If Home Assistant cannot connect to your appliance (during setup) despite correc
     3. The device may be offline; check it physically to see if there's no Wi-Fi signal indicator on it.
     4. If the device does have a Wi-Fi signal, then Home Assistant may have overloaded the device's local capacity, causing a websocket shutdown. See below on how to resolve it.
 
+If Home Assistant asks you to reauthenticate the appliance, the appliance refused the connection with the stored key, either at setup or three times in a row afterwards. Usually it was paired again in the Home Connect app, which changes its key: get a new profile file and upload it in the reauthentication dialog. If the appliance wasn't paired again, or a new profile doesn't help, its local connection may be stuck instead, which can look the same (see the TLS handshake reset below). Then power cycle it.
+
 ### How to resolve a websocket shutdown
 
 This integration has built in measures (measures not fully tested yet) to prevent a websocket shutdown, however unexpectedly shutting down Home Assistant bypasses these measures. If enough unexpected shutdowns of Home Assistant happen, then Home Assistant will leave half-dead sessions that overload the device's session capacity, leading to a websocket shutdown.
