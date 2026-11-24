@@ -4598,6 +4598,14 @@
           "plus3": "Plus 3"
         }
       },
+      "select_refrigerator_dispenser_function": {
+        "name": "Spenderfunktion",
+        "state": {
+          "cubes": "Eiswürfel",
+          "crushed": "Crushed Ice",
+          "water": "Wasser"
+        }
+      },
       "select_refrigerator_door_assistant_freezer_trigger": {
         "name": "Gefrierschrank-Türassistent Auslöser",
         "state": {

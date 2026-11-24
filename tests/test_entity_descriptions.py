@@ -1062,3 +1062,25 @@ def test_sensor_descriptions_shape() -> None:
                 wrong.append(f"event_sensor {description.key} has no entities")
 
     assert wrong == []
+
+
+async def test_dispenser_function_select(
+    mock_homeconnect_appliance: MockApplianceFactory,
+) -> None:
+    """A fridge with an ice and water dispenser gets a select for its mode (Bosch B36CD50SNS)."""
+    appliance = await mock_homeconnect_appliance(
+        description={
+            "setting": [
+                {
+                    "uid": 0x5102,
+                    "name": "Refrigeration.Common.Setting.Dispenser.Function",
+                    "access": Access.READ_WRITE,
+                    "available": True,
+                    "enumeration": {"1": "Cubes", "2": "Crushed", "3": "Water"},
+                },
+            ]
+        }
+    )
+    selects = entity_descriptions.get_available_entities(appliance)["select"]
+    keys = [description.key for description in selects]
+    assert keys == ["select_refrigerator_dispenser_function"]

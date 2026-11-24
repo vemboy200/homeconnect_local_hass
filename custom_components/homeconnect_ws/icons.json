@@ -684,6 +684,9 @@
             "select_refrigerator_door_assistant_freezer_force": {
                 "default": "mdi:door"
             },
+            "select_refrigerator_dispenser_function": {
+                "default": "mdi:cup-water"
+            },
             "select_refrigerator_door_assistant_freezer_trigger": {
                 "default": "mdi:door"
             },
