@@ -50,7 +50,7 @@ from custom_components.homeconnect_ws.sensor import (
 from home_disconnect import Access, Execution
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.switch import SwitchDeviceClass
-from homeassistant.const import UnitOfTemperature
+from homeassistant.const import EntityCategory, UnitOfTemperature
 
 from . import update_entity
 
@@ -619,6 +619,7 @@ async def test_internal_light(mock_homeconnect_appliance: MockApplianceFactory) 
         key="light_internal",
         entity="Refrigeration.Common.Setting.Light.Internal.Power",
         brightness_entity="Refrigeration.Common.Setting.Light.Internal.Brightness",
+        entity_category=EntityCategory.CONFIG,
     )
 
     # Power only
@@ -627,6 +628,7 @@ async def test_internal_light(mock_homeconnect_appliance: MockApplianceFactory) 
     assert generate_internal_light(appliance) == HCLightEntityDescription(
         key="light_internal",
         entity="Refrigeration.Common.Setting.Light.Internal.Power",
+        entity_category=EntityCategory.CONFIG,
     )
 
     # Fixed power: the light can't be switched
@@ -635,6 +637,7 @@ async def test_internal_light(mock_homeconnect_appliance: MockApplianceFactory) 
     appliance = await mock_homeconnect_appliance(description=fixed)
     assert generate_internal_light(appliance) is None
     assert generate_internal_light_brightness(appliance).entity_registry_enabled_default
+    assert generate_internal_light_brightness(appliance).entity_category == EntityCategory.CONFIG
 
     # No internal light
     appliance = await mock_homeconnect_appliance(description={})
