@@ -574,6 +574,7 @@
           "laundrycare_common_program_juststart": "Просто начать",
           "laundrycare_common_program_memory1": "Память 1",
           "laundrycare_common_program_memory2": "Память 2",
+          "dishcare_dishwasher_program_mixedload": "Ассорти из блюд",
           "laundrycare_dryer_program_blankets": "Пуховые изделия",
           "laundrycare_dryer_program_businessshirts": "Рубашки",
           "laundrycare_dryer_program_cotton": "Хлопок",
@@ -1013,6 +1014,7 @@
           "favorite_028": "Избранное 28",
           "favorite_029": "Избранное 29",
           "favorite_030": "Избранное 30",
+          "dishcare_dishwasher_program_mixedload": "Ассорти из блюд",
           "cooking_oven_program_cleaning_drying": "Сушка",
           "cooking_oven_program_cleaning_easyclean": "Легкая очистка",
           "cooking_oven_program_cleaning_pyrolysis": "Пиролиз",
@@ -1657,7 +1659,7 @@
           "off": "Выкл",
           "automaticmode": "Автоматический",
           "manualmode": "Вручную",
-		  "donothing": "Без изменений"
+          "donothing": "Без изменений"
         }
       },
       "select_hob_power_management": {
@@ -1667,9 +1669,9 @@
         "name": "Уровень звукового сигнала",
         "state": {
           "alloff": "Все выключено",
-		  "acknowledgeoff": "Звук кнопок выкл",
-		  "warningmaloff": "Предупреждения выкл",
-		  "allactive": "Все активны"
+          "acknowledgeoff": "Звук кнопок выкл",
+          "warningmaloff": "Предупреждения выкл",
+          "allactive": "Все активны"
         }
       },
       "select_hob_end_timer_signal_duration": {
@@ -1759,7 +1761,7 @@
       "number_hood_delayed_shutoff_time": {
         "name": "Время отложенного выключения"
       },
-	  "number_hood_boost_time": {
+      "number_hood_boost_time": {
         "name": "Время работы Boost"
       },
       "number_hood_sensor_sensitivity": {

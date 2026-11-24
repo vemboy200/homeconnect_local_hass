@@ -540,6 +540,7 @@
           "favorite_009": "收藏 9",
           "favorite_010": "收藏 10",
           "laundrycare_common_program_memory1": "记忆 1",
+          "dishcare_dishwasher_program_mixedload": "混合洗",
           "laundrycare_dryer_program_blankets": "毛毯",
           "laundrycare_dryer_program_businessshirts_cupboarddry": "商务衬衫 收纳干",
           "laundrycare_dryer_program_cotton": "棉织物",
@@ -1158,6 +1159,7 @@
           "favorite_009": "收藏 9",
           "favorite_010": "收藏 10",
           "laundrycare_common_program_memory1": "记忆 1",
+          "dishcare_dishwasher_program_mixedload": "混合洗",
           "laundrycare_dryer_program_blankets": "毛毯",
           "laundrycare_dryer_program_businessshirts_cupboarddry": "商务衬衫 收纳干",
           "laundrycare_dryer_program_cotton": "棉织物",
@@ -1937,7 +1939,7 @@
       "number_hood_delayed_shutoff_time": {
         "name": "延时关机时间"
       },
-	  "number_hood_boost_time": {
+      "number_hood_boost_time": {
         "name": "Boost 运行时间"
       },
       "number_hood_sensor_sensitivity": {

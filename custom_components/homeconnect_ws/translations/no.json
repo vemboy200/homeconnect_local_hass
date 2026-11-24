@@ -556,6 +556,7 @@
           "laundrycare_common_program_memory6": "Minne 6",
           "laundrycare_common_program_memory7": "Minne 7",
           "laundrycare_common_program_memory8": "Minne 8",
+          "dishcare_dishwasher_program_mixedload": "Blandet last",
           "laundrycare_dryer_program_blankets": "Tørk - Dunklær",
           "laundrycare_dryer_program_businessshirts": "Skjorter",
           "laundrycare_dryer_program_cotton": "Tørk - Bomull",
@@ -1158,6 +1159,7 @@
           "laundrycare_common_program_memory6": "Minne 6",
           "laundrycare_common_program_memory7": "Minne 7",
           "laundrycare_common_program_memory8": "Minne 8",
+          "dishcare_dishwasher_program_mixedload": "Blandet last",
           "laundrycare_dryer_program_blankets": "Tørk - Dunklær",
           "laundrycare_dryer_program_businessshirts": "Skjorter",
           "laundrycare_dryer_program_cotton": "Tørk - Bomull",
@@ -1769,7 +1771,7 @@
           "off": "Av",
           "automaticmode": "Automatisk",
           "manualmode": "Manuell",
-		  "donothing": "Uendret"
+          "donothing": "Uendret"
         }
       },
       "select_hob_power_management": {
@@ -1779,9 +1781,9 @@
         "name": "Signaltonnivå",
         "state": {
           "alloff": "Alt av",
-		  "acknowledgeoff": "Tastelyd av",
-		  "warningmaloff": "Varsler av",
-		  "allactive": "Alle aktive"
+          "acknowledgeoff": "Tastelyd av",
+          "warningmaloff": "Varsler av",
+          "allactive": "Alle aktive"
         }
       },
       "select_hob_end_timer_signal_duration": {
@@ -1904,7 +1906,7 @@
       "number_hood_delayed_shutoff_time": {
         "name": "Forsinket avstengingstid"
       },
-	  "number_hood_boost_time": {
+      "number_hood_boost_time": {
         "name": "Boost varighet"
       },
       "number_hood_sensor_sensitivity": {
