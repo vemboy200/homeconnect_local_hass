@@ -24,6 +24,7 @@ ported:
   518: Unsigned WiFi signal strength (the fork reads the signal from /ni/info instead)
   523: Connection status and meat probe binary sensors (already in the fork)
   526: Open Door button (the fridge's Open door button already covers any appliance)
+  534: Hood fan speed by starting the Venting program (the fork's set_fan_level starts Venting with the level, fork #17)
   541: Valid program options (home-disconnect's Program filters by access, availability, value and range)
   550: WiFi signal strength polling (HCWiFI already overrides should_poll)
   552: No power select next to the switch (power is already one entity, a switch or a select)
@@ -31,6 +32,8 @@ ported:
   563: Start button for programs with execution "none" (the fork only leaves out start-only programs)
   566: Start button follows the selected program (the fork's button already listens to SelectedProgram, fork #54)
   570: No unavailable programs in the program select (the fork's select already filters them)
+  573: Hood fan levels as Venting program options, and turning the fan off (the fork starts Venting with the level and powers the hood off, fork #17)
+  591: Hood fan off while the hood is switched off (the fork's fan reads OperationState and ActiveProgram, fork #60)
 
 # Not wanted in the fork, with the reason. The tracker proposes new lines here (on the
 # upstream-tracker/exclusions branch) for PRs closed upstream, or closed in the fork,
