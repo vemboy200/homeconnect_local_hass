@@ -753,15 +753,6 @@ SENSOR_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             entity=StatusKey.COOKING_HOOD_CARBON_FILTER_SATURATION,
             native_unit_of_measurement=PERCENTAGE,
         ),
-        HCSensorEntityDescription(
-            key="sensor_oven_water_tank",
-            entities=[
-                StatusKey.COOKING_OVEN_WATER_TANK_UNPLUGGED,
-                StatusKey.COOKING_OVEN_WATER_TANK_EMPTY,
-            ],
-            device_class=SensorDeviceClass.ENUM,
-            options=["unplugged", "empty", "ok"],
-        ),
         # The heating mode an automatic dish uses. Gaggenau BO470112 and BS474112 report this
         # option with access "none" and only make it available while such a dish runs, so it
         # can only be read (upstream chris-mc1/homeconnect_local_hass#513)
@@ -894,6 +885,18 @@ SENSOR_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
         ),
     ],
     "event_sensor": [
+        # Two status flags combined into one state, like the per-cavity water tank
+        # (generate_oven_water_tank). As a plain sensor it had no entity to read and
+        # always showed unknown.
+        HCSensorEntityDescription(
+            key="sensor_oven_water_tank",
+            entities=[
+                StatusKey.COOKING_OVEN_WATER_TANK_UNPLUGGED,
+                StatusKey.COOKING_OVEN_WATER_TANK_EMPTY,
+            ],
+            device_class=SensorDeviceClass.ENUM,
+            options=["unplugged", "empty", "ok"],
+        ),
         # Coffee machines
         HCSensorEntityDescription(
             key="sensor_water_tank",
