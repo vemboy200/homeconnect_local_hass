@@ -53,6 +53,10 @@ def generate_internal_light(appliance: Appliance) -> HCLightEntityDescription | 
         key="light_internal",
         entity=_INTERNAL_LIGHT_POWER,
         brightness_entity=brightness if brightness in appliance.entities else None,
+        # A setting, not a room light: the fridge switches the lamp itself with the door.
+        # As a config entity it's left out of area actions like "turn off the kitchen
+        # lights" and of room light cards.
+        entity_category=EntityCategory.CONFIG,
     )
 
 
@@ -69,6 +73,7 @@ def generate_internal_light_brightness(
         native_unit_of_measurement=PERCENTAGE,
         mode=NumberMode.AUTO,
         native_step=1,
+        entity_category=EntityCategory.CONFIG,
         # The light entity already exposes brightness, so this would be a
         # second control for the same setting.
         entity_registry_enabled_default=not _has_internal_light(appliance),
@@ -476,6 +481,7 @@ REFRIGERATION_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             key="switch_refrigeration_light_theater_mode",
             entity=SettingKey.REFRIGERATION_COMMON_LIGHT_INTERNAL_ENABLE_THEATER_MODE,
             device_class=SwitchDeviceClass.SWITCH,
+            entity_category=EntityCategory.CONFIG,
         ),
         HCSwitchEntityDescription(
             key="switch_refrigerator_fresh_mode",
