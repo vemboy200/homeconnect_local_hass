@@ -11,6 +11,9 @@ from custom_components.homeconnect_ws.const import DOMAIN
 from custom_components.homeconnect_ws.entity_descriptions.descriptions_definitions import (
     HCNumberEntityDescription,
 )
+from custom_components.homeconnect_ws.entity_descriptions.refrigeration import (
+    REFRIGERATION_ENTITY_DESCRIPTIONS,
+)
 from custom_components.homeconnect_ws.number import HCNumber
 from home_disconnect.entities import Access
 from home_disconnect.messages import Action, Message
@@ -268,3 +271,43 @@ async def test_oven_setpoint_step(
         Platform.NUMBER, DOMAIN, f"{info['deviceID']}-number_oven_setpoint_temperature"
     )
     assert hass.states.get(entity_id).attributes[ATTR_STEP] == expected_step
+
+
+@pytest.mark.parametrize("side", ["left", "right"])
+async def test_chiller_drawer_shows_preset_temperature_while_read_only(side: str) -> None:
+    """
+    A chiller drawer's temperature stays visible while its preset sets it.
+
+    Outside the Custom preset, a two-drawer fridge reports the drawer's Fahrenheit setpoint
+    read-only (Bosch B36CT80SNS, chris-mc1/homeconnect_local_hass#560). Upstream adds a
+    sensor for it, because its numbers go unavailable when read-only. Here the number stays
+    available with readonly set, so no extra sensor is needed.
+    """
+    description = next(
+        description
+        for description in REFRIGERATION_ENTITY_DESCRIPTIONS["number"]
+        if not callable(description)
+        and description.key == f"number_setpoint_chiller_{side}_fahrenheit"
+    )
+    setpoint = MagicMock(
+        value=32, min=29, max=40, step=1, available=True, access=Access.READ, locked=True
+    )
+    appliance = MagicMock(connected=True)
+    appliance.info = {"deviceID": "test_device_id"}
+    appliance.entities = {description.entity: setpoint}
+    runtime_data = HCData(
+        appliance=appliance,
+        device_info=MagicMock(),
+        available_entity_descriptions=MagicMock(),
+        coordinator=MagicMock(expected_offline=False),
+    )
+    entity = HCNumber(description, runtime_data)
+
+    assert entity.available
+    assert entity.native_value == 32
+    assert entity.extra_state_attributes["readonly"] is True
+    assert not any(
+        description.key == f"sensor_chiller_{side}_temperature"
+        for description in REFRIGERATION_ENTITY_DESCRIPTIONS.get("sensor", [])
+        if not callable(description)
+    )
