@@ -1042,3 +1042,23 @@ def test_with_no_known_names() -> None:
     )
 
     assert entity_descriptions._available_description("switch", description, {"Other"}) is None
+
+
+def test_sensor_descriptions_shape() -> None:
+    """
+    Sensors read one entity and event sensors combine several.
+
+    sensor_oven_water_tank was a plain sensor with only `entities`, so it had
+    nothing to read and always showed unknown (chris-mc1/homeconnect_local_hass#557).
+    """
+    wrong = []
+    for description_type, descriptions in entity_descriptions.get_all_entity_description().items():
+        for description in descriptions:
+            if callable(description):
+                continue
+            if description_type == "sensor" and not description.entity:
+                wrong.append(f"sensor {description.key} has no entity")
+            if description_type == "event_sensor" and not description.entities:
+                wrong.append(f"event_sensor {description.key} has no entities")
+
+    assert wrong == []
