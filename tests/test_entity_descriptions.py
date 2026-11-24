@@ -1084,3 +1084,23 @@ async def test_dispenser_function_select(
     selects = entity_descriptions.get_available_entities(appliance)["select"]
     keys = [description.key for description in selects]
     assert keys == ["select_refrigerator_dispenser_function"]
+
+
+async def test_dishwasher_gap_illumination_switch(
+    mock_homeconnect_appliance: MockApplianceFactory,
+) -> None:
+    """A dishwasher with gap illumination gets a switch (NEFF S297TCX00E, Bosch SMH4ECX14E)."""
+    appliance = await mock_homeconnect_appliance(
+        description={
+            "setting": [
+                {
+                    "uid": 0x111C,
+                    "name": "Dishcare.Dishwasher.Setting.GapIllumination",
+                    "access": Access.READ_WRITE,
+                    "available": True,
+                },
+            ]
+        }
+    )
+    switches = entity_descriptions.get_available_entities(appliance)["switch"]
+    assert [description.key for description in switches] == ["switch_gap_illumination"]
