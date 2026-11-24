@@ -32,6 +32,7 @@ ported:
   563: Start button for programs with execution "none" (the fork only leaves out start-only programs)
   566: Start button follows the selected program (the fork's button already listens to SelectedProgram, fork #54)
   570: No unavailable programs in the program select (the fork's select already filters them)
+  582: Reconnect backoff, bounded connection steps and reauth on a rejected key (backoff and timeouts in home-disconnect, reauth in #299)
   573: Hood fan levels as Venting program options, and turning the fan off (the fork starts Venting with the level and powers the hood off, fork #17)
   591: Hood fan off while the hood is switched off (the fork's fan reads OperationState and ActiveProgram, fork #60)
   595: Recover entries after stalled reconnects (home-disconnect's reconnect loop retries every connect and handshake failure)
