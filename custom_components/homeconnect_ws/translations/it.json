@@ -626,6 +626,7 @@
           "laundrycare_dryer_program_timewarm_timewarm_timewarm": "Asciugatura: Programma a tempo caldo",
           "laundrycare_dryer_program_towels_towels_towels": "Asciugatura: Asciugamani",
           "laundrycare_dryer_program_woolfinish_woolfinish_woolfinish": "Asciugatura: Lana finish",
+          "dishcare_dishwasher_program_mixedload": "Carico misto",
           "laundrycare_dryer_program_delicates": "Delicati",
           "laundrycare_dryer_program_blankets": "Trapunte",
           "laundrycare_dryer_program_businessshirts": "Camicie",
@@ -1005,6 +1006,7 @@
           "laundrycare_dryer_program_timewarm_timewarm_timewarm": "Asciugatura: Programma a tempo caldo",
           "laundrycare_dryer_program_towels_towels_towels": "Asciugatura: Asciugamani",
           "laundrycare_dryer_program_woolfinish_woolfinish_woolfinish": "Asciugatura: Lana finish",
+          "dishcare_dishwasher_program_mixedload": "Carico misto",
           "laundrycare_dryer_program_delicates": "Delicati",
           "laundrycare_dryer_program_blankets": "Trapunte",
           "laundrycare_dryer_program_businessshirts": "Camicie",
@@ -1569,7 +1571,7 @@
           "off": "Spento",
           "automaticmode": "Automatico",
           "manualmode": "Manuale",
-		  "donothing": "Invariato"
+          "donothing": "Invariato"
         }
       },
       "select_hob_power_management": {
@@ -1579,9 +1581,9 @@
         "name": "Livello segnale acustico",
         "state": {
           "alloff": "Tutto spento",
-		  "acknowledgeoff": "Toni tasti spenti",
-		  "warningmaloff": "Avvisi disattivati",
-		  "allactive": "Tutto attivo"
+          "acknowledgeoff": "Toni tasti spenti",
+          "warningmaloff": "Avvisi disattivati",
+          "allactive": "Tutto attivo"
         }
       },
       "select_hob_end_timer_signal_duration": {
@@ -1651,7 +1653,7 @@
       "number_hob_automatic_timer": {
         "name": "Timer automatico"
       },
-	  "number_hood_boost_time": {
+      "number_hood_boost_time": {
         "name": "Durata Boost"
       }
     }
