@@ -34,6 +34,8 @@ ported:
   570: No unavailable programs in the program select (the fork's select already filters them)
   573: Hood fan levels as Venting program options, and turning the fan off (the fork starts Venting with the level and powers the hood off, fork #17)
   591: Hood fan off while the hood is switched off (the fork's fan reads OperationState and ActiveProgram, fork #60)
+  595: Recover entries after stalled reconnects (home-disconnect's reconnect loop retries every connect and handshake failure)
+  602: Back off unsuccessful initial connections (setup tries twice, then Home Assistant retries; reconnects back off in home-disconnect)
 
 # Not wanted in the fork, with the reason. The tracker proposes new lines here (on the
 # upstream-tracker/exclusions branch) for PRs closed upstream, or closed in the fork,
@@ -44,5 +46,6 @@ excluded:
   540: No power entities for a read-only power state (a profile's "read" isn't permanent, fork issue #7)
   553: Read-only child lock as a binary sensor (locked entities stay visible and show their state)
   554: No switch, select or number for read-only settings (same as 540 and 553)
+  586: Re-read all values every 60 s (no missed push seen; one extra request per appliance every minute)
   585: No generic door on fridges and freezers with their own door status (the fork hides the compartment door instead when it's the only one)
   594: No power switch or select for a read-only PowerState (same as 540)
