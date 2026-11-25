@@ -1,6 +1,7 @@
 # Idea: emulating the cloud during initial pairing, to remove the last internet dependency
 
-**Status: this is an unclaimed idea, and not something thats being worked on.** This is a write-up for anyone who wants to pick it up, not a roadmap item. This is something I'm not willing to troubleshoot and test.
+> [!IMPORTANT]
+>This is a write-up for anyone who wants to pick it up, not a roadmap item. This is something I'm not willing to troubleshoot and test or be involved with in the development.
 
 ## The gap this would close
 

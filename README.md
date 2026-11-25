@@ -4,9 +4,6 @@
 [![Latest beta](https://img.shields.io/github/v/release/vemboy200/homeconnect_local_hass?include_prereleases&label=latest%20beta)](https://github.com/vemboy200/homeconnect_local_hass/releases)
 [![Downloads](https://img.shields.io/github/downloads/vemboy200/homeconnect_local_hass/total?label=downloads)](https://github.com/vemboy200/homeconnect_local_hass/releases)
 
-> [!IMPORTANT]
-> Help wanted to make this integration work entirely offline, read more [here](docs/development/emulated-cloud-setup.md).
-
 > [!NOTE]
 > This README covers the basics. For everything else (installation details, troubleshooting, automation examples, supported functions) see the [docs folder](docs).
 
