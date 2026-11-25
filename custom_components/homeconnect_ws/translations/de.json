@@ -217,6 +217,9 @@
       "switch_hob_energy_consumption_indication": {
         "name": "Energieverbrauchsanzeige"
       },
+      "switch_hob_automatic_zone_selection": {
+        "name": "Automatische Zonenwahl"
+      },
       "switch_hob_hood_automatic_light_off": {
         "name": "Dunstabzugshaube Licht Aus Automatik"
       },
@@ -633,6 +636,18 @@
       "binary_sensor_oven_water_supply_closed": {
         "name": "Wasserzulauf geschlossen"
       },
+      "binary_sensor_cooking_appliance_overheated": {
+        "name": "Überhitzt"
+      },
+      "binary_sensor_hob_iabo_temperature_too_high": {
+        "name": "Elektroniktemperatur zu hoch"
+      },
+      "binary_sensor_hob_operating_time_limit_reached": {
+        "name": "Betriebszeitbegrenzung erreicht"
+      },
+      "binary_sensor_hob_operating_voltage_error": {
+        "name": "Betriebsspannungsfehler"
+      },
       "binary_sensor_cooking_appliance_module_error": {
         "name": "Fehler im Gerätemodul"
       },
@@ -786,7 +801,11 @@
           "water_level_too_high": "Wasserstand zu hoch",
           "customer_service_request": "Kundendienstanfrage",
           "oven_water_supply_closed": "Wasserzulauf geschlossen",
-          "cooking_appliance_module_error": "Fehler im Gerätemodul"
+          "cooking_appliance_module_error": "Fehler im Gerätemodul",
+          "cooking_appliance_overheated": "Überhitzt",
+          "hob_iabo_temperature_too_high": "Elektroniktemperatur zu hoch",
+          "hob_operating_time_limit_reached": "Betriebszeitbegrenzung erreicht",
+          "hob_operating_voltage_error": "Betriebsspannungsfehler"
         }
       },
       "sensor_stopwatch_time": {
@@ -4712,6 +4731,14 @@
       },
       "select_hob_power_management": {
         "name": "Maximale Leistungsaufnahme"
+      },
+      "select_hob_timer_selection": {
+        "name": "Timer-Art",
+        "state": {
+          "switchofftimer": "Abschalt-Timer",
+          "eggtimer": "Kurzzeitwecker",
+          "countuptimer": "Stoppuhr"
+        }
       },
       "select_hob_buzzer_beep_level": {
         "name": "Signaltöne",

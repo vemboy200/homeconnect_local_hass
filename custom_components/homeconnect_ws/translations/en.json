@@ -319,6 +319,9 @@
       "switch_hob_energy_consumption_indication": {
         "name": "Energy Consumption Indication"
       },
+      "switch_hob_automatic_zone_selection": {
+        "name": "Automatic Zone Selection"
+      },
       "switch_hob_hood_automatic_light_off": {
         "name": "Hood Automatic Light Off"
       },
@@ -653,6 +656,18 @@
       "binary_sensor_oven_water_supply_closed": {
         "name": "Water supply closed"
       },
+      "binary_sensor_cooking_appliance_overheated": {
+        "name": "Overheated"
+      },
+      "binary_sensor_hob_iabo_temperature_too_high": {
+        "name": "Electronics temperature too high"
+      },
+      "binary_sensor_hob_operating_time_limit_reached": {
+        "name": "Operating time limit reached"
+      },
+      "binary_sensor_hob_operating_voltage_error": {
+        "name": "Operating voltage error"
+      },
       "binary_sensor_cooking_appliance_module_error": {
         "name": "Appliance module error"
       },
@@ -782,7 +797,11 @@
           "water_level_too_high": "Water level too high",
           "customer_service_request": "Customer service request",
           "oven_water_supply_closed": "Water supply closed",
-          "cooking_appliance_module_error": "Appliance module error"
+          "cooking_appliance_module_error": "Appliance module error",
+          "cooking_appliance_overheated": "Overheated",
+          "hob_iabo_temperature_too_high": "Electronics temperature too high",
+          "hob_operating_time_limit_reached": "Operating time limit reached",
+          "hob_operating_voltage_error": "Operating voltage error"
         }
       },
       "sensor_stopwatch_time": {
@@ -4451,6 +4470,14 @@
       },
       "select_hob_power_management": {
         "name": "Maximum power consumption"
+      },
+      "select_hob_timer_selection": {
+        "name": "Timer Type",
+        "state": {
+          "switchofftimer": "Switch-off timer",
+          "eggtimer": "Egg timer",
+          "countuptimer": "Count-up timer"
+        }
       },
       "select_hob_buzzer_beep_level": {
         "name": "Buzzer Beep Level",
