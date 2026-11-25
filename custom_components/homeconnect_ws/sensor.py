@@ -23,7 +23,12 @@ from homeassistant.const import (
 
 from .const import POWER_STATE
 from .entity import HCEntity
-from .entity_descriptions.common import door_state_count, program_names
+from .entity_descriptions.common import (
+    door_state_count,
+    favorite_name_settings,
+    program_labels,
+    program_names,
+)
 from .entity_descriptions.cooking import oven_status_cavities
 from .entity_descriptions.descriptions_definitions import (
     HCBinarySensorEntityDescription,
@@ -1204,7 +1209,13 @@ class HCActiveProgram(HCSensor):
         runtime_data: HCData,
     ) -> None:
         super().__init__(entity_description, runtime_data)
-        self._attr_options = list((entity_description.mapping or {}).values())
+        self._mapping = entity_description.mapping or {}
+        # Favourites' names can arrive late or be renamed.
+        self._entities.extend(favorite_name_settings(runtime_data.appliance, self._mapping))
+
+    @property
+    def options(self) -> list[str]:
+        return list(program_labels(self._runtime_data.appliance, self._mapping).values())
 
     @property
     def native_value(self) -> str | None:
@@ -1212,11 +1223,9 @@ class HCActiveProgram(HCSensor):
             self._runtime_data.coordinator.expected_offline
         ):
             return None
-        if self._runtime_data.appliance.active_program:
-            mapping = self.entity_description.mapping or {}
-            if self._runtime_data.appliance.active_program.name in mapping:
-                return mapping[self._runtime_data.appliance.active_program.name]
-            return self._runtime_data.appliance.active_program.name
+        if active_program := self._runtime_data.appliance.active_program:
+            labels = program_labels(self._runtime_data.appliance, self._mapping)
+            return labels.get(active_program.name, active_program.name)
         return None
 
 

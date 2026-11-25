@@ -25,12 +25,15 @@ from custom_components.homeconnect_ws.entity_descriptions import (
 )
 from custom_components.homeconnect_ws.entity_descriptions.common import (
     COMMON_ENTITY_DESCRIPTIONS,
+    favorite_name_settings,
     generate_door_binary_sensor,
     generate_power_select,
     generate_power_switch,
     generate_program,
     generate_start_button,
     generate_temperature_unit,
+    program_labels,
+    program_names,
 )
 from custom_components.homeconnect_ws.entity_descriptions.cooking import (
     generate_hood_light,
@@ -402,14 +405,14 @@ PROGRAM = {
 async def test_program(mock_homeconnect_appliance: MockApplianceFactory) -> None:
     """Test dynamic Program."""
     appliance = await mock_homeconnect_appliance(description=PROGRAM)
-    # The names come from the values the appliance reports, not the profile's defaults.
+    # Favourites get a placeholder; their names are put on top while the entities run.
     appliance.entities.apply([{"uid": 101, "value": "Named Favorite"}, {"uid": 102, "value": ""}])
     assert generate_program(appliance) == HCSelectEntityDescription(
         key="select_program",
         entity="BSH.Common.Root.SelectedProgram",
         has_state_translation=False,
         mapping={
-            "BSH.Common.Program.Favorite.001": "Named Favorite",
+            "BSH.Common.Program.Favorite.001": "favorite_001",
             "BSH.Common.Program.Favorite.002": "favorite_002",
             "BSH.Common.Program.Program1": "bsh_common_program_program1",
         },
@@ -420,7 +423,7 @@ async def test_program(mock_homeconnect_appliance: MockApplianceFactory) -> None
         has_state_translation=False,
         device_class=SensorDeviceClass.ENUM,
         mapping={
-            "BSH.Common.Program.Favorite.001": "Named Favorite",
+            "BSH.Common.Program.Favorite.001": "favorite_001",
             "BSH.Common.Program.Favorite.002": "favorite_002",
             "BSH.Common.Program.Program1": "bsh_common_program_program1",
         },
@@ -430,6 +433,24 @@ async def test_program(mock_homeconnect_appliance: MockApplianceFactory) -> None
     appliance = await mock_homeconnect_appliance(description={})
     assert generate_program(appliance) is None
     assert generate_active_program(appliance) is None
+
+
+async def test_program_labels(mock_homeconnect_appliance: MockApplianceFactory) -> None:
+    """Favourites show their current name; a taken or blank name doesn't replace the label."""
+    appliance = await mock_homeconnect_appliance(description=PROGRAM)
+    mapping = program_names(appliance)
+    assert program_labels(appliance, mapping) == mapping
+    # A name that arrives after setup, and a blank one.
+    appliance.entities.apply([{"uid": 101, "value": "Latte"}, {"uid": 102, "value": "  "}])
+    assert program_labels(appliance, mapping) == {
+        "BSH.Common.Program.Favorite.001": "Latte",
+        "BSH.Common.Program.Favorite.002": "favorite_002",
+        "BSH.Common.Program.Program1": "bsh_common_program_program1",
+    }
+    # Two favourites with the same name: the second gets its slot number.
+    appliance.entities.apply([{"uid": 102, "value": "Latte"}])
+    assert program_labels(appliance, mapping)["BSH.Common.Program.Favorite.002"] == "Latte (002)"
+    assert [setting.uid for setting in favorite_name_settings(appliance, mapping)] == [101, 102]
 
 
 async def test_start_button_created_when_execution_not_yet_populated(
