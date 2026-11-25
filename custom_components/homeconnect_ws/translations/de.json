@@ -573,6 +573,21 @@
       "binary_sensor_idos_unit_defect": {
         "name": "i-DOS Defekt"
       },
+      "binary_sensor_laundry_door_open": {
+        "name": "Tür offen"
+      },
+      "binary_sensor_supply_power_blacked_out": {
+        "name": "Stromausfall"
+      },
+      "binary_sensor_warm_water_absent": {
+        "name": "Kein Warmwasser"
+      },
+      "binary_sensor_circulation_pump_locked_rotor": {
+        "name": "Umwälzpumpe blockiert"
+      },
+      "binary_sensor_circulation_pump_max_torque": {
+        "name": "Umwälzpumpe überlastet"
+      },
       "binary_sensor_pump_error": {
         "name": "Pumpenfehler"
       },
@@ -795,6 +810,11 @@
           "oven_cavity_temperature_too_high": "Garraumtemperatur zu hoch",
           "program_aborted": "Programm abgebrochen",
           "pump_error": "Pumpenfehler",
+          "laundry_door_open": "Tür offen",
+          "supply_power_blacked_out": "Stromausfall",
+          "warm_water_absent": "Kein Warmwasser",
+          "circulation_pump_locked_rotor": "Umwälzpumpe blockiert",
+          "circulation_pump_max_torque": "Umwälzpumpe überlastet",
           "release_rinse_hold_pending": "Spülstopp freigeben ausstehend",
           "spin_abort": "Schleudern abgebrochen",
           "supply_voltage_too_low": "Versorgungsspannung niedrig",
@@ -4555,21 +4575,22 @@
         "state": {
           "off": "Aus",
           "uloff": "UlAus",
-          "rpm1000": "RPM1000",
+          "rpm1000": "1000 U/min",
           "ulhigh": "UlHoch",
-          "rpm1200": "RPM1200",
-          "rpm1400": "RPM1400",
-          "rpm1500": "RPM1500",
-          "rpm1600": "RPM1600",
+          "rpm1200": "1200 U/min",
+          "rpm1400": "1400 U/min",
+          "rpm1500": "1500 U/min",
+          "rpm1600": "1600 U/min",
           "auto": "Auto",
           "max": "Max",
           "ullow": "UlNiedrig",
-          "rpm400": "RPM400",
-          "rpm600": "RPM600",
-          "rpm700": "RPM700",
+          "rpm400": "400 U/min",
+          "rpm600": "600 U/min",
+          "rpm700": "700 U/min",
           "ulmedium": "UlMittel",
-          "rpm800": "RPM800",
-          "rpm900": "RPM900"
+          "rpm800": "800 U/min",
+          "rpm900": "900 U/min",
+          "rinsehold": "Spülstopp"
         }
       },
       "select_laundry_option_stains": {
