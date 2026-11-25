@@ -275,6 +275,11 @@ DISHCARE_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             device_class=SwitchDeviceClass.SWITCH,
         ),
         HCSwitchEntityDescription(
+            key="switch_vario_speed",
+            entity=OptionKey.DISHCARE_DISHWASHER_VARIO_SPEED,
+            device_class=SwitchDeviceClass.SWITCH,
+        ),
+        HCSwitchEntityDescription(
             key="switch_vario_speed_plus",
             entity=OptionKey.DISHCARE_DISHWASHER_VARIO_SPEED_PLUS,
             device_class=SwitchDeviceClass.SWITCH,

@@ -97,6 +97,9 @@
       "switch_intensiv_zone": {
         "name": "Intensive Zone"
       },
+      "switch_vario_speed": {
+        "name": "VarioSpeed"
+      },
       "switch_vario_speed_plus": {
         "name": "VariospeedPlus"
       },
