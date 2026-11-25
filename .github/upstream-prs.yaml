@@ -51,3 +51,5 @@ excluded:
   586: Re-read all values every 60 s (no missed push seen; one extra request per appliance every minute)
   585: No generic door on fridges and freezers with their own door status (the fork hides the compartment door instead when it's the only one)
   594: No power switch or select for a read-only PowerState (same as 540)
+  530: "fix: keep controls available during transient read-only access (closed upstream on 2026-10-17)"
+  539: "Only create the child lock switch when the appliance reports a value (closed upstream on 2026-10-25)"
