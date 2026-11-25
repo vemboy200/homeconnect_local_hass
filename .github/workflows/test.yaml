@@ -13,13 +13,15 @@ jobs:
       matrix:
         include:
           - ha-label: oldest
-            ha-version: "homeassistant==2026.10.0"
+            with: "--with homeassistant==2026.10.0 --with pytest-homeassistant-custom-component"
+          # The pytest-homeassistant-custom-component version in pyproject.toml pins the
+          # newest Home Assistant it supports. Pinning Home Assistant separately broke when it
+          # was ahead of that package: uv then picked a years-old release that runs pytest 6.
           - ha-label: latest
-            # renovate: datasource=pypi depName=homeassistant
-            ha-version: "homeassistant==2026.10.4"
+            with: ""
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
           enable-cache: true
-      - run: uv run --with ${{ matrix.ha-version }} --with pytest-homeassistant-custom-component pytest
+      - run: uv run ${{ matrix.with }} pytest
