@@ -507,6 +507,13 @@ COOKING_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
             has_state_translation=True,
             entity_category=EntityCategory.CONFIG,
         ),
+        # Neff T68TTV4L0 (upstream #558)
+        HCSelectEntityDescription(
+            key="select_hob_timer_selection",
+            entity=SettingKey.COOKING_HOB_TIMER_SELECTION,
+            has_state_translation=True,
+            entity_category=EntityCategory.CONFIG,
+        ),
         HCSelectEntityDescription(
             key="select_hob_end_timer_signal_duration",
             entity=SettingKey.COOKING_HOB_END_TIMER_SIGNALDURATION,
@@ -545,6 +552,13 @@ COOKING_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
         ),
     ],
     "switch": [
+        # Neff T68TTV4L0 (upstream #558)
+        HCSwitchEntityDescription(
+            key="switch_hob_automatic_zone_selection",
+            entity=SettingKey.COOKING_HOB_AUTOMATIC_ZONE_SELECTION,
+            device_class=SwitchDeviceClass.SWITCH,
+            entity_category=EntityCategory.CONFIG,
+        ),
         HCSwitchEntityDescription(
             key="switch_hob_energy_consumption_indication",
             entity=SettingKey.COOKING_HOB_ENERGY_CONSUMPTION_INDICATION,
@@ -773,6 +787,47 @@ COOKING_ENTITY_DESCRIPTIONS: _EntityDescriptionsDefinitionsType = {
         HCBinarySensorEntityDescription(
             key="binary_sensor_cooking_appliance_module_error",
             entity=EventKey.COOKING_COMMON_APPLIANCE_MODULE_ERROR,
+            device_class=BinarySensorDeviceClass.PROBLEM,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            # Feeds the appliance's Problem sensor instead
+            entity_registry_enabled_default=False,
+            value_on={"Present", "Confirmed"},
+            value_off={"Off"},
+        ),
+        # Neff T68TTV4L0 hob (upstream #558); ApplianceOverheated also on a Gaggenau CI282102 hob
+        HCBinarySensorEntityDescription(
+            key="binary_sensor_cooking_appliance_overheated",
+            entity=EventKey.COOKING_COMMON_APPLIANCE_OVERHEATED,
+            device_class=BinarySensorDeviceClass.PROBLEM,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            # Feeds the appliance's Problem sensor instead
+            entity_registry_enabled_default=False,
+            value_on={"Present", "Confirmed"},
+            value_off={"Off"},
+        ),
+        HCBinarySensorEntityDescription(
+            key="binary_sensor_hob_iabo_temperature_too_high",
+            entity=EventKey.COOKING_HOB_ERROR_IABO_TEMPERATURE_TOO_HIGH,
+            device_class=BinarySensorDeviceClass.PROBLEM,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            # Feeds the appliance's Problem sensor instead
+            entity_registry_enabled_default=False,
+            value_on={"Present", "Confirmed"},
+            value_off={"Off"},
+        ),
+        HCBinarySensorEntityDescription(
+            key="binary_sensor_hob_operating_time_limit_reached",
+            entity=EventKey.COOKING_HOB_ERROR_OPERATING_TIME_LIMIT_REACHED,
+            device_class=BinarySensorDeviceClass.PROBLEM,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            # Feeds the appliance's Problem sensor instead
+            entity_registry_enabled_default=False,
+            value_on={"Present", "Confirmed"},
+            value_off={"Off"},
+        ),
+        HCBinarySensorEntityDescription(
+            key="binary_sensor_hob_operating_voltage_error",
+            entity=EventKey.COOKING_HOB_ERROR_OPERATING_VOLTAGE_ERROR,
             device_class=BinarySensorDeviceClass.PROBLEM,
             entity_category=EntityCategory.DIAGNOSTIC,
             # Feeds the appliance's Problem sensor instead

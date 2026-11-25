@@ -97,6 +97,9 @@
       "switch_intensiv_zone": {
         "name": "Intensive Zone"
       },
+      "switch_vario_speed": {
+        "name": "VarioSpeed"
+      },
       "switch_vario_speed_plus": {
         "name": "VariospeedPlus"
       },
@@ -315,6 +318,9 @@
       },
       "switch_hob_energy_consumption_indication": {
         "name": "Energy Consumption Indication"
+      },
+      "switch_hob_automatic_zone_selection": {
+        "name": "Automatic Zone Selection"
       },
       "switch_hob_hood_automatic_light_off": {
         "name": "Hood Automatic Light Off"
@@ -554,6 +560,21 @@
       "binary_sensor_release_rinse_hold_pending": {
         "name": "Release Rinse Hold Pending"
       },
+      "binary_sensor_laundry_door_open": {
+        "name": "Door open"
+      },
+      "binary_sensor_supply_power_blacked_out": {
+        "name": "Power outage"
+      },
+      "binary_sensor_warm_water_absent": {
+        "name": "Warm water absent"
+      },
+      "binary_sensor_circulation_pump_locked_rotor": {
+        "name": "Circulation pump blocked"
+      },
+      "binary_sensor_circulation_pump_max_torque": {
+        "name": "Circulation pump overloaded"
+      },
       "binary_sensor_pump_error": {
         "name": "Pump Error"
       },
@@ -649,6 +670,18 @@
       },
       "binary_sensor_oven_water_supply_closed": {
         "name": "Water supply closed"
+      },
+      "binary_sensor_cooking_appliance_overheated": {
+        "name": "Overheated"
+      },
+      "binary_sensor_hob_iabo_temperature_too_high": {
+        "name": "Electronics temperature too high"
+      },
+      "binary_sensor_hob_operating_time_limit_reached": {
+        "name": "Operating time limit reached"
+      },
+      "binary_sensor_hob_operating_voltage_error": {
+        "name": "Operating voltage error"
       },
       "binary_sensor_cooking_appliance_module_error": {
         "name": "Appliance module error"
@@ -773,13 +806,22 @@
           "oven_cavity_temperature_too_high": "Cavity temperature too high",
           "program_aborted": "Program aborted",
           "pump_error": "Pump error",
+          "laundry_door_open": "Door open",
+          "supply_power_blacked_out": "Power outage",
+          "warm_water_absent": "Warm water absent",
+          "circulation_pump_locked_rotor": "Circulation pump blocked",
+          "circulation_pump_max_torque": "Circulation pump overloaded",
           "release_rinse_hold_pending": "Rinse hold release pending",
           "spin_abort": "Spin aborted",
           "supply_voltage_too_low": "Supply voltage low",
           "water_level_too_high": "Water level too high",
           "customer_service_request": "Customer service request",
           "oven_water_supply_closed": "Water supply closed",
-          "cooking_appliance_module_error": "Appliance module error"
+          "cooking_appliance_module_error": "Appliance module error",
+          "cooking_appliance_overheated": "Overheated",
+          "hob_iabo_temperature_too_high": "Electronics temperature too high",
+          "hob_operating_time_limit_reached": "Operating time limit reached",
+          "hob_operating_voltage_error": "Operating voltage error"
         }
       },
       "sensor_stopwatch_time": {
@@ -4039,21 +4081,22 @@
         "state": {
           "off": "Off",
           "uloff": "UlOff",
-          "rpm1000": "RPM1000",
+          "rpm1000": "1000 rpm",
           "ulhigh": "UlHigh",
-          "rpm1200": "RPM1200",
-          "rpm1400": "RPM1400",
-          "rpm1500": "RPM1500",
-          "rpm1600": "RPM1600",
+          "rpm1200": "1200 rpm",
+          "rpm1400": "1400 rpm",
+          "rpm1500": "1500 rpm",
+          "rpm1600": "1600 rpm",
           "auto": "Auto",
           "max": "Max",
           "ullow": "UlLow",
-          "rpm400": "RPM400",
-          "rpm600": "RPM600",
-          "rpm700": "RPM700",
+          "rpm400": "400 rpm",
+          "rpm600": "600 rpm",
+          "rpm700": "700 rpm",
           "ulmedium": "UlMedium",
-          "rpm800": "RPM800",
-          "rpm900": "RPM900"
+          "rpm800": "800 rpm",
+          "rpm900": "900 rpm",
+          "rinsehold": "Rinse hold"
         }
       },
       "select_laundry_option_stains": {
@@ -4448,6 +4491,14 @@
       },
       "select_hob_power_management": {
         "name": "Maximum power consumption"
+      },
+      "select_hob_timer_selection": {
+        "name": "Timer Type",
+        "state": {
+          "switchofftimer": "Switch-off timer",
+          "eggtimer": "Egg timer",
+          "countuptimer": "Count-up timer"
+        }
       },
       "select_hob_buzzer_beep_level": {
         "name": "Buzzer Beep Level",
