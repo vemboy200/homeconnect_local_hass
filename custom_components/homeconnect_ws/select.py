@@ -8,6 +8,7 @@ from home_disconnect.entities import Access, Execution
 from homeassistant.components.select import SelectEntity
 
 from .entity import HCEntity
+from .entity_descriptions.common import favorite_name_settings, program_labels
 from .helpers import (
     create_entities,
     ensure_writable,
@@ -153,8 +154,7 @@ class HCProgram(HCSelect):
         runtime_data: HCData,
     ) -> None:
         super().__init__(entity_description, runtime_data)
-        self._programs = entity_description.mapping or {}
-        self._rev_programs = {value: key for key, value in self._programs.items()}
+        self._mapping = entity_description.mapping or {}
         if entity_description.entity and entity_description.entity.endswith(
             _SELECTED_PROGRAM_SUFFIX
         ):
@@ -169,8 +169,14 @@ class HCProgram(HCSelect):
         # Listen to each program too: the appliance flags programs available
         # or unavailable per program (in the device description and live via
         # /ro/descriptionChange), and options follows that flag.
-        for program_name in self._programs:
+        for program_name in self._mapping:
             self._entities.append(self._runtime_data.appliance.programs[program_name])
+        # And to the favourites' names, which can arrive late or be renamed.
+        self._entities.extend(favorite_name_settings(self._runtime_data.appliance, self._mapping))
+
+    @property
+    def _programs(self) -> dict[str, str]:
+        return program_labels(self._runtime_data.appliance, self._mapping)
 
     @property
     def options(self) -> list[str]:
@@ -202,7 +208,7 @@ class HCProgram(HCSelect):
         )
 
     def _programs_are_start_only(self) -> bool:
-        programs = [self._runtime_data.appliance.programs.get(name) for name in self._programs]
+        programs = [self._runtime_data.appliance.programs.get(name) for name in self._mapping]
         return bool(programs) and all(
             program is not None and program.execution == Execution.START_ONLY
             for program in programs
@@ -214,14 +220,16 @@ class HCProgram(HCSelect):
         if current_program is None:
             current_program = self._runtime_data.appliance.active_program
         if current_program:
-            if current_program.name in self._programs:
-                return self._programs[current_program.name]
+            programs = self._programs
+            if current_program.name in programs:
+                return programs[current_program.name]
             return current_program.name
         return None
 
     @error_decorator
     async def async_select_option(self, option: str) -> None:
-        program = self._runtime_data.appliance.programs[self._rev_programs[option]]
+        rev_programs = {label: program for program, label in self._programs.items()}
+        program = self._runtime_data.appliance.programs[rev_programs[option]]
         if not self._entity.full_option_set and program.execution in (
             Execution.SELECT_ONLY,
             Execution.SELECT_AND_START,

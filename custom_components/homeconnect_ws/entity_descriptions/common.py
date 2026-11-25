@@ -41,6 +41,7 @@ from .descriptions_definitions import (
 
 if TYPE_CHECKING:
     from home_disconnect import Appliance
+    from home_disconnect.entities import Entity as HcEntity
 
 
 POWER_SWITCH_VALUE_MAPINGS = (
@@ -263,33 +264,68 @@ def generate_door_binary_sensor(appliance: Appliance) -> HCBinarySensorEntityDes
     )
 
 
-def program_names(appliance: Appliance) -> dict[str, str]:
-    """Return each program's name, sorted by program."""
-    favorites = {
+def _favorite_slots(appliance: Appliance) -> dict[str, str]:
+    """Return the favourite programs' slot numbers, by program name."""
+    return {
         f"BSH.Common.Program.Favorite.{favorite}": favorite
         for favorite in appliance.group_ids(ProgramKey.BSH_COMMON_FAVORITE)
     }
 
-    programs = {}
 
-    for program in appliance.programs:
-        if (favorite := favorites.get(program)) is not None:
-            favorite_name_entity = appliance.settings.get(
-                f"BSH.Common.Setting.Favorite.{favorite}.Name"
-            )
-            if favorite_name_entity and favorite_name_entity.value:
-                program_name = favorite_name_entity.value
-            else:
-                program_name = f"favorite_{favorite}"
-        else:
-            program_name = program.lower().replace(".", "_")
+def _favorite_name_setting_name(favorite: str) -> str:
+    return f"BSH.Common.Setting.Favorite.{favorite}.Name"
 
-        programs[program] = program_name
 
-    # sort programs
-    programs_keys = list(programs.keys())
-    programs_keys.sort()
-    return {i: programs[i] for i in programs_keys}
+def program_names(appliance: Appliance) -> dict[str, str]:
+    """
+    Return each program's name, sorted by program.
+
+    Favourites get a placeholder (favorite_NNN): their names can arrive after the
+    entities are set up and can be renamed, so program_labels() puts the current
+    name on top while the entities run.
+    """
+    favorites = _favorite_slots(appliance)
+    programs = {
+        program: f"favorite_{favorites[program]}"
+        if program in favorites
+        else program.lower().replace(".", "_")
+        for program in appliance.programs
+    }
+    return dict(sorted(programs.items()))
+
+
+def program_labels(appliance: Appliance, mapping: dict[str, str]) -> dict[str, str]:
+    """
+    Return `mapping` with each favourite's current name from the appliance.
+
+    A favourite without a name keeps its label from `mapping`. A name another
+    program already uses gets the slot number added, so picking it can't select
+    the other one.
+    """
+    favorites = _favorite_slots(appliance)
+    labels = dict(mapping)
+    used = {label for program, label in mapping.items() if program not in favorites}
+    for program in sorted(program for program in mapping if program in favorites):
+        favorite = favorites[program]
+        setting = appliance.settings.get(_favorite_name_setting_name(favorite))
+        name = setting.value.strip() if setting and isinstance(setting.value, str) else ""
+        label = name or mapping[program]
+        if label in used:
+            label = f"{label} ({favorite})"
+        used.add(label)
+        labels[program] = label
+    return labels
+
+
+def favorite_name_settings(appliance: Appliance, mapping: dict[str, str]) -> list[HcEntity]:
+    """Return the name settings of the favourites in `mapping`, to follow renames."""
+    favorites = _favorite_slots(appliance)
+    settings = (
+        appliance.settings.get(_favorite_name_setting_name(favorites[program]))
+        for program in mapping
+        if program in favorites
+    )
+    return [setting for setting in settings if setting is not None]
 
 
 def generate_program(appliance: Appliance) -> HCSelectEntityDescription | None:

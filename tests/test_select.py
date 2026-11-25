@@ -408,6 +408,38 @@ async def test_select_program_raises_when_selected_program_read_locked(
     mock_appliance.session.request.assert_not_awaited()
 
 
+async def test_program_follows_favorite_names(
+    hass: HomeAssistant,
+    mock_appliance: Appliance,
+    patch_entity_description: None,
+) -> None:
+    """A favourite's name that arrives after setup, or changes, shows and can be selected."""
+    entity_id = "select.fake_brand_homeappliance_selectedprogram"
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    await update_entity(mock_appliance.entities["Test.SelectedProgram"], {"value": 502})
+    await hass.async_block_till_done()
+    assert hass.states.get(entity_id).state == "Named Favorite"
+
+    await update_entity(
+        mock_appliance.entities["BSH.Common.Setting.Favorite.001.Name"], {"value": "Latte"}
+    )
+    await hass.async_block_till_done()
+    state = hass.states.get(entity_id)
+    assert state.state == "Latte"
+    assert "Latte" in state.attributes[ATTR_OPTIONS]
+    assert "Named Favorite" not in state.attributes[ATTR_OPTIONS]
+
+    await hass.services.async_call(
+        SELECT_DOMAIN,
+        SERVICE_SELECT_OPTION,
+        {ATTR_ENTITY_ID: entity_id, ATTR_OPTION: "Latte"},
+        blocking=True,
+    )
+    mock_appliance.session.request.assert_awaited_once_with(
+        Message(resource="/ro/selectedProgram", action=Action.POST, data=[{"program": 502}])
+    )
+
+
 async def test_select_program(
     hass: HomeAssistant,
     mock_appliance: Appliance,
