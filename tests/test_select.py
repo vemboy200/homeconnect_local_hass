@@ -440,6 +440,27 @@ async def test_program_follows_favorite_names(
     )
 
 
+async def test_program_leaves_out_empty_favorites(
+    hass: HomeAssistant,
+    mock_appliance: Appliance,
+    patch_entity_description: None,
+) -> None:
+    """A favourite the appliance reports as empty (Functionality Off) isn't offered."""
+    entity_id = "select.fake_brand_homeappliance_selectedprogram"
+    functionality = mock_appliance.entities["BSH.Common.Setting.Favorite.002.Functionality"]
+    assert await setup_config_entry(hass, MOCK_CONFIG_DATA)
+    # Value not known yet: still offered.
+    assert "favorite_002" in hass.states.get(entity_id).attributes[ATTR_OPTIONS]
+
+    await update_entity(functionality, {"value": 0})
+    await hass.async_block_till_done()
+    assert "favorite_002" not in hass.states.get(entity_id).attributes[ATTR_OPTIONS]
+
+    await update_entity(functionality, {"value": 1})
+    await hass.async_block_till_done()
+    assert "favorite_002" in hass.states.get(entity_id).attributes[ATTR_OPTIONS]
+
+
 async def test_select_program(
     hass: HomeAssistant,
     mock_appliance: Appliance,

@@ -276,6 +276,10 @@ def _favorite_name_setting_name(favorite: str) -> str:
     return f"BSH.Common.Setting.Favorite.{favorite}.Name"
 
 
+def _favorite_functionality_setting_name(favorite: str) -> str:
+    return f"BSH.Common.Setting.Favorite.{favorite}.Functionality"
+
+
 def program_names(appliance: Appliance) -> dict[str, str]:
     """
     Return each program's name, sorted by program.
@@ -326,6 +330,38 @@ def favorite_name_settings(appliance: Appliance, mapping: dict[str, str]) -> lis
         if program in favorites
     )
     return [setting for setting in settings if setting is not None]
+
+
+def favorite_functionality_settings(
+    appliance: Appliance, mapping: dict[str, str]
+) -> list[HcEntity]:
+    """Return the settings that say whether each favourite in `mapping` holds a program."""
+    favorites = _favorite_slots(appliance)
+    settings = (
+        appliance.settings.get(_favorite_functionality_setting_name(favorites[program]))
+        for program in mapping
+        if program in favorites
+    )
+    return [setting for setting in settings if setting is not None]
+
+
+def unused_favorites(appliance: Appliance, mapping: dict[str, str]) -> set[str]:
+    """
+    Return the favourites in `mapping` that the appliance reports as empty.
+
+    A Bosch SHE43DM5N dishwasher's profile has BSH.Common.Setting.Favorite.001.Functionality
+    with Off and Program. Only Off counts: a favourite without the setting, or whose value
+    isn't known yet, stays.
+    """
+    favorites = _favorite_slots(appliance)
+    unused = set()
+    for program in mapping:
+        if (favorite := favorites.get(program)) is None:
+            continue
+        setting = appliance.settings.get(_favorite_functionality_setting_name(favorite))
+        if setting is not None and setting.value == "Off":
+            unused.add(program)
+    return unused
 
 
 def generate_program(appliance: Appliance) -> HCSelectEntityDescription | None:
