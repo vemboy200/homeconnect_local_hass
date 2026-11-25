@@ -8,7 +8,12 @@ from home_disconnect.entities import Access, Execution
 from homeassistant.components.select import SelectEntity
 
 from .entity import HCEntity
-from .entity_descriptions.common import favorite_name_settings, program_labels
+from .entity_descriptions.common import (
+    favorite_functionality_settings,
+    favorite_name_settings,
+    program_labels,
+    unused_favorites,
+)
 from .helpers import (
     create_entities,
     ensure_writable,
@@ -173,6 +178,10 @@ class HCProgram(HCSelect):
             self._entities.append(self._runtime_data.appliance.programs[program_name])
         # And to the favourites' names, which can arrive late or be renamed.
         self._entities.extend(favorite_name_settings(self._runtime_data.appliance, self._mapping))
+        # And to whether each favourite holds a program: empty ones are left out.
+        self._entities.extend(
+            favorite_functionality_settings(self._runtime_data.appliance, self._mapping)
+        )
 
     @property
     def _programs(self) -> dict[str, str]:
@@ -183,12 +192,18 @@ class HCProgram(HCSelect):
         # Only the programs the appliance currently offers - the same list the
         # Home Connect cloud integration shows. A program without the flag
         # (None) counts as offered. The current program always stays, so the
-        # select never shows a value that isn't in its own list.
+        # select never shows a value that isn't in its own list. Favourites the
+        # appliance reports as empty are left out too.
         current_option = self.current_option
+        appliance = self._runtime_data.appliance
+        unused = unused_favorites(appliance, self._mapping)
         return [
             option
             for program_name, option in self._programs.items()
-            if self._runtime_data.appliance.programs[program_name].available is not False
+            if (
+                appliance.programs[program_name].available is not False
+                and program_name not in unused
+            )
             or option == current_option
         ]
 

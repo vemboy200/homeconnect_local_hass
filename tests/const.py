@@ -380,6 +380,13 @@ DEVICE_DESCRIPTION = {
             "default": "",
         },
         {
+            "uid": 208,
+            "name": "BSH.Common.Setting.Favorite.002.Functionality",
+            "enumeration": {"0": "Off", "1": "Program"},
+            "access": Access.READ_WRITE,
+            "available": True,
+        },
+        {
             "uid": 108,
             "name": "Test.Lighting",
             "access": Access.READ_WRITE,
